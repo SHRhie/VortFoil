@@ -306,7 +306,7 @@ python code/field/step2_eval_f0c.py                    # the three operator-cond
 # Fig. 6
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
 python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --only p10 \
-    --layout truth_pred --frame wind --label "operator-conditioned decoder" --font-scale 1.6
+    --layout truth_pred --frame wind --label "operator-conditioned decoder" --print
 
 # Field timing (Table 17)
 python code/reproduce/vf_speed_field.py
@@ -363,6 +363,8 @@ XFOIL-conditioned decoder's stored paint channels bit for bit; the check covers 
 `REFACTOR_MANIFEST_v2.json` records the source and sha256 of the copied files.
 `figures/` holds the manuscript figures alongside the `*_numbers.json` files the figure-provenance
 discipline requires: each figure's numbers are saved next to its generator, not read off the rendered plot.
+The shipped figures are the generators' `--print` renders, drawn at the manuscript's text width (5.40 in) and
+included there at full size.
 
 ## License
 

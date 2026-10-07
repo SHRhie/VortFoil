@@ -12,7 +12,9 @@ Fig. 6 of the manuscript (figures/vf_field_f0cm_tp_p10.pdf and vf_field_f0cm_tp_
 weights of the deployed operator-conditioned decoder:
   python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
   python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --only p10 \
-      --layout truth_pred --frame wind --label "operator-conditioned decoder" --font-scale 1.6
+      --layout truth_pred --frame wind --label "operator-conditioned decoder" --print
+(--print: drawn at the manuscript text width, 5.40 in, with 11 pt titles/labels and 10 pt colour-bar ticks; the shipped
+figure. Without it the figure is 10 x 8 in, and --font-scale X enlarges its text.)
 
 Author constraints (2026-09-18): no white empty regions inside the plotting window and no colormap
 with a black/near-black background. Hence: the long-edge Delaunay mask is relaxed to 0.5 so the
@@ -98,6 +100,7 @@ PRED_LABEL = "operator-conditioned decoder"
 LAYOUT = "truth_pred_err"   # or "truth_pred" (--layout truth_pred): no error column
 
 
+PRINT = False       # --print: text width 5.40 in, 11 pt titles/labels, 10 pt colour-bar ticks, included 1:1 (2026-10-07)
 FONT_SCALE = 1.0    # --font-scale X: titles/labels/colour-bar ticks x X; above 1 the linear colour bars get <= 5 round ticks
 FRAME = "wind"      # 2026-09-26 author rule: airfoil at its true incidence (freestream along +x), --frame body = old view
 PIVOT = np.array([0.25, 0.0])
@@ -126,7 +129,7 @@ def make(case_file, tag, prefix="vf_field"):
     ncol = 3 if LAYOUT == "truth_pred_err" else 2
     if ncol == 2:
         WIN.update(WIN_TP)
-    fig, axes = plt.subplots(4, ncol, figsize=(10, 8), constrained_layout=True)
+    fig, axes = plt.subplots(4, ncol, figsize=(5.40, 4.32) if PRINT else (10, 8), constrained_layout=True)
     nums = {"case_name": str(z["case_name"]), "case_index": int(z["case_index"]), "arm": str(z["arm"]), "checkpoint_sha256": str(z["checkpoint_sha256"]),
             "frame": FRAME, "alpha_deg": alpha, "velocity_components": "along/normal to the freestream" if FRAME == "wind" else "body x/y", "channels": {}}
     for i, (k, lab_txt, cmap, kind) in enumerate(ROWS):
@@ -141,17 +144,17 @@ def make(case_file, tag, prefix="vf_field"):
             else:
                 cf = panel(ax, tri, val, 0.0, emax, "YlOrBr", "seq", poly)
             if i == 0:
-                ax.set_title(ttl, fontsize=11 * FONT_SCALE)
+                ax.set_title(ttl, fontsize=11 if PRINT else 11 * FONT_SCALE)
             if j == ncol - 1 or (ncol == 3 and j == 1):
                 cb = fig.colorbar(cf, ax=ax, shrink=0.85, pad=0.02)
                 if kind == "log" and j < 2:   # decade ticks; the default picks contour levels and prints e.g. 1.21609x10^-4
                     cb.set_ticks([10.0 ** e for e in range(int(np.ceil(np.log10(vmin))), int(np.floor(np.log10(vmax))) + 1)])
-                elif FONT_SCALE > 1 and j < 2:   # enlarged labels: fewer, rounder ticks so they do not collide
+                elif (FONT_SCALE > 1 or PRINT) and j < 2:   # enlarged labels: fewer, rounder ticks so they do not collide
                     cb.set_ticks([t for t in MaxNLocator(nbins=5).tick_values(vmin, vmax) if vmin <= t <= vmax])
-                cb.ax.tick_params(labelsize=7.5 * FONT_SCALE)
+                cb.ax.tick_params(labelsize=10 if PRINT else 7.5 * FONT_SCALE)
         if FRAME == "wind" and k in ("ux", "uy"):     # components parallel / perpendicular to U_inf (u_x, u_y rotated by alpha)
             lab_txt = {"ux": r"$u_{\parallel}$ [m/s]", "uy": r"$u_{\perp}$ [m/s]"}[k]
-        axes[i, 0].set_ylabel(lab_txt, fontsize=11 * FONT_SCALE)
+        axes[i, 0].set_ylabel(lab_txt, fontsize=11 if PRINT else 11 * FONT_SCALE)
         m = win & ~np.isnan(t)
         nums["channels"][k] = {"window_MSE_over_sigma2": float(np.mean((p[m] - t[m]) ** 2) / SIG[k] ** 2),
                                "window_p99_abs_error": float(emax), "truth_range_p1_p99": [float(vmin), float(vmax)]}
@@ -159,7 +162,7 @@ def make(case_file, tag, prefix="vf_field"):
     if LAYOUT == "truth_pred_err":   # publication rule (2026-07-05): no main title; the truth/pred figure leaves it to the caption
         fig.suptitle(f"AirfRANS full test case {nums['case_index']}: $U_\\infty$={prm[2]} m/s, $\\alpha$={prm[3]}$^\\circ$  ({tag})", fontsize=11)
     out = os.path.join(OUT, f"{prefix}_{tag}")
-    fig.savefig(out + ".pdf", dpi=200); fig.savefig(out + ".png", dpi=110); plt.close(fig)
+    fig.savefig(out + ".pdf", dpi=400 if PRINT else 200); fig.savefig(out + ".png", dpi=400 if PRINT else 110)   # print: rasterized fills at 400 dpi at 1:1 size; plt.close(fig)
     return nums
 
 
@@ -173,6 +176,8 @@ if __name__ == "__main__":
         LAYOUT = sys.argv[sys.argv.index("--layout") + 1]
     if "--frame" in sys.argv:
         FRAME = sys.argv[sys.argv.index("--frame") + 1]
+    if "--print" in sys.argv:
+        PRINT = True
     if "--font-scale" in sys.argv:
         FONT_SCALE = float(sys.argv[sys.argv.index("--font-scale") + 1])
     only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None      # p10 | p50 | p90
