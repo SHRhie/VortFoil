@@ -1,0 +1,63 @@
+{
+ "schema": "VF_GRAD_CHECK_V2",
+ "utc": "20260919T202324Z",
+ "tf": "2.10.0",
+ "precision": "float32 chain, float64 differences",
+ "n_cases": 64,
+ "quantities": "Cl = 2*sum(gamma*ds) (sheet readout); Cd = fitted closure of the boundary-layer trailing-edge state and the sheet's u_e,TE; Cl(closed) = deployed lift = sheet Cl + trailing-edge-state lift closure",
+ "eps": 0.001,
+ "results": {
+  "eps=0.001": {
+   "dCl_dCST16": {
+    "rel_err_median": 0.004382009497278551,
+    "rel_err_p90": 0.011059672416497485,
+    "rel_err_max": 0.022365613281700596,
+    "sign_agreement": 0.9970703125,
+    "componentwise_rel_err_median": 0.004075236875490191,
+    "grad_norm_median": 1.3923642392981619
+   },
+   "dCd_dCST16": {
+    "rel_err_median": 0.059801631052092664,
+    "rel_err_p90": 0.33895560870703206,
+    "rel_err_max": 0.9038773957733026,
+    "sign_agreement": 0.9765625,
+    "componentwise_rel_err_median": NaN,
+    "grad_norm_median": 0.044479650251857725
+   },
+   "dClclosed_dCST16": {
+    "rel_err_median": 0.004623817163890791,
+    "rel_err_p90": 0.011045237579359823,
+    "rel_err_max": 0.02296972406581928,
+    "sign_agreement": 0.998046875,
+    "componentwise_rel_err_median": 0.004123453321434415,
+    "grad_norm_median": 1.4310216423669242
+   }
+  },
+  "eps=0.0005": {
+   "dCl_dCST16": {
+    "rel_err_median": 0.007970034708236188,
+    "rel_err_p90": 0.019159042167832933,
+    "rel_err_max": 0.027008287339596065,
+    "sign_agreement": 0.998046875,
+    "componentwise_rel_err_median": 0.00705838571925513,
+    "grad_norm_median": 1.3923642392981619
+   },
+   "dCd_dCST16": {
+    "rel_err_median": 0.15913695472057443,
+    "rel_err_p90": 0.6738602806448266,
+    "rel_err_max": 0.9199071643992139,
+    "sign_agreement": 0.96875,
+    "componentwise_rel_err_median": NaN,
+    "grad_norm_median": 0.044479650251857725
+   },
+   "dClclosed_dCST16": {
+    "rel_err_median": 0.009076682246656517,
+    "rel_err_p90": 0.019103132243288683,
+    "rel_err_max": 0.029730358462416985,
+    "sign_agreement": 0.9970703125,
+    "componentwise_rel_err_median": 0.007565770898924098,
+    "grad_norm_median": 1.4310216423669242
+   }
+  }
+ }
+}

@@ -1,0 +1,73 @@
+name: tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: py${{ matrix.python }} / tf${{ matrix.tensorflow }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The sealed numbers were produced on TensorFlow 2.10; the newer rows check that the
+          # deployed weights still load and score identically under Keras 3.
+          - { python: "3.10", tensorflow: "2.10.1", numpy: "numpy<2" }
+          - { python: "3.11", tensorflow: "2.15.1", numpy: "numpy<2" }
+          - { python: "3.12", tensorflow: "2.18.1", numpy: "numpy>=2" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "tensorflow-cpu==${{ matrix.tensorflow }}" "${{ matrix.numpy }}"
+          python -m pip install --no-deps -e .
+          python -m pip install pytest
+
+      - name: Environment
+        run: python -c "import sys, numpy, tensorflow as tf; print(sys.version); print('tf', tf.__version__, 'numpy', numpy.__version__)"
+
+      - name: Tests
+        env:
+          VORTFOIL_EVAL_DATA: data/eval/holdout_targets.npz
+        run: pytest -q tests/
+
+      - name: Recorded scores through the command line
+        run: python -m vortfoil.cli selfcheck --data data/eval/holdout_targets.npz
+
+      - name: Build record
+        run: python -m vortfoil.cli about
+
+  wheel:
+    name: wheel builds and installs clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+      - name: Install the wheel into a clean environment and self-check
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install --upgrade pip
+          /tmp/clean/bin/pip install "tensorflow-cpu==2.18.1"
+          /tmp/clean/bin/pip install --no-deps dist/*.whl
+          /tmp/clean/bin/python -m vortfoil.cli selfcheck --data data/eval/holdout_targets.npz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/*

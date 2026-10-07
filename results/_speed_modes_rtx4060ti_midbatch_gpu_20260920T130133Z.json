@@ -1,0 +1,55 @@
+{
+ "schema": "VF_SPEED_SURFACE_MODES_V1",
+ "utc": "20260920T130133Z",
+ "tag": "rtx4060ti_midbatch",
+ "host": "Windows-10-10.0.26200-SP0",
+ "cpu_count": 20,
+ "tf": "2.10.0",
+ "device": "gpu",
+ "gpus": [
+  "/physical_device:GPU:0"
+ ],
+ "weights": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz",
+  "op2": "CANDIDATE_op2_m325_BT.npz",
+  "lift_closure": "lift_closure_poly2.npz"
+ },
+ "note": "same chain as vf_speed_surface.py (deployed reference = eager CPU); graph = tf.function without XLA; medians after warm-up; GPU timings include the host copy of one output",
+ "modes": {
+  "graph": {
+   "128": {
+    "sheet_cl_us_per_case": 18.78749981187866,
+    "full_chain_us_per_case": 147.56249993297388,
+    "grad_dCl_dCST16_us_per_case": 423.22656236137846,
+    "grad_dCd_dCST16_us_per_case": 424.0140624460764,
+    "batch_wall_full_chain_ms": 18.887999991420656,
+    "ratios": {
+     "grad_cl_over_chain": 2.868117323531502,
+     "grad_cd_over_chain": 2.8734540458359876
+    }
+   },
+   "256": {
+    "sheet_cl_us_per_case": 9.583203109286842,
+    "full_chain_us_per_case": 223.58476553563378,
+    "grad_dCl_dCST16_us_per_case": 408.4296874680149,
+    "grad_dCd_dCST16_us_per_case": 410.7550782919134,
+    "batch_wall_full_chain_ms": 57.23769997712225,
+    "ratios": {
+     "grad_cl_over_chain": 1.8267330803579347,
+     "grad_cd_over_chain": 1.8371335690420705
+    }
+   },
+   "512": {
+    "sheet_cl_us_per_case": 4.847265699936543,
+    "full_chain_us_per_case": 125.60253912852204,
+    "grad_dCl_dCST16_us_per_case": 394.5107422396177,
+    "grad_dCd_dCST16_us_per_case": 394.43164064323355,
+    "batch_wall_full_chain_ms": 64.30850003380328,
+    "ratios": {
+     "grad_cl_over_chain": 3.1409455969352416,
+     "grad_cd_over_chain": 3.1403158198866805
+    }
+   }
+  }
+ }
+}

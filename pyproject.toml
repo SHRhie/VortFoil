@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vortfoil"
+version = "2.0.0"
+description = "A vortex-panel-informed neural operator for steady airfoil flow: surface pressure, lift, moment and the stagnation point from a predicted vortex sheet, drag and a lift correction from a parallel boundary-layer state"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"     # LICENSE and NOTICE are picked up by hatchling's default license-files
+authors = [
+  { name = "Sang-Hyun Rhie" },
+  { name = "Gyuwon Kim" },
+  { name = "Jeongsu Lee" },
+]
+keywords = ["aerodynamics", "airfoil", "neural-operator", "surrogate-model", "vortex-panel", "xfoil"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+  "numpy>=1.21",
+  "tensorflow>=2.10",
+]
+
+[project.optional-dependencies]
+field = ["scipy>=1.7"]
+dev = ["pytest>=7", "build", "twine"]
+
+[project.scripts]
+vortfoil = "vortfoil.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/SHRhie/VortFoil"
+Source = "https://github.com/SHRhie/VortFoil"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vortfoil"]
+
+
+[tool.hatch.build.targets.sdist]
+include = ["src/vortfoil", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "DATA_LICENSES.md"]

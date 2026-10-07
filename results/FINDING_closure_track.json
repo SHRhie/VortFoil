@@ -1,0 +1,482 @@
+{
+ "utc": "2026-09-18T04:21:48Z",
+ "scope": "OP2 head / training-deck / wake-closure track. OP1 held fixed (scr_bd128). Nothing deployed.",
+ "holdout": "holdout_targets.npz, existing gate, n=2737. XFOIL Ncrit 7 truth.",
+ "findings": [
+  {
+   "id": "F1",
+   "claim": "xfoil_nf_scale* train_valid does not filter unphysical BL rows",
+   "evidence": "9.21% of train / 8.99% of val fail (dstar<=0.5, 0<theta<=0.5, Cd in (1e-4,0.1], |Cl|<=3). Siblings under the SAME full gate: scale2 9.30% (11,117 of 119,492 train rows), scale3 9.12% (10,893 of 119,463). Merged train: 358,384 marked valid -> 33,014 removed (9.21%) -> 325,370.",
+   "consequence": "Caused the earlier retrain blowup (dstar_TE 92.7%, Cd NaN, best val 26/300). After cleaning: best val 116/120, monotone, nonfinite 0.",
+   "correction_2026-09-18": "An earlier version of this entry quoted 5.68% / 5.58% for the sibling decks; those came from a theta/dstar-bound-only check, not the full gate. Corrected here; the merged count 325,370 was always right."
+  },
+  {
+   "id": "F2",
+   "claim": "Merged clean deck beats the larger deployed deck",
+   "evidence": "325,370 train rows (3 decks, zero holdout overlap, zero inter-deck overlap) -> m325_BT Cd R2 0.8507 vs deployed d500k 0.8416 on 449,732 rows."
+  },
+  {
+   "id": "F3",
+   "claim": "wake_ode_tf.py contains a no-op",
+   "evidence": "ue_far = ue_inf = 1.0, so ue_far**((H_far+5)/2) == 1 identically. Effective formula is Cd = 2*theta_far; the Squire-Young exponent never applies. ODE uses (H+2) where Squire-Young uses (H+5)/2; the difference (H-1)/2 over-decays theta as H grows.",
+   "consequence": "Systematic under-prediction at high H: ratio 0.844 at H>4 on TRUTH state. No (k_H, L_wake, coefficient) setting fixes it (grid best 0.863)."
+  },
+  {
+   "id": "F4",
+   "claim": "The drag route is closure-limited, not information-limited",
+   "evidence": "A deg-2 ridge in the closure's OWN three inputs (log theta_TE, H_TE, ue_TE), fit on the 325k training deck and applied to the untouched holdout, gives Cd R2 0.9425 on TRUTH state vs 0.8948 for the deployed wake-ODE. Adding x_tr / alpha / logRe gains <=0.006; splitting upper/lower hurts."
+  },
+  {
+   "id": "F5",
+   "claim": "Cd-loss on OP2 buys Cd by corrupting theta — REJECTED",
+   "evidence": "lambda_cd 200 + fitted closure: Cd R2 0.8968 and MedAPE 2.77 (both better than 0.8904/4.85), but theta_TE median rel err 2.47% -> 4.56% and theta_TE R2 0.9459 -> 0.9198. State becomes a fitting parameter, not a physical quantity.",
+   "verdict": "ft_C_lam50 and ft_C_lam200 excluded from deployment candidacy."
+  },
+  {
+   "id": "F6",
+   "claim": "dstar_TE R2 = 0.33 is ONE contaminated holdout row, not a model weakness",
+   "evidence": "Top-1 row carries 65.5% of dstar_TE variance (p99 0.174, p100 2.370). Removing it -> 0.8301; physical gate (4 rows) -> 0.9709.",
+   "correction": "Supersedes this session's earlier statement that dstar_TE R2 was the real bottleneck."
+  },
+  {
+   "id": "F7",
+   "claim": "(superseded) The dominant remaining error is OP1's ue_TE, not OP2's BL state",
+   "evidence": "2x2 with the fitted closure: (TRUTH state, TRUTH ue) 0.9425; (TRUTH state, OP1 ue) 0.9248; (pred state, TRUTH ue) 0.9514; (pred state, OP1 ue) 0.8904. Swapping OP2's state for truth HELPS nothing (+0.009); swapping ue costs -0.018 alone and the interaction costs a further -0.043. ue_TE R2 0.9425, median rel err 0.399% but p99 4.91%, max 23.9%.",
+   "consequence": "Explains F5: OP2 was being asked to compensate an OP1 error, which it can only do by corrupting theta.",
+   "status": "SUPERSEDED by F8"
+  },
+  {
+   "id": "F8",
+   "claim": "The ue-driven Cd gap is a 10-row tail, not a systematic OP1 deficiency",
+   "evidence": "10 of 2737 rows (0.37%) carry 85% of the (pred-ue vs truth-ue) Cd squared-error gap; 25 rows carry 101%. ue_TE R2 0.9425 -> 0.9697 after removing those 10, -> 0.9809 after 50. Median ue rel err is 0.399%.",
+   "ruled_out": [
+    "gamma quality: Cl(circ) R2 0.9862, medAPE 1.92%",
+    "TE readout/panel: 6 variants all 0.925-0.945, best gain +0.003",
+    "inviscid-vs-viscous bias: corr(log ue err, dstar/H/theta/alpha/Cl) all <=|0.05|; best displacement correction ue*(1-c*dstar) fits c=0.00, zero gain"
+   ],
+   "supersedes": "F7"
+  },
+  {
+   "id": "F9",
+   "claim": "(REFUTED) On attached flow the physics route is at NeuralFoil parity; the whole deficit is the separated tail",
+   "evidence": "Matched subsets, both clipped to [1e-4,0.1]: all 2737 -> physics 0.8904 / NF 0.9381; drop worst 10 -> 0.9581 / 0.9643; drop 25 -> 0.9692 / 0.9762; drop 50 -> 0.9755 / 0.9797. Those rows are hard for NF too: NF's own analysis_confidence is 0.339 median on them vs 0.965 elsewhere; NF medAPE 38.2% vs physics 57.6%. Their H_TE reaches 17 and 19.5 (massive separation).",
+   "interpretation": "An inviscid-gamma + IBL closure has no separation model; this is a structural limit, not a training limit. Beyond the tail, predicted ue even beats truth ue (0.9692 vs 0.9682 at drop-25), so OP1's ue is not a limiting factor on attached flow.",
+   "status": "REFUTED by F11",
+   "refutation": "Rested on the 10 worst rows of a holdout with only 190 H>=6 rows. A purpose-built separated set with 1,039 H>=6 rows refutes it: see F11."
+  },
+  {
+   "id": "F10",
+   "claim": "NeuralFoil's headline Cd R2 depends on clipping",
+   "evidence": "cd_nf raw 0.936340 vs clipped to [1e-4,0.1] 0.938141. The physics route clips, so 0.9381 is the like-for-like value; this session uses 0.9381 throughout."
+  },
+  {
+   "id": "F11",
+   "claim": "Separated flow is predictable; NeuralFoil does it well and we do not. The earlier 'structural limit' reading is wrong.",
+   "evidence": "New separated eval set (same 80 held-out UIUC shapes, alpha in {-10,-8,-6,13..18} x 4 Re, Ncrit 7, Xeon, 1,930 gated rows of which 1,039 have H_TE>=6 vs 190 in the old holdout). Cd R2 -- all 1930: physics(fitted closure) 0.9338, deployed wake-ODE 0.6849, NeuralFoil 0.9831, ceiling(truth state) 0.9893.  H>=6 (n=1039): 0.8913 / 0.2264 / 0.9767 / 0.9735.  H>=10 (n=462): 0.8393 / -0.2764 / 0.9872 / 0.9432.  NeuralFoil's analysis_confidence stays at 0.97 throughout -- it does not collapse as the old 10-row reading suggested.",
+   "consequences": [
+    "The deployed wake-ODE has NEGATIVE R2 in deep separation (-0.2764 at H>=10): worse than predicting the mean. F3 confirmed at scale.",
+    "In separation the bottleneck is OP2's BL state, not the closure: headroom to the truth-state ceiling is +0.082 at H>=6 and +0.104 at H>=10.",
+    "That headroom is now measurable on 1,039 rows instead of 10-25, which was the whole point of building the set."
+   ],
+   "refutes": "F9"
+  },
+  {
+   "id": "F12",
+   "claim": "The existing holdout contains XFOIL rows whose global Newton never converged",
+   "evidence": "xfoil_bl.py tests viscal_failed = ('onvergence failed' in stdout), a substring that also matches the per-station 'MRCHDU/MRCHUE: Convergence failed' messages XFOIL emits during a healthy march. Regenerating the original grid on the Xeon with the narrowed 'VISCAL:  Convergence failed' test reproduces the common 2,688 rows to a median relative difference of 0.00000% but marks 155 of the original's valid rows (59 of the gated 2,737, 2.16%) as globally unconverged.",
+   "effect": "Dropping those 59: physics 0.8904 -> 0.9205, NeuralFoil 0.9381 -> 0.9550. Ranking and gap (~0.035) unchanged.",
+   "note": "NOT applied to the sealed denominator. Every number in this receipt still uses n=2737."
+  },
+  {
+   "id": "F13",
+   "claim": "A hypothesis of mine was wrong and is recorded as such",
+   "evidence": "I predicted the over-strict convergence substring was DISCARDING separated rows and would, when narrowed, ADD rows. Measured: the narrowed test yields 2,688 valid vs the original 2,843 -- 0 new rows, 155 fewer. The contamination runs the other way (F12).",
+   "note": "Kept rather than deleted so the reasoning trail stays auditable."
+  },
+  {
+   "id": "F14",
+   "claim": "The deployed wake closure is replaced; this is the session's only deployed-file change",
+   "file": ".neurofoil_clone/staged/common/wake_ode_tf.py",
+   "change": "Added a `closure` argument. Default is now 'fitted_poly2'. 'legacy_ode' preserves the shipped behaviour and reproduces the sealed number 0.8415529916751838 BIT-IDENTICALLY, so every artifact sealed before this commit stays reproducible. 'squire_young' is the textbook relation. The 10 poly2 coefficients are embedded in the module, so it has no artifact-path dependency.",
+   "measured_all_with_the_eval_gate_clip": {
+    "original_holdout_n2737_m325_BT": {
+     "legacy_ode": 0.8507,
+     "squire_young": 0.839,
+     "fitted_poly2": 0.8904
+    },
+    "separated_set_n1930_all": {
+     "legacy_ode": 0.6849,
+     "squire_young": 0.8452,
+     "fitted_poly2": 0.9338
+    },
+    "separated_set_H_ge_10_n462": {
+     "legacy_ode": -0.2764,
+     "squire_young": 0.5004,
+     "fitted_poly2": 0.8393
+    }
+   },
+   "backup": "weights/BACKUP_wake_ode_tf.py",
+   "deployed_copy": "source/DEPLOYED_wake_ode_tf.py",
+   "sha256_deployed": "6604330158864e04a84fc2eaa110770e1026962b77cceaf7e0fbd2b111be30a9"
+  },
+  {
+   "id": "F15",
+   "claim": "Squire-Young's H-dependence has the sign the data shows for only about half the rows",
+   "evidence": "On the 1,930-row separated set: d(Cd)/d(H) > 0 for 53.2% of rows under classic Squire-Young, 54.2% under a fitted S-Y exponent, 53.9% with an added multiplicative factor, and 99.2% under fitted_poly2. On extrapolation at fixed theta=0.02, ue=0.9: S-Y gives Cd 0.0234 -> 0.0107 -> 0.0037 as H goes 5 -> 20 -> 40 (drag FALLING as the wake thickens), fitted_poly2 gives 0.0312 -> 0.0551 -> 0.1000 and is monotone.",
+   "honest_caveat": "That sign is not wrong inside Squire-Young's own derivation -- it is a far-wake momentum statement for a thin attached wake, where a higher TE shape factor does mean a larger relative loss of momentum thickness during recovery. It is outside its validity at a separated trailing edge, which is why it collapses there. Do not present this as 'Squire-Young is unphysical'.",
+   "also_measured": "Keeping the S-Y FORM and fitting its exponent is worse, not better: p = 0.0475*H + 3.445 scores 0.5193 overall and -1.1200 at H>=10, versus 0.8452 / 0.5004 for the textbook 0.5*H + 2.5. The functional form itself is what fails.",
+   "training_range": "H in [1.09, 490], ue in [0.692, 1.862]; both evaluation sets fall inside it."
+  },
+  {
+   "id": "F16",
+   "claim": "Only fitted_poly2 clips internally, so unclipped closure comparisons are meaningless",
+   "evidence": "The shipped module ended in max(Cd, 0) and the eval scripts applied the [1e-4, 0.1] clip. Raw module output on the separated set: squire_young -1.1049, legacy_ode 0.6332. With the eval gate's clip, the same closures give 0.8452 and 0.6849. Every number reported in this receipt is post-clip."
+  },
+  {
+   "id": "F18",
+   "claim": "Mirror augmentation fixes the negative-incidence deficit it targeted, but is not a net deployment win",
+   "setup": "xfoil_nf_scale_mirror.npz: every training row plus its exact mirror (CST16 halves swapped, alpha negated, upper/lower targets swapped; all four identity checks 0.000e+00). 325,370 -> 650,740 rows, alpha balance |alpha|>=10 71,630:71,630 (was 71,629:1). Same recipe as m325_BT otherwise (300 ep, lr 5e-4, seed 0, BT head). Best val at 138/300.",
+   "cd_r2_fitted_poly2": {
+    "original_holdout_n2737": {
+     "m325_BT": 0.8904,
+     "mirror_BT": 0.8799
+    },
+    "separated_set": {
+     "all": {
+      "m325_BT": 0.9338,
+      "mirror_BT": 0.9357
+     },
+     "alpha_lt_0_n669": {
+      "m325_BT": 0.844,
+      "mirror_BT": 0.8577,
+      "ceiling": 0.9943
+     },
+     "alpha_gt_0_n1261": {
+      "m325_BT": 0.9256,
+      "mirror_BT": 0.9244
+     },
+     "H_ge_10_n462": {
+      "m325_BT": 0.8393,
+      "mirror_BT": 0.8316
+     }
+    },
+    "alpha_-10_n178": {
+     "m325_BT": 0.7059,
+     "mirror_BT": 0.7504,
+     "dstar_err_pct": "7.24 -> 5.20"
+    }
+   },
+   "bl_state_original_holdout": {
+    "theta_TE_pct": "2.47 -> 2.53",
+    "dstar_TE_pct": "5.21 -> 4.76",
+    "medape": "4.85 -> 4.62",
+    "log_r2": "0.9593 -> 0.9593"
+   },
+   "reading": "The target moved: alpha<0 +0.0137, alpha=-10 +0.0445 with dstar error 7.2% -> 5.2%. dstar_TE improved everywhere (the swapped targets taught the lower head). But the original holdout lost 0.0105 in Cd R2 and deep separation lost 0.0078, with theta_TE slightly worse at high alpha (1.88% -> 2.54% at alpha=18). Doubling the deck at fixed capacity and epochs spread the same 402,948 parameters over twice the data; the gain at alpha<0 is real but small against the +0.104 headroom, so the imbalance was not the main cause of that deficit.",
+   "verdict": "NOT adopted as the deployment candidate; m325_BT stays. Kept as CANDIDATE_op2_mirror_BT.npz for a possible longer/wider run.",
+   "sha256_mirror_BT": "4c51f8ce01198f3644d9eaa6e3e959dbdc2c6b54dd81be652d3cf5be0181ecef"
+  },
+  {
+   "id": "F19",
+   "claim": "The confirmed single model's sheet (OP1 scr_bd128, CST-16, 19-input) meets the surface-representation contract at least as well as the CST-18 instance the manuscript previously reported",
+   "why": "The paper must describe ONE model. The drag route is bound to the CST-16 instance (OP2 and its decks are CST-16), so the surface-contract numbers were recomputed for that instance with the reference definitions of VortFoil/code/gate1_tangency_percase.py (Un RMS per unit freestream; Cl_press = -oint Cp n.y_wind ds, Cp = 1-Ut^2; Cl_circ = 2 oint gamma ds; Kutta = |gamma_0+gamma_Np|; LOOP_SIGN fixed by contour orientation and guarded, not fitted).",
+   "set": "holdout_targets.npz, same gate as the drag route, n=2737",
+   "cst16_scr_bd128": {
+    "kutta_residual_max": 3.5837292671203613e-06,
+    "kutta_residual_median": 1.9371509552001953e-07,
+    "cl_route_gap_rmse": 0.026206076845293035,
+    "cl_route_gap_pct_of_rms_truth": 3.0587459298820745,
+    "cl_route_gap_pct_of_mean_abs_truth": 3.6612262301654073,
+    "cm_route_gap_rmse": 0.004823587158572069,
+    "tangency_un_rms_median": 0.056653719395399094,
+    "tangency_un_rms_pct_of_ut_rms_median": 5.183663756199256,
+    "cl_circ_r2": 0.9862296854608563,
+    "cl_press_r2": 0.9865680508862736,
+    "cl_circ_rmse": 0.06286576219816971,
+    "cl_press_rmse": 0.06208858667451589
+   },
+   "cst18_opt3_as_printed_in_the_manuscript_n2730": {
+    "kutta_residual_max": 4.8e-07,
+    "cl_route_gap_rmse": 0.034,
+    "cl_route_gap_pct_of_rms_truth": 3.8,
+    "cl_route_gap_pct_of_mean_abs_truth": 4.5,
+    "cm_route_gap_rmse": 0.006,
+    "tangency_un_rms_median": 0.06,
+    "tangency_un_rms_pct_of_ut_rms_median": 5.5
+   },
+   "reading": "Kutta residual is structural in both (max 3.6e-6 vs 4.8e-7: both arithmetic precision). Route gaps and tangency are smaller for the CST-16 instance (Cl gap 3.1% vs 3.8% of RMS truth; Cm gap 0.0048 vs 0.006; tangency 5.2% vs 5.5%). The two instances are evaluated on different holdouts (CST-16 attached grid n=2737 vs K18 matched n=2730) so this is a like-kind, not a matched, comparison.",
+   "still_open_for_the_single_model": [
+    "Cp RMSE / relative L2 and the stagnation-crossing metrics need XFOIL Cp and s_stag truth on the CST-16 attached grid; being generated on the Xeon (attached_surface_targets.npz).",
+    "The 55-case Fluent wall-pressure check and the prior-injection ablation (arms B/C/P) exist only for the CST-18 lineage; their generators/data were not located in this session."
+   ],
+   "generator": "source/surface_contract_cst16.py -> raw/surface_contract_cst16.{npz,json}"
+  },
+  {
+   "id": "F20",
+   "claim": "Surface pressure, stagnation and moment readouts of the confirmed single model (OP1 scr_bd128) against XFOIL truth generated on its own 240-panel grid",
+   "truth": "raw/attached_surface_targets.npz -- Xeon XFOIL (Ncrit 7, 200 panels) on the 80 held-out UIUC CST-16 shapes x the attached grid; cp_panels by the gen_xfoil_all_targets.py recipe (Cp=1-ue^2 per side interpolated onto the OP1 panel midpoints), s_stag = argmax Cp in s in (0.4,0.6), cm from the polar. 2688 globally converged; 2682 gated (finite Cm).",
+   "results": {
+    "n": 2682,
+    "cp_rmse_pooled": 0.11275044286010791,
+    "cp_rmse_case_median": 0.06483839996708429,
+    "cp_rel_l2_case_median": 0.10021167416045582,
+    "cp_rel_l2_case_p90": 0.17311488564718633,
+    "stag_unique_crossing_rate": 0.9888143176733781,
+    "stag_zero_crossing_rate": 0.0,
+    "stag_err_panels_median": 0.7720162388370166,
+    "stag_err_panels_p90": 1.5950694872314308,
+    "stag_within_1_panel_rate": 0.6573452647278151,
+    "cm_circ_r2": 0.9173615930140646,
+    "cm_press_r2": 0.952474321132095,
+    "cm_circ_rmse": 0.014399534727902327,
+    "cm_press_rmse": 0.010919975293506341
+   },
+   "vs_cst18_instance_as_printed": {
+    "stag_unique_crossing_rate": 0.9998,
+    "stag_err_panels_median": 0.73,
+    "n": 15000,
+    "note": "different instance, different holdout (K18 cp targets); like-kind only"
+   },
+   "reading": "Stagnation: unique crossing 98.88% (vs 99.98% for the CST-18 instance on its 15,000-case set), median 0.77 panels from XFOIL's node (vs 0.73), never zero crossings. Cp: per-case median relative L2 0.100. Cm: the pressure-integral readout (R2 0.952) beats the circulation-arm readout (0.917) by 0.035 -- the same readout advantage measured for the CST-18 instance (+0.036) -- so the pressure readout is the one the paper reports for Cm.",
+   "stagnation_definition": "stag_recompute.py / vf_talk_stag_accuracy_fig.py: sign changes of Ut along the loop, the one nearest s=0.5, linear interpolation; unique = exactly one sign change; error in panels = |s_pred - s_stag| * 240",
+   "figures": [
+    "VortFoil/figures/vf_cp_dist_cst16.{pdf,png}",
+    "VortFoil/figures/vf_stagnation_cst16.{pdf,png}",
+    "numbers: VortFoil/figures/vf_surface_cst16_numbers.json"
+   ],
+   "generator": "source/surface_cp_stag_cst16.py"
+  },
+  {
+   "id": "F21",
+   "claim": "Readout consistency and moment-arm sensitivity of the single model (OP1 scr_bd128), replacing the CST-18 numbers in the ablation",
+   "set": "attached holdout rows with a finite XFOIL Cm, n=2678 (holdout_targets gate x attached_surface_targets)",
+   "readouts": {
+    "n": 2678,
+    "cm_circ_r2": 0.9179441760293245,
+    "cm_press_r2": 0.9529184728719468,
+    "cm_circ_rmse": 0.014355191577838104,
+    "cm_press_rmse": 0.010873755359152582,
+    "press_closer_frac": 0.7266616878267363,
+    "cl_circ_r2": 0.9870607690770115,
+    "cl_press_r2": 0.9875312477391459,
+    "cm_press_sign_flipped_r2": -6.985573175623559
+   },
+   "moment_arm": {
+    "n": 2678,
+    "cm_full_arm_r2": 0.9179441760293245,
+    "cm_xarm_only_r2": 0.7855367582807888,
+    "arm_drop": 0.1324074177485357,
+    "signal_std_cl": 0.5363548186126279,
+    "signal_std_cm": 0.05011344827998948,
+    "signal_atten": 10.702812059867705,
+    "err_rms_cl": 0.06101075769053799,
+    "err_rms_cm": 0.014355191577838104,
+    "err_atten": 4.250083139588878,
+    "cl_circ_r2": 0.9870607690770115,
+    "cm_circ_r2": 0.9179441760293245,
+    "atten_ratio": 2.5182594571321766,
+    "r2_gap_ratio": 2.5182594571321717
+   },
+   "reading": "Pressure-integral Cm beats circulation-arm Cm (R2 0.953 vs 0.918; RMSE 0.0109 vs 0.0144; closer on 72.7% of cases; flipped sign -6.99). For Cl the two routes agree within 0.001 (0.987 vs 0.988), so the earlier argument that reading Cl through pressure LOWERS it does not hold for this model and was dropped from the text. Dropping the freestream-normal arm term lowers Cm R2 0.918 -> 0.786. The R2 gap between Cl and Cm is exactly the signal/error attenuation ratio: signal std 0.536 -> 0.0501 (10.7x), error RMS 0.0610 -> 0.0144 (4.25x), ratio 2.52 = sqrt((1-0.9179)/(1-0.9871)).",
+   "cst18_values_replaced": {
+    "triple": "0.983/0.943/0.856",
+    "cm_press": 0.892,
+    "press_closer": "77%",
+    "arm_drop": "0.8557->0.7781",
+    "atten_ratio": 2.95
+   },
+   "not_recomputed": "the per-panel 'effective moment arm 0.371 / 96-97% annihilation' analysis of the CST-18 text (needs the pressure-split sheet-error decomposition); the sentence was removed rather than carried over."
+  },
+  {
+   "id": "F22",
+   "title": "Station-matched boundary-layer comparison retires the 'TE state beats NeuralFoil' reading",
+   "what": "NeuralFoil's 32 BL stations run LE->TE with the last at x/c=0.984 (not the TE); XFOIL theta there is ~10% below theta_TE and delta* ~18% below. The earlier comparison (F-regime search: ours 2.47%/5.21% vs NF 10.06%/19.07%) read NF's station-31 value against theta_TE and was a station artifact. XFOIL truth was regenerated on the Xeon with theta/delta* interpolated on XFOIL's own x arrays to NF's stations (attached_surface_targets_v2.npz, sep_eval_targets_v2.npz; identical cl/cd to the v1 files, order check max|d|=0), OP2 was read on the same stations (its xi grid is UNIFORM x/c: deck generator resample_to_xi = np.interp(linspace(0,1,121), x/c, val); a cosine-grid assumption inflates OP2 error ~3x), NeuralFoil xlarge re-run on the same rows.",
+   "numbers": {
+    "attached_n2688_x0.984_medrel": {
+     "theta_sum": {
+      "ours": 0.0541,
+      "nf": 0.0204
+     },
+     "dstar_sum": {
+      "ours": 0.1564,
+      "nf": 0.0293
+     },
+     "H_sum": {
+      "ours": 0.1084,
+      "nf": 0.0189
+     }
+    },
+    "separated_n2166_x0.984_medrel": {
+     "theta_sum": {
+      "ours": 0.0266,
+      "nf": 0.0203
+     },
+     "dstar_sum": {
+      "ours": 0.0724,
+      "nf": 0.0342
+     },
+     "H_sum": {
+      "ours": 0.0618,
+      "nf": 0.0264
+     }
+    },
+    "nf_ue_column": "the earlier ~99% NF ue error was also an artifact of that comparison and is not used anywhere"
+   },
+   "reading": "At matched stations NeuralFoil predicts the BL state more accurately than OP2 on both sets. The only measured physics-route advantage over NeuralFoil is Cd R^2 on the attached set below 8 deg (alpha<0: 0.941 vs 0.916, n=613; [0,8): 0.918 vs 0.912, n=1255; nf_regime_search.json). Manuscript Table tab:regime carries exactly these numbers.",
+   "files": {
+    "source": "source/station_bl_compare.py",
+    "attached": "raw/station_bl_compare.json",
+    "separated": "raw/station_bl_compare_sep.json",
+    "ours": [
+     "raw/op2_bl_at_nf_x.npz",
+     "raw/op2_bl_at_nf_x_sep.npz"
+    ],
+    "nf": [
+     "raw/nf_full_attached_v2.npz",
+     "raw/nf_full_sep_v2.npz"
+    ],
+    "truth": [
+     "raw/attached_surface_targets_v2.npz",
+     "raw/sep_eval_targets_v2.npz"
+    ]
+   }
+  }
+ ],
+ "best_physics_route": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz (unchanged)",
+  "op2": "op2_final_eps0.50_direct.m325_BT.npz",
+  "closure": "cd_closure_poly2.npz (fitted, NOT deployed)",
+  "cd_raw_r2": 0.8904,
+  "cd_medape_pct": 4.85,
+  "theta_TE_pct": 2.47,
+  "cl_raw_r2": 0.9862,
+  "session_start_baseline": 0.8416,
+  "neuralfoil_xlarge": 0.9381,
+  "note_attached_flow": {
+   "subset": "holdout minus the 10 shared-hard rows (n=2727)",
+   "physics_cd_r2": 0.9581,
+   "neuralfoil_cd_r2": 0.9643
+  }
+ },
+ "disclosed": {
+  "eval_gate": "unchanged (n=2737). The physical gate would drop 4 rows and move Cl 0.9862->0.9904, Cd 0.8405->0.8427; NOT applied, so every number here shares the historical denominator.",
+  "deployed_files_touched": 1,
+  "training_runs": 8,
+  "deployed_change": "wake_ode_tf.py closure default. Numbers computed AFTER this change differ from those computed before it; pass closure='legacy_ode' to reproduce anything sealed earlier."
+ },
+ "sha256": {
+  "clean_BT": "20ba5cee0da8115cb645bcf746150a60a5df92e83420892d170c9c51a9d5968e",
+  "clean_DENSE": "70c20ed466395fb8ef6f775fd415bf5cb7b20dd71fd2529754c1ba9a0d65893e",
+  "m325_BT": "a21ce5116b0bac132dd4e99ccc2ed7cac320ee8547b926c5d380173e3c80c257",
+  "m325_DENSE": "c1a8d04e4f9dc96fc947703a8be2b10b4a3799e319eeaf35ef34032f4f6c4595",
+  "ft_B_nocd": "32e532156c00bcf1266a233cc5fd6fdec8a679dddade6fad4a17ece4e9ce3632",
+  "ft_C_cdfit": "ad4f17572bdd9384d4ebbc2293736480021b881b59222104173bae34cb61eca6",
+  "ft_C_lam50": "b52056dde8286dc4a4c3289b57de6440b9e6c10daf002ba2e436de8c93949511",
+  "ft_C_lam200": "db95c181a4cd0a8d4035d2b899efe12c9762a9d591be1948ca67a2ecd23b5d68",
+  "cd_closure_poly2.npz": "1e37b6e3dfb4639477d7e57b300a071f8dcee666f0c6ceefb710da701cc34736"
+ },
+ "utc_amended": "2026-09-18T05:05:21Z",
+ "provenance": {
+  "training_deck": {
+   "path": "staged/data/xfoil_nf_scale_merged_clean.npz",
+   "sha256": "8d20626b2869ad0c98444453af295b30055dd677326f1606cf52f4c5edaf2d95",
+   "train_rows": 325370,
+   "val_rows": 10875,
+   "built_from": [
+    "xfoil_nf_scale.npz",
+    "xfoil_nf_scale2.npz",
+    "xfoil_nf_scale3.npz"
+   ],
+   "holdout_overlap": 0,
+   "inter_deck_overlap": 0
+  },
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz (unchanged all session)",
+  "eval_script": "source/eval_op2_cd2.py — reproduces the sealed deployed number bit-identically (0.8415529916751838)"
+ },
+ "artifact_sha256": {
+  "PLAN.json": "dd9d25337635a52ea98bbb3b08e655d323575be58e555f27f81d7186af288906",
+  "CLOSURE_FIT.json": "5a31c475e728c7a6e88339a9d4737bdd7811c1c6584dc1f3a6f2eefa4d9ba824",
+  "CLOSURE_FIT_DENSE.json": "d60a707fc78d14ea438596efa3d61014a493c674e02d4f39c5d9baaf6a872191",
+  "FINDING.json": "3c6519beb42568174819b51e255ed68925efb2207344ab4b8fe94cd2ebcbdaee",
+  "NF_VS_PHYSICS.json": "c1535b18a2d87eef5c20267d3769189c5e4f602afab9bbce42d664f069894af7",
+  "WAKE_REFIT.json": "4ee284ba2a3df308449c70093008058e36ba9de922c1a3217b05eeffab34d128",
+  "BACKUP_op1_scr_bd128.npz": "6fee253a4547441518ab4653d3fad25f019135e781abb1fceb0466d7913596b7",
+  "BACKUP_op2_uiuc_v2.npz": "3d3dcd680e6519fbd5afe49175f0c4344aa478b81805238e101ac51c1139e6fc",
+  "CANDIDATE_op2_m325_BT.npz": "a21ce5116b0bac132dd4e99ccc2ed7cac320ee8547b926c5d380173e3c80c257",
+  "cd_closure_poly2.npz": "1e37b6e3dfb4639477d7e57b300a071f8dcee666f0c6ceefb710da701cc34736",
+  "CANDIDATE_op2_m325_BT.history.npz": "e133afeaeb6fa3929f480c58a865fc9409180517b078e57f96e12a4a60bbdf6e",
+  "_ref_cdgate_deployed_state.py": "77b9bdaf4f504c1192d77211bdc0d16bf11ae92269e1d819cf17395fc2682e3d",
+  "cpu_run.py": "fd676d364b6a7a68fd3b7250020fe304844796ae9220a101a22518903fab929e",
+  "eval_op2_cd2.py": "58bce1711ce3141cb915b6c262111cf9929892ae9ac3544db5a394fb05f4e6e9",
+  "diag_dstar.py": "3c5c13839e75643ced2814c142e377cafb6f215664f9384146bbb0de356ece90",
+  "train_op2_dense.py": "db3528022cea446d0f20544eda26d783cd2c87f673d8828bbc2b421cd0fa9e2b",
+  "eval_op2_cd.py": "ae75dbbfb82f4931f9ec54d8205f29615898cf0236df166ff9900f2f36f86d87",
+  "shared_gamma_nm48.py": "fc272467535dfe0091923aa164e2745bc3320b7b63b4d0394d43a85f5ff9b47e",
+  "fit_wake.py": "053452d00e6d44a0323e000fb2f50914a6dc286fec1deb88d67f91377d56f7fa",
+  "fit_closure.py": "26c6419e46ece0b5bed68f0011980dcd81867e5197ce08848cb95db87fbddcc1",
+  "eval_op2_cd_metal.py": "d2596b627f53c3799970ed26a058313f881bcf8912bae7b274abd3b3bbde6576",
+  "dump_physics_preds.py": "786bd7c5d9dfb57d28742a1d64eadc16cfb67608b8307c0f52011a2f31e5636e",
+  "_ref_redirected.py": "125850af7af1631a580b456919cff8a4c2a4b76ab945885f95e34411520ac1b1",
+  "run_nf_holdout.py": "734804657e96f3825824688aaede69e908ceefe364e6d7e13901d472a047c0c1",
+  "op2_dense_surrogate.py": "74a6ae3b4060bbf239fa99b4ceab586d7b880f7ca4c08751aaa89ac169a4e3d6",
+  "symmetry_fusion.py": "07f1f44f096683e3fd422f98e00dba0c328f0b01d68314b9281ec7a70906d585",
+  "probe_op2_pre_closure_redesign.npz.json": "30374cdc146aebc2ea962fb8741d406ef9a6f53c84fc69845703aec9da140145",
+  "eval_nfscale_A.json": "06ff56a3143cbf1a45550c17595db06db6bb1684efbee933b1136c9239452d6c",
+  "eval_ft_C_lam50.json": "c0cf2de817808564ddc98c73e3af4d7698b232060fc1e81c3d5d0deb29e8fd62",
+  "probe_op2_final_eps0.50_direct.v6.npz.json": "d47bfffba58e58ee81e26901caab64bad7767cadc8b95fd5455b071abd4fabf6",
+  "eval_clean_BT.json": "b091de413a50aaab26809e06e58020e20f19faebdf9c6874ec8ad93284ee2311",
+  "closure_ft_B_nocd.json": "0ccff689ba45814b0d7c2a6cfff9625e7e168908bebc18e94f3aa2984eea8e86",
+  "symfuse_d500k.json": "76057cd3539c064f0050805d60e71f5dbe39fd2b77044e66f1e71bd06e46e73b",
+  "eval_d500k.json": "31aa3d046d0728d2f502949a3e1397459abf030b5e6910d7b90b8f03b588cd04",
+  "eval_scr_bd128_uiuc_v2.json": "16c416455d8f873f6dc6dad96223759edcdcdc1a2967559b9140b1171e304902",
+  "closure_ft_C_cdfit.json": "eaa27840b19583f812b7f6540e76dc5b5435a674877e1a7bad9a34ab49ef1f7a",
+  "eval_clean_DENSE.json": "79035954cababf7e6d94d6beafa36e61f06a17161b67e683d071306202397100",
+  "_cdgate_deployed_state.npz": "860d6b4e117c7a00c3fbcc4f7353ce92e43e6a0f2a51306a4bdccfa7c1861173",
+  "full_D500K.json": "a0dafbb46a598e29bc2f70f22550d67f0c5ed963c87a118210e64c9fecb117eb",
+  "eval_ft_C_lam200.json": "bd22992d30d1caa0f7de3df06fad9f0f978620f297d60c6830ce4efc4983ae00",
+  "eval_d500k_uiuc_v2.json": "9bdb3829504747193e919343072f17b8e121a9ca2cbba4b5755b20c812602e38",
+  "eval_m325_DENSE.json": "ff6d23f0377bc0ad494bfd97f8ef901f329c811af78111b16c87009c038651c8",
+  "_cdgate_deployed_state.json": "84040275e59f173d9bd66f15c4446ba6964696337806d2eb6dd1e5a7497bacf3",
+  "phys_d500k.npz": "3a15f09d0ca4ab8ea78c5b5d95d4f49f06b5df9582f30aee261506f4e59ba035",
+  "eval_d500k_d500k.json": "95dd0aaf5f7fe1304bf37459c0d7d716df26ff7d2bcb3ba7611e839709d71814",
+  "nf_holdout.npz": "d79ff527c355c4aa9555d9621e15d7d16c0396cc1f2336315e05ec38a2f671a4",
+  "full_DEPLOYED.json": "18e2e456f5585d86e37c5f10dcbbf39e6767295d02d49037a94840672ff0fd01",
+  "closure_ft_C_lam50.json": "d282eca8d0ec26c9aa1af0df2a11bfccf7ddfd6e2de48caa3a72e90b6e746092",
+  "phys_now.npz": "30d6ab070a900c0440faf7b2f86fcee4c142a4cc20e7dc2afec91c0c8372bf13",
+  "after_swap.json": "e641426dc5365cdfbf04ced4d9611840919aabad67d765939fb6478779777f4c",
+  "probe_op2_final_eps0.50_direct.uiuc_v2.npz.json": "ecc7ba61266f66ff1c878e14f6cb21f84cc6e1d60c1eefa7b72fb48dc9353679",
+  "probe_op2_final_eps0.50_direct.d500k.npz.json": "b158fa565fc2c88318e041acc55492fc4c092c03c06fbc5e0a85cbad579b5bf6",
+  "metal_uiuc_v2.json": "a7cfbe130eeb5abc5881fe1b70a284c97346cb23e1fd0bdeac52660cbe1972da",
+  "probe_op2_final_eps0.50_direct.round2.npz.json": "3c76ca1c427f761f218ac4beeaea8098006335979f62c2327281dbea6186adf6",
+  "eval_m325_BT.json": "297311fbb82945421ea1bf4c8818b4ebaa884d1f6cf31ff6ed6f0b6119ea4686",
+  "closure_ft_C_lam200.json": "890f94c87b98e362568761a128f8982739417629a5a41d6ea06e8e5fe75278a7",
+  "eval_scr_bd128_d500k.json": "31aa3d046d0728d2f502949a3e1397459abf030b5e6910d7b90b8f03b588cd04",
+  "phys_deployed.npz": "af2bead5dce623881ca956eb7b13d8d7a3a66b1d3479a0c9b16a5196765e98e9",
+  "metal_d500k.json": "b3a0e568b0fd57de7ea0d9c17cb19ba3c577dcd5ec86e8e0bfc2131d18913eae",
+  "eval_uiuc_v2.json": "16c416455d8f873f6dc6dad96223759edcdcdc1a2967559b9140b1171e304902"
+ },
+ "artifact_sha256_note": "Excludes this file: a receipt cannot contain its own digest. This file's integrity is the git blob of the sealing commit.",
+ "sealed_commit_parent": "a2daebbf9a9c2c339f137a9dea0d07b0bbd57cba",
+ "new_eval_set": {
+  "path": "raw/sep_eval_targets.npz",
+  "rows_total": 2880,
+  "rows_xfoil_converged": 2166,
+  "rows_gated": 1930,
+  "rows_H_ge_6": 1039,
+  "viscal_failed_excluded": 714,
+  "grid": "80 held-out UIUC shapes x alpha {-10,-8,-6,13,14,15,16,17,18} x Re {2e5,5e5,1e6,3e6}, n_crit 7",
+  "generated_on": "Xeon (ssh CPU), 60 workers, 377 s",
+  "caveat": "Cd distribution differs from the original holdout (median 0.0336 vs 0.0107), so R2 is NOT comparable ACROSS the two sets -- only within a set.",
+  "negative_alpha_note": "alpha -6..-10 gives H_TE ~2 and is useless for this purpose; only positive stall separates."
+ },
+ "utc_amended_2": "2026-09-18T06:11:43Z",
+ "deployed_default_closure": "fitted_poly2",
+ "utc_amended_3": "2026-09-18T06:36:01Z",
+ "utc_amended_4": "2026-09-18T08:00:25Z",
+ "utc_amended_5": "2026-09-18T08:49:44Z",
+ "utc_amended_6": "2026-09-18T09:57:07Z",
+ "utc_amended_7": "2026-09-18T10:09:40Z",
+ "utc_amended_8": "2026-09-18T10:14:17Z",
+ "utc_amended_9": "2026-09-18T10:19:38Z",
+ "release_note": "Release copy of VortFoil_v2/artifacts/op2_cdloss_20260917T044259Z/FINDING_closure_track.json (sha256 bf4c9a49c08c2322e94e93c0d8e0099700d179fa5be798b7b59bad6d953c08bb) without findings F17 and F23, which concern a field-decoder experiment outside this release; every other entry is unchanged."
+}

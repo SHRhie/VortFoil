@@ -1,0 +1,83 @@
+{
+ "schema": "STEP2R_PROVIDER_CORPUS_V1",
+ "utc": "20260925T121537Z",
+ "source": {
+  "path": "supervised_field/_nf_train_v5_full800.npz",
+  "sha256": "9bd40f81a89d0bf466ba1e7ea84d1743ad583ee483af0321c1273e85e1c393bd"
+ },
+ "output": {
+  "path": "supervised_field/_nf_train_v5_full800_provider_maxs.npz",
+  "sha256": "a387d918e81e2bbe035fbdac2d40eb678422be05089307a7dbc836b3cb51a7c7"
+ },
+ "script": "VortFoil/code/step2r_rebuild_reynolds_provider.py",
+ "script_sha256": "12ab4f80ae9a3902f143f670468a2cc922478af9a3386cd87c2ac5840099f94a",
+ "provider_script_sha256": "7952e2ece58c23eb346dca4551208ebe29b0ff3c546caa593065b27af69dae23",
+ "op1": {
+  "path": ".neurofoil_clone/staged/weights/op1_supervised_eps0.50.scr_bd128.npz",
+  "sha256": "3bc4baaba1cc2f3dc1d22138437431c0bcb2de68fa9e8d77f92df34e8a45297d"
+ },
+ "op2": {
+  "path": "VortFoil_v2/artifacts/op2_cdloss_20260917T044259Z/weights/CANDIDATE_op2_m325_BT.npz",
+  "sha256": "a21ce5116b0bac132dd4e99ccc2ed7cac320ee8547b926c5d380173e3c80c257"
+ },
+ "s_rule": {
+  "name": "teH",
+  "H0": 2.0,
+  "W": 8.0
+ },
+ "n_cases": 800,
+ "n_rows": 12009281,
+ "rows_changed_frac": 0.9999093201333202,
+ "cl_op1_vs_cl_xtr": {
+  "n_finite": 779,
+  "R2": 0.7706008440986755,
+  "bias": 0.029419210857238896,
+  "median_abs": 0.027973869514465344
+ },
+ "s_stats": {
+  "quantiles": [
+   0.0,
+   0.022924214601516724,
+   0.16232024133205414,
+   0.6009905338287354,
+   1.0,
+   1.0
+  ],
+  "frac_nonzero": 0.86,
+  "xfoil_frac_nonzero": 0.4325,
+  "corr_with_xfoil_s": 0.5888378906737638
+ },
+ "cst_fit_err_max": 0.0015765329047489809,
+ "frame_rot_deg_max": 1.2508460256243799,
+ "verification": "original cl reproduces stored PAINT bit-for-bit on cases [0, 400, 799]",
+ "unchanged_keys": [
+  "X",
+  "TRUTH",
+  "case_id",
+  "g_band",
+  "names",
+  "U",
+  "alpha",
+  "Re",
+  "params4",
+  "n_params",
+  "cl_xtr",
+  "f_sep_xfoil",
+  "f_sep_rans",
+  "near_stall",
+  "w_case",
+  "n_rows",
+  "n_surf_rows",
+  "skipped",
+  "feat_names",
+  "paint_names",
+  "truth_names",
+  "strata_names",
+  "strata_nominal",
+  "pscale",
+  "a_norm",
+  "re_lo",
+  "re_hi"
+ ],
+ "release_note": "Release copy of VortFoil/artifacts/step2r_provider_corpus__nf_train_v5_full800_provider_maxs_20260925T121537Z/provenance.json (sha256 8ac12ba06cc074bdc3e8d30a6a004137a4bec5e479b3b499b0d404738981f1ed), the build record of the operator-conditioned decoder's training corpus (output.sha256, the corpus_sha256 in the run_config of each weights/field_decoder_f0cm_s*.npz), without its comparison with the training corpus of a decoder the manuscript does not report; every other entry is unchanged. source is the XFOIL-conditioned decoder's training corpus (the corpus_sha256 of weights/field_decoder_f0a_s*.npz); verification records that recomputing the paint channels with its stored XFOIL lift reproduces its stored paint bit for bit on cases 0, 400 and 799. Paths are research-tree paths; neither corpus is shipped."
+}

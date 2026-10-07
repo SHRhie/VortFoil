@@ -1,0 +1,106 @@
+{
+  "schema": "VORTFOIL_BUILD_MANIFEST_V1",
+  "version": "2.0.0",
+  "built": "2026-09-20",
+  "model": {
+    "description": "vortex-panel-informed neural operator for steady airfoil flow (surface branch)",
+    "components": [
+      "sheet operator: 19-d conditioning vector -> anti-derivative-approximator rate -> effective vortex sheet on a 241-node loop, Kutta condition imposed by a linear projection for every network output (125,634 parameters)",
+      "boundary-layer operator: four heads giving momentum and displacement thickness on a 121-node uniform x/c grid per surface (402,948 parameters)",
+      "drag closure: frozen degree-2 polynomial in (log theta_TE, H_TE, u_e,TE), ten coefficients, clipped to [1e-4, 0.1]",
+      "lift closure: frozen degree-2 polynomial in (C_l^gamma, theta_TE per surface, delta*_TE per surface, u_e,TE), 28 coefficients; the viscous-decambering correction to the circulation lift",
+      "readouts from the same sheet: surface pressure on 240 panel midpoints, circulation lift, quarter-chord moment, stagnation point (no stagnation label in the objective), trailing-edge edge velocity"
+    ]
+  },
+  "weights": {
+    "sheet": {
+      "file": "op1_supervised_eps0.50.scr_bd128.npz",
+      "sha256": "3bc4baaba1cc2f3dc1d22138437431c0bcb2de68fa9e8d77f92df34e8a45297d",
+      "bytes": 507682
+    },
+    "boundary_layer": {
+      "file": "op2_m325_BT.npz",
+      "sha256": "a21ce5116b0bac132dd4e99ccc2ed7cac320ee8547b926c5d380173e3c80c257",
+      "bytes": 1624502
+    },
+    "lift_closure": {
+      "file": "lift_closure_poly2.npz",
+      "sha256": "788f7c73efb246d346b0300e4c4db2e85174afce2409e09bba51827f9d4c0c9a",
+      "bytes": 3018
+    },
+    "drag_closure_reference": {
+      "file": "cd_closure_poly2.npz",
+      "sha256": "1e37b6e3dfb4639477d7e57b300a071f8dcee666f0c6ceefb710da701cc34736",
+      "bytes": 1588
+    }
+  },
+  "training": {
+    "sheet": "449,732 filtered XFOIL rows (Ncrit 7, incompressible, 200 panels; UIUC, NACA four-digit and perturbed Kulfan shapes), 400 epochs; loss = surface-pressure MSE + 10x trailing-edge pressure + 10x label-free stagnation self-consistency + 1x direct circulation-lift term",
+    "boundary_layer": "325,370 filtered XFOIL boundary-layer rows",
+    "closures": "both fitted once by ridge regression on the same 325,370 training rows and then frozen; no evaluation row enters either fit"
+  },
+  "evaluation": {
+    "converged_rows": {
+      "n": 2678,
+      "description": "80 held-out UIUC shapes, alpha <= 12 deg, rows passing the validity filter AND whose XFOIL solution converged; the reported population of the paper",
+      "scores": {
+        "cl": "0.988732",
+        "cl_gamma": "0.987061",
+        "cd": "0.920482",
+        "cm": "0.952918"
+      },
+      "neuralfoil_xlarge": {
+        "cl": "0.995057",
+        "cd": "0.955015",
+        "cm": "0.996343"
+      }
+    },
+    "all_validity_filtered_rows": {
+      "n": 2737,
+      "description": "the same grid without the convergence test; the population the shipped per-row reference files were written on, used by the self-check",
+      "scores": {
+        "cl": "0.987952",
+        "cl_gamma": "0.986230",
+        "cd": "0.890353"
+      }
+    },
+    "separated_set": {
+      "n": 1930,
+      "description": "same shapes, incidence extended to populate H_TE >= 6; no unconverged rows",
+      "scores": {
+        "cl": "0.994121",
+        "cd": "0.933803",
+        "cm": "0.842779"
+      },
+      "neuralfoil_xlarge": {
+        "cl": "0.999345",
+        "cd": "0.983119",
+        "cm": "0.994373"
+      }
+    }
+  },
+  "evaluation_note": "The 59 rows the convergence test removes carry no XFOIL surface solution at all, so surface metrics cannot be formed on them; the filter is a property of the truth label and is applied identically to every model compared. Scores are never compared across the two sets.",
+  "inference_cost": {
+    "full chain, compiled, CPU, B=1024": "163 us/case",
+    "full chain, eager, CPU, B=1024": "317 us/case",
+    "full chain, compiled, RTX 4060 Ti, B=512": "126 us/case",
+    "single query, compiled, CPU": "1.30 ms",
+    "single query, eager, CPU": "11.3 ms",
+    "shape gradients": "2.34x a sheet forward pass for dCl_gamma, 3.13x (dCl) and 3.12x (dCd) the coefficient chain, verified against central finite differences"
+  },
+  "verified_environments": [
+    "Python 3.10 + TensorFlow 2.10 (CPU, eager and compiled)",
+    "Python 3.10 + TensorFlow 2.10 (NVIDIA RTX 4060 Ti, compiled)",
+    "Python 3.10 + TensorFlow 2.18 with Keras 3.12 (CPU, compiled)"
+  ],
+  "limits": [
+    "fixed discretization: the sheet is read on 241 nodes and the boundary layer on 121 nodes per surface; no resolution independence is claimed",
+    "the surface branch is trained and evaluated against XFOIL, not against RANS",
+    "both closures are empirical fits over their training range and are validated only on the two evaluation sets",
+    "the model is behind NeuralFoil's extra-large model on all three coefficients on both sets; the only measured advantage is profile drag at negative incidence",
+    "a blunt trailing edge cannot be represented by the 16-parameter form"
+  ],
+  "citation": "Rhie, S.-H., Kim, G., Lee, J. VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction (submitted).",
+  "attribution": "The anti-derivative approximator and the NeuroFoil staged-operator base are Prof. Jeongsu Lee's; this package packages the VortFoil build of that line.",
+  "numbers_file": "results/converged_set_numbers_FINAL.json in the source repository"
+}

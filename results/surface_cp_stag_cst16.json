@@ -1,0 +1,24 @@
+{
+ "model": "OP1 scr_bd128 (CST-16, 19-input)",
+ "n": 2682,
+ "truth": "raw/attached_surface_targets.npz (Xeon XFOIL, Ncrit 7, 240-panel midpoints)",
+ "cp_rmse_pooled": 0.11275044286010791,
+ "cp_rmse_case_median": 0.06483839996708429,
+ "cp_rel_l2_case_median": 0.10021167416045582,
+ "cp_rel_l2_case_p90": 0.17311488564718633,
+ "stag_unique_crossing_rate": 0.9888143176733781,
+ "stag_zero_crossing_rate": 0.0,
+ "stag_err_panels_median": 0.7720162388370166,
+ "stag_err_panels_p90": 1.5950694872314308,
+ "stag_within_1_panel_rate": 0.6573452647278151,
+ "cm_circ_r2": 0.9173615930140646,
+ "cm_press_r2": 0.952474321132095,
+ "cm_circ_rmse": 0.014399534727902327,
+ "cm_press_rmse": 0.010919975293506341,
+ "figure_cases_alpha4_Re1e6": [
+  "ah63k127",
+  "ah94145",
+  "atr72sm",
+  "clarkz"
+ ]
+}

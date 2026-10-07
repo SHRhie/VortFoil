@@ -1,0 +1,57 @@
+{
+ "run_id": "_nf_shape_f0a_s0__full_test__n200__verify__20260903T032946Z",
+ "inputs": {
+  "supervised_field/_nf_shape_f0a_s0.npz": {
+   "bytes": 1243682,
+   "md5": "597256e6eb78dd68e1b25a462f2e83da",
+   "sha256": "d90b88a5757e8bca8dcb13c43a6ca2e5edc56e1476f8848e0a7afb4eaaa5fc69"
+  },
+  "airfrans_data/Dataset/manifest.json": {
+   "bytes": 187191,
+   "md5": "5fd640c4426d1d7bc48c725a378d1c00",
+   "sha256": "3d1320005bcf3d94df80df2bf8338dd6ce6d394c6beafa14849b4ce1de7def13"
+  },
+  "supervised_field/nf_eval_percase.py": {
+   "bytes": 22854,
+   "md5": "87f1c31aebed703c237e5a16fb82c3d1",
+   "sha256": "84605ec2a1e33c188673d09a854bf5267f897fe5528d934527b3435ae3271ac8"
+  },
+  "supervised_field/nf_eval_shape_par.py": {
+   "bytes": 4108,
+   "md5": "b14e9cecade706b00f0be9348b52aed5",
+   "sha256": "87c3553abd73b4421d74269895c426a74a7d9133b2ddafe8fae22d854a113360"
+  },
+  "supervised_field/nf_eval_shape.py": {
+   "bytes": 7651,
+   "md5": "50f7d08ec09ecf763a18d8bd5b81c65d",
+   "sha256": "96ce6ab0e7e8c4b10b37c7c36087e95e68b9f66bf5900b6f8877baaa55447a14"
+  },
+  "supervised_field/nf_hybrid_field.py": {
+   "bytes": 11107,
+   "md5": "4b4b30b236a613c73887d572c5009451",
+   "sha256": "7c80f425883d7709c29e166f255d3f422f29bb400ffdf4c0ad0294aedb744bdf"
+  }
+ },
+ "artifacts": {
+  "per_case_metrics.npz": {
+   "bytes": 45639,
+   "md5": "07d463bae054b44040581b2b6f5f41d3",
+   "sha256": "07143e985578438e0a9004ddd913f147d072bef24e2e6d1196c0693bbed5732e"
+  },
+  "predictions.npz": {
+   "bytes": 36721545,
+   "md5": "fe51ed1acf41b03e3ebb8dcb54a649d7",
+   "sha256": "1a63dd96bc3853a667111290475cd72c7c7796a758bec394e59025e6d4f38365"
+  },
+  "aggregate.json": {
+   "bytes": 4118,
+   "md5": "1020854264101b438f1e008b91083d63",
+   "sha256": "d4c4455b382ede662e7affcc34754bcfd85e8d9a7077057b61d2f94580f8ce20"
+  },
+  "config.json": {
+   "bytes": 3240,
+   "md5": "0dc3cd1b498c3092bf7b7afce0a62864",
+   "sha256": "704050157a1fdc3e810b5f84aa56003b52cab6faee4c885958b7bababc8a7f6e"
+  }
+ }
+}

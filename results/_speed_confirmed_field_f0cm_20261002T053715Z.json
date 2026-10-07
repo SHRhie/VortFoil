@@ -1,0 +1,67 @@
+{
+ "schema": "VF_SPEED_FIELD_V1",
+ "utc": "20261002T053715Z",
+ "host": "macOS-27.0.1-arm64-arm-64bit",
+ "cpu_count": 18,
+ "decoder": "numpy fwd_np (as evaluated), weights _nf_shape_f0cm_s1.npz",
+ "provider": "TF eager CPU, OP1 scr_bd128 + OP2 m325_BT",
+ "loadavg_start": [
+  1.90869140625,
+  2.39404296875,
+  3.89013671875
+ ],
+ "loadavg_end": [
+  2.75,
+  2.61669921875,
+  3.75048828125
+ ],
+ "n_cases": 3,
+ "median": {
+  "provider_state_s": 0.013138479000190273,
+  "paint_s": 5.381431665999116,
+  "features_s": 2.8976281250070315,
+  "encoder_s": 8.762499783188105e-05,
+  "decoder_s": 1.2891783750092145,
+  "total_s": 9.581722103524953,
+  "decoder_ms_per_1k_points": 7.346370835653933,
+  "total_ms_per_1k_points": 55.698295656691336
+ },
+ "rows": [
+  {
+   "case": "airFoil2D_SST_31.812_1.334_0.371_3.287_0.0_19.548",
+   "n_points": 179033,
+   "provider_state_s": 0.012601750015164725,
+   "paint_s": 5.553197832981823,
+   "features_s": 3.0675524589896668,
+   "encoder_s": 7.527049456257373e-05,
+   "decoder_s": 1.304592375003267,
+   "total_s": 9.938019687484484,
+   "decoder_ms_per_1k_points": 7.286882166993052,
+   "total_ms_per_1k_points": 55.509429476601994
+  },
+  {
+   "case": "airFoil2D_SST_31.863_-1.58_1.567_6.956_10.028",
+   "n_points": 172029,
+   "provider_state_s": 0.013274167009512894,
+   "paint_s": 5.381431665999116,
+   "features_s": 2.8976281250070315,
+   "encoder_s": 0.00020977050007786602,
+   "decoder_s": 1.2891783750092145,
+   "total_s": 9.581722103524953,
+   "decoder_ms_per_1k_points": 7.493959594075502,
+   "total_ms_per_1k_points": 55.698295656691336
+  },
+  {
+   "case": "airFoil2D_SST_32.137_12.122_4.854_5.202_9.247",
+   "n_points": 164976,
+   "provider_state_s": 0.013138479000190273,
+   "paint_s": 5.277795917005278,
+   "features_s": 2.7890683749865275,
+   "encoder_s": 8.762499783188105e-05,
+   "decoder_s": 1.2119748749828432,
+   "total_s": 9.292065270972671,
+   "decoder_ms_per_1k_points": 7.346370835653933,
+   "total_ms_per_1k_points": 56.32373964075181
+  }
+ ]
+}

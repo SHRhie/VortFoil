@@ -1,0 +1,377 @@
+{
+ "schema": "VF_SPEED_CONFIRMED_SUMMARY_V1",
+ "utc": "2026-09-20T05:30+09:00",
+ "note": "per-case inference cost of the confirmed single model vs comparators; absolutes are host- and load-dependent, ratios within a run are the stable statistic",
+ "hosts": {
+  "surface_field_neuralfoil": "macOS-26.6.1-arm64-arm-64bit (18 cores), TF 2.10.0 eager CPU for the operators; NeuralFoil 0.3.3 xlarge in its own venv; field decoder numpy as evaluated",
+  "xfoil": "Xeon Gold 6530, Windows, single process"
+ },
+ "loadavg": {
+  "surface_start": [
+   9.16552734375,
+   6.9912109375,
+   4.3408203125
+  ],
+  "surface_end": [
+   11.55322265625,
+   8.255859375,
+   5.07275390625
+  ],
+  "nf_start": [
+   6.58349609375,
+   6.48974609375,
+   5.39306640625
+  ]
+ },
+ "surface_us_per_case": {
+  "1": {
+   "op1_gamma_cl": 2711.9999285787344,
+   "op1_full_readout_cp_stag_ue": 5093.083251267672,
+   "op2_te_state": 5157.332867383957,
+   "full_chain_all_outputs": 12643.729569390416,
+   "grad_dCl_gamma_dCST16": 6310.207769274712,
+   "grad_dCl_deployed_dCST16": 34973.5002964735,
+   "grad_dCd_dCST16": 30859.624966979027,
+   "batch_wall_ms": 12.643729569390416
+  },
+  "64": {
+   "op1_gamma_cl": 59.17577800573781,
+   "op1_full_readout_cp_stag_ue": 385.8160780509934,
+   "op2_te_state": 111.75260078744031,
+   "full_chain_all_outputs": 535.6139372452162,
+   "grad_dCl_gamma_dCST16": 139.0211546095088,
+   "grad_dCl_deployed_dCST16": 1794.7239575732965,
+   "grad_dCd_dCST16": 1744.102864904562,
+   "batch_wall_ms": 34.27929198369384
+  },
+  "1024": {
+   "op1_gamma_cl": 9.948872957465937,
+   "op1_full_readout_cp_stag_ue": 295.4999386020063,
+   "op2_te_state": 18.986796249009785,
+   "full_chain_all_outputs": 317.48531068842567,
+   "grad_dCl_gamma_dCST16": 23.294352104130667,
+   "grad_dCl_deployed_dCST16": 993.695006627604,
+   "grad_dCd_dCST16": 989.0831704524317,
+   "batch_wall_ms": 325.1049581449479
+  },
+  "2737": {
+   "op1_gamma_cl": 8.754354109119925,
+   "op1_full_readout_cp_stag_ue": 399.4559735783836,
+   "op2_te_state": 14.345070424091219,
+   "full_chain_all_outputs": 411.9275057478068,
+   "grad_dCl_gamma_dCST16": 17.120219953562337,
+   "grad_dCl_deployed_dCST16": 1480.9448150172693,
+   "grad_dCd_dCST16": 1466.765284203442,
+   "batch_wall_ms": 1127.4455832317472
+  }
+ },
+ "neuralfoil_xlarge": {
+  "us_per_case_batched_per_shape": 28.792782749016105,
+  "single_query_ms": 0.690896064043045,
+  "n_rows": 2688,
+  "n_shapes": 79
+ },
+ "xfoil_single_process": {
+  "s_per_case_median": 0.10408920000190847,
+  "s_per_case_mean": 0.14057692999995197,
+  "n": 40,
+  "n_converged": 39,
+  "settings": {
+   "n_panels": 200,
+   "max_iter": 200,
+   "n_crit": 7.0,
+   "timeout": 90.0,
+   "cache_bypassed": true
+  }
+ },
+ "ratios": {
+  "xfoil_over_full_chain_B1024": 327.8551684051289,
+  "xfoil_over_op1_cl_B1024": 10462.411214508147,
+  "full_chain_over_neuralfoil_B1024": 11.026558754529367,
+  "op1_cl_over_neuralfoil_B1024": 0.34553356805381746,
+  "grad_cl_gamma_over_forward_B1024": 2.341406127479985,
+  "grad_cl_deployed_over_chain_B1024": 3.129892858579521,
+  "grad_cd_over_chain_B1024": 3.115366718251415,
+  "cpu_graph_over_eager_chain_B1024": 0.514575046316956,
+  "gpu_graph_B512_over_cpu_eager_B1024_chain": 0.3956388326337185,
+  "cpu_graph_single_query_over_neuralfoil": 1.8759752724292438,
+  "cpu_graph_chain_B1024_over_neuralfoil_batched": 5.673676748123729
+ },
+ "sources": [
+  "_speed_confirmed_neuralfoil_20260919T163001Z.json",
+  "op2_cdloss raw/xfoil_time.json",
+  "_speed_confirmed_surface_20260919T202148Z.json (superseding 192547Z: chain now includes the deployed lift closure; adds grad of the deployed lift)",
+  "_speed_modes_mac_m5pro_cpu_20260920T125845Z.json",
+  "_speed_modes_rtx4060ti_gpu_20260920T125849Z.json",
+  "_speed_modes_rtx4060ti_midbatch_gpu_20260920T130133Z.json"
+ ],
+ "mario_published": {
+  "per_sample_ms": 88.0,
+  "breakdown_ms": {
+   "geometry_sdf_encoding": 80.0,
+   "field_prediction": 8.0
+  },
+  "hardware": "single NVIDIA A100 GPU (published)",
+  "mesh": "full-resolution AirfRANS mesh",
+  "source": "Catalani et al. 2025, arXiv:2505.14704, Table 4 ('geometry encoding (80ms) and physical field prediction (8ms)'); verified 2026-09-20 from the arXiv HTML",
+  "code": "https://github.com/giovannicatalani/MARIO (public; not run here)"
+ },
+ "gradient_verification": {
+  "method": "reverse-mode (TF GradientTape) d/dCST16 of the sheet lift readout Cl_gamma=2*sum(gamma*ds), of the deployed lift Cl = Cl_gamma + trailing-edge-state lift closure, and of the fitted-closure Cd, against central finite differences on 64 held-out cases, float32 chain",
+  "stats_per_step": {
+   "eps=0.01": {
+    "dCl_dCST16": {
+     "rel_err_median": 0.00817475703622466,
+     "rel_err_p90": 0.10058699806125738,
+     "rel_err_max": 2.2024674335343892,
+     "sign_agreement": 0.9970703125,
+     "componentwise_rel_err_median": 0.0015942852012220915,
+     "grad_norm_median": 1.3923642392981619
+    },
+    "dCd_dCST16": {
+     "rel_err_median": 0.023619451049787285,
+     "rel_err_p90": 0.06725430360816789,
+     "rel_err_max": 0.19863951541894354,
+     "sign_agreement": 0.9970703125,
+     "componentwise_rel_err_median": NaN,
+     "grad_norm_median": 0.044479650251857725
+    },
+    "dClclosed_dCST16": {
+     "rel_err_median": 0.007981781624079259,
+     "rel_err_p90": 0.08277154708085188,
+     "rel_err_max": 2.1825740423671323,
+     "sign_agreement": 0.9970703125,
+     "componentwise_rel_err_median": 0.0016596924500762158,
+     "grad_norm_median": 1.4310216423669242
+    }
+   },
+   "eps=0.005": {
+    "dCl_dCST16": {
+     "rel_err_median": 0.00262849140477235,
+     "rel_err_p90": 0.024057290306255454,
+     "rel_err_max": 0.2959610234379104,
+     "sign_agreement": 0.998046875,
+     "componentwise_rel_err_median": 0.0011512882555151835,
+     "grad_norm_median": 1.3923642392981619
+    },
+    "dCd_dCST16": {
+     "rel_err_median": 0.026054587311339118,
+     "rel_err_p90": 0.08511437174685237,
+     "rel_err_max": 0.3054960648580251,
+     "sign_agreement": 0.994140625,
+     "componentwise_rel_err_median": NaN,
+     "grad_norm_median": 0.044479650251857725
+    },
+    "dClclosed_dCST16": {
+     "rel_err_median": 0.0026160509659081867,
+     "rel_err_p90": 0.020781662023129085,
+     "rel_err_max": 0.2841900986737902,
+     "sign_agreement": 1.0,
+     "componentwise_rel_err_median": 0.0012407546780095306,
+     "grad_norm_median": 1.4310216423669242
+    }
+   },
+   "eps=0.001": {
+    "dCl_dCST16": {
+     "rel_err_median": 0.004382009497278551,
+     "rel_err_p90": 0.011059672416497485,
+     "rel_err_max": 0.022365613281700596,
+     "sign_agreement": 0.9970703125,
+     "componentwise_rel_err_median": 0.004075236875490191,
+     "grad_norm_median": 1.3923642392981619
+    },
+    "dCd_dCST16": {
+     "rel_err_median": 0.059801631052092664,
+     "rel_err_p90": 0.33895560870703206,
+     "rel_err_max": 0.9038773957733026,
+     "sign_agreement": 0.9765625,
+     "componentwise_rel_err_median": NaN,
+     "grad_norm_median": 0.044479650251857725
+    },
+    "dClclosed_dCST16": {
+     "rel_err_median": 0.004623817163890791,
+     "rel_err_p90": 0.011045237579359823,
+     "rel_err_max": 0.02296972406581928,
+     "sign_agreement": 0.998046875,
+     "componentwise_rel_err_median": 0.004123453321434415,
+     "grad_norm_median": 1.4310216423669242
+    }
+   },
+   "eps=0.0005": {
+    "dCl_dCST16": {
+     "rel_err_median": 0.007970034708236188,
+     "rel_err_p90": 0.019159042167832933,
+     "rel_err_max": 0.027008287339596065,
+     "sign_agreement": 0.998046875,
+     "componentwise_rel_err_median": 0.00705838571925513,
+     "grad_norm_median": 1.3923642392981619
+    },
+    "dCd_dCST16": {
+     "rel_err_median": 0.15913695472057443,
+     "rel_err_p90": 0.6738602806448266,
+     "rel_err_max": 0.9199071643992139,
+     "sign_agreement": 0.96875,
+     "componentwise_rel_err_median": NaN,
+     "grad_norm_median": 0.044479650251857725
+    },
+    "dClclosed_dCST16": {
+     "rel_err_median": 0.009076682246656517,
+     "rel_err_p90": 0.019103132243288683,
+     "rel_err_max": 0.029730358462416985,
+     "sign_agreement": 0.9970703125,
+     "componentwise_rel_err_median": 0.007565770898924098,
+     "grad_norm_median": 1.4310216423669242
+    }
+   }
+  },
+  "sources": [
+   "_grad_check_20260919T202320Z.json",
+   "_grad_check_20260919T202324Z.json"
+  ]
+ },
+ "surface_run_note": "surface block replaced 2026-09-20 by run 20260919T192547Z: the closure is called with (theta_TE, delta*_TE, u_e,TE) as in the sealed evaluations (the first run passed H_TE in place of delta*, clipping every Cd to 0.1 -- forward timings unaffected, values wrong) and the gradient rows are real reverse-mode gradients asserted non-None (the first run's gradient rows timed a None gradient, i.e. forward only). Gradients cost 2.2x (dCl vs sheet+Cl) and 3.0x (dCd vs full chain) a forward pass, not ~1x. | 2026-09-20 (lift closure adopted): surface block replaced by run 20260919T202148Z; full chain = every surface output + deployed lift (Cl_gamma + TE-state closure, VortFoil_v2/artifacts/lift_closure_20260920/weights/lift_closure_poly2.npz) + Cd; new column grad of the deployed lift, 3.13x chain at B=1024 (shares the BL-operator backward pass with dCd, 3.12x).",
+ "implementation_conditions": {
+  "note": "same chain/weights/inputs as the deployed eager-CPU reference; graph = tf.function without XLA; GPU timings include a host copy of one output; RTX 4060 Ti (8 GB, Windows, TF 2.10) out of memory at B>=1024 (panel kernel B x 240 x 241 + gradient tape)",
+  "cpu_eager_B1024_us": {
+   "sheet_cl_us_per_case": 11.249349199715653,
+   "full_chain_us_per_case": 317.4676719481795,
+   "grad_dCl_dCST16_us_per_case": 984.9338987351075,
+   "grad_dCd_dCST16_us_per_case": 973.6988113218104,
+   "batch_wall_full_chain_ms": 325.0868960749358,
+   "ratios": {
+    "grad_cl_over_chain": 3.1024699072221726,
+    "grad_cd_over_chain": 3.067080201730739
+   }
+  },
+  "cpu_graph_B1024_us": {
+   "sheet_cl_us_per_case": 5.097330586067983,
+   "full_chain_us_per_case": 163.36094199687068,
+   "grad_dCl_dCST16_us_per_case": 561.9313146780769,
+   "grad_dCd_dCST16_us_per_case": 565.3097330196033,
+   "batch_wall_full_chain_ms": 167.28160460479558,
+   "ratios": {
+    "grad_cl_over_chain": 3.4398143632695333,
+    "grad_cd_over_chain": 3.4604950614843557
+   }
+  },
+  "cpu_eager_B1": {
+   "sheet_cl_us_per_case": 2401.478821411729,
+   "full_chain_us_per_case": 11273.042298853397,
+   "grad_dCl_dCST16_us_per_case": 32611.625269055367,
+   "grad_dCd_dCST16_us_per_case": 31309.74993109703,
+   "batch_wall_full_chain_ms": 11.273042298853397,
+   "ratios": {
+    "grad_cl_over_chain": 2.892885913536611,
+    "grad_cd_over_chain": 2.777400199614403
+   }
+  },
+  "cpu_graph_B1": {
+   "sheet_cl_us_per_case": 360.77038384974,
+   "full_chain_us_per_case": 1296.1039319634438,
+   "grad_dCl_dCST16_us_per_case": 2640.167251229286,
+   "grad_dCd_dCST16_us_per_case": 2628.6672800779343,
+   "batch_wall_full_chain_ms": 1.2961039319634438,
+   "ratios": {
+    "grad_cl_over_chain": 2.037002732666466,
+    "grad_cd_over_chain": 2.028130009678942
+   }
+  },
+  "gpu_graph_B512_us": {
+   "sheet_cl_us_per_case": 4.847265699936543,
+   "full_chain_us_per_case": 125.60253912852204,
+   "grad_dCl_dCST16_us_per_case": 394.5107422396177,
+   "grad_dCd_dCST16_us_per_case": 394.43164064323355,
+   "batch_wall_full_chain_ms": 64.30850003380328,
+   "ratios": {
+    "grad_cl_over_chain": 3.1409455969352416,
+    "grad_cd_over_chain": 3.1403158198866805
+   }
+  },
+  "gpu_graph_B128_us": {
+   "sheet_cl_us_per_case": 18.78749981187866,
+   "full_chain_us_per_case": 147.56249993297388,
+   "grad_dCl_dCST16_us_per_case": 423.22656236137846,
+   "grad_dCd_dCST16_us_per_case": 424.0140624460764,
+   "batch_wall_full_chain_ms": 18.887999991420656,
+   "ratios": {
+    "grad_cl_over_chain": 2.868117323531502,
+    "grad_cd_over_chain": 2.8734540458359876
+   }
+  },
+  "gpu_graph_B256_us": {
+   "sheet_cl_us_per_case": 9.583203109286842,
+   "full_chain_us_per_case": 223.58476553563378,
+   "grad_dCl_dCST16_us_per_case": 408.4296874680149,
+   "grad_dCd_dCST16_us_per_case": 410.7550782919134,
+   "batch_wall_full_chain_ms": 57.23769997712225,
+   "ratios": {
+    "grad_cl_over_chain": 1.8267330803579347,
+    "grad_cd_over_chain": 1.8371335690420705
+   }
+  },
+  "gpu_graph_B64_us": {
+   "sheet_cl_us_per_case": 32.47187487431802,
+   "full_chain_us_per_case": 172.94999952355283,
+   "grad_dCl_dCST16_us_per_case": 468.831249690993,
+   "grad_dCd_dCST16_us_per_case": 472.31171856765286,
+   "batch_wall_full_chain_ms": 11.068799969507381,
+   "ratios": {
+    "grad_cl_over_chain": 2.710790696632215,
+    "grad_cd_over_chain": 2.7309148301173143
+   }
+  },
+  "gpu_graph_B1": {
+   "sheet_cl_us_per_case": 2202.9500105418265,
+   "full_chain_us_per_case": 8242.799987783656,
+   "grad_dCl_dCST16_us_per_case": 15678.600000683218,
+   "grad_dCd_dCST16_us_per_case": 14727.899979334325,
+   "batch_wall_full_chain_ms": 8.242799987783656,
+   "ratios": {
+    "grad_cl_over_chain": 1.90209637792011,
+    "grad_cd_over_chain": 1.7867593537586732
+   }
+  },
+  "gpu_eager_B64_us": {
+   "sheet_cl_us_per_case": 336.5468746778788,
+   "full_chain_us_per_case": 1458.8976559934963,
+   "grad_dCl_dCST16_us_per_case": 3868.7117184963427,
+   "grad_dCd_dCST16_us_per_case": 3606.00390649779,
+   "batch_wall_full_chain_ms": 93.36944998358376,
+   "ratios": {
+    "grad_cl_over_chain": 2.6518047394227833,
+    "grad_cd_over_chain": 2.4717319214843303
+   }
+  },
+  "gpu_eager_B1": {
+   "sheet_cl_us_per_case": 21538.64997671917,
+   "full_chain_us_per_case": 93199.80000145733,
+   "grad_dCl_dCST16_us_per_case": 244270.49997029826,
+   "grad_dCd_dCST16_us_per_case": 226013.19995010272,
+   "batch_wall_full_chain_ms": 93.19980000145733,
+   "ratios": {
+    "grad_cl_over_chain": 2.620933735549633,
+    "grad_cd_over_chain": 2.425039538138157
+   }
+  },
+  "gpu_errors": {
+   "eager": [
+    "1024",
+    "2737"
+   ],
+   "graph": [
+    "1024",
+    "2737"
+   ]
+  },
+  "hosts": {
+   "cpu": "macOS-26.6.1-arm64-arm-64bit",
+   "gpu": "Windows-10-10.0.26200-SP0 / /physical_device:GPU:0"
+  },
+  "sources": [
+   "_speed_modes_mac_m5pro_cpu_20260920T125845Z.json",
+   "_speed_modes_rtx4060ti_gpu_20260920T125849Z.json",
+   "_speed_modes_rtx4060ti_midbatch_gpu_20260920T130133Z.json"
+  ]
+ },
+ "release_note": "Release copy of VortFoil/tables/speed/_speed_confirmed_summary.json (sha256 f83293039a6d8657effb599db6e5c433085700026b817b708ee714d435e390ca) without its field-pathway entries (field_pathway_per_case, loadavg.field_*, ratios.field_pathway_over_mario_published, the field source file and mario_published.comparison_note), which timed a different decoder checkpoint. The field timing of the deployed operator-conditioned decoder is results/_speed_confirmed_field_f0cm_20261002T053715Z.json."
+}
