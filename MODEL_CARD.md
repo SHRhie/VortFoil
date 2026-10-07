@@ -162,7 +162,7 @@ Youngren, GPL v2 or later); see [`NOTICE`](NOTICE). Data attributions are in
 [`DATA_LICENSES.md`](DATA_LICENSES.md).
 
 Authors: Sang-Hyun Rhie (Kyung Hee University), Gyuwon Kim (Kyung Hee
-University), Jeongsu Lee (Kyung Hee University).
+University), Suhyeong Lim (Kyung Hee University), Jeongsu Lee (Kyung Hee University).
 
 ## Citation
 

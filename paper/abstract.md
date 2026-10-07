@@ -1,6 +1,6 @@
 # VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction
 
-Sang-Hyun Rhie, Gyuwon Kim, Jeongsu Lee — Department of Mechanical Engineering, Kyung Hee University
+Sang-Hyun Rhie, Gyuwon Kim, Suhyeong Lim, Jeongsu Lee — Department of Mechanical Engineering, Kyung Hee University
 
 ## Abstract
 

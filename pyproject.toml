@@ -12,6 +12,7 @@ license = "GPL-3.0-or-later"     # LICENSE and NOTICE are picked up by hatchling
 authors = [
   { name = "Sang-Hyun Rhie" },
   { name = "Gyuwon Kim" },
+  { name = "Suhyeong Lim" },
   { name = "Jeongsu Lee" },
 ]
 keywords = ["aerodynamics", "airfoil", "neural-operator", "surrogate-model", "vortex-panel", "xfoil"]
