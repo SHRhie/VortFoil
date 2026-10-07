@@ -128,7 +128,7 @@ Full history is in [`CHANGELOG.md`](../CHANGELOG.md); intended use and limits ar
 ## Attribution and citation
 
 The anti-derivative approximator and the staged-operator base are Prof. Jeongsu Lee's; this
-package packages the VortFoil build of that line. Authors: Sang-Hyun Rhie, Gyuwon Kim and
+package packages the VortFoil build of that line. Authors: Sang-Hyun Rhie, Gyuwon Kim, Suhyeong Lim and
 Jeongsu Lee, Department of Mechanical Engineering, Kyung Hee University.
 
 See [`CITATION.cff`](../CITATION.cff). Licensed under the GNU GPL v3 or later, because the

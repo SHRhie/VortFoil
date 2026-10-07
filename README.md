@@ -27,7 +27,7 @@ See [`paper/abstract.md`](paper/abstract.md) for the manuscript abstract. The ma
 record; the abstract here is a mirror and is never edited in place.
 
 > **Status.** Version 2.0.0 accompanies the manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
-> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, J. Lee), prepared for *Computer Methods in Applied
+> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee), prepared for *Computer Methods in Applied
 > Mechanics and Engineering*. No tagged release or DOI exists yet; `CITATION.cff` will carry the DOI once one
 > is minted. The license is GPL-3.0-or-later (see *License* below).
 

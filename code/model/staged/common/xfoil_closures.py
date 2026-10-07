@@ -2,7 +2,7 @@
 # Translated from XFOIL 6.99 (src/xblsys.f, src/xbl.f), Copyright (C) 2000 Mark Drela, Harold Youngren.
 # XFOIL is licensed under the GNU GPL, version 2 or (at your option) any later version. This modified
 # version is distributed under the GNU GPL version 3 or later as part of VortFoil,
-# Copyright (C) 2026 Sang-Hyun Rhie, Gyuwon Kim, Jeongsu Lee. See LICENSE and NOTICE.
+# Copyright (C) 2026 Sang-Hyun Rhie, Gyuwon Kim, Suhyeong Lim, Jeongsu Lee. See LICENSE and NOTICE.
 """
 1:1 Python/TensorFlow translation of XFOIL 6.99 BL closures (Drela 1989+).
 

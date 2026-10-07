@@ -14,6 +14,9 @@ authors:
   - family-names: Kim
     given-names: Gyuwon
     affiliation: "Kyung Hee University"
+  - family-names: Lim
+    given-names: Suhyeong
+    affiliation: "Kyung Hee University"
   - family-names: Lee
     given-names: Jeongsu
     affiliation: "Kyung Hee University"
@@ -30,6 +33,9 @@ preferred-citation:
       affiliation: "Kyung Hee University"
     - family-names: Kim
       given-names: Gyuwon
+      affiliation: "Kyung Hee University"
+    - family-names: Lim
+      given-names: Suhyeong
       affiliation: "Kyung Hee University"
     - family-names: Lee
       given-names: Jeongsu
