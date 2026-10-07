@@ -1,0 +1,97 @@
+[shape] npz=_nf_train_v5_full800_provider_maxs.npz rows=12009281 cases=800 src1=0 tokens=(800, 256, 2)
+[shape] holdout cases 20 (300360 rows), train rows 11708921; stds={'ux': 28.8268, 'uy': 28.66885, 'p': 2101.8534, 'nut': 0.00271}
+[shape] t_mean=[ 4.371800e+01  7.466300e+00 -3.619572e+02  1.000000e-03]  Y var=[1.009 0.776 1.602 1.754]
+[shape] GPU on: 1 dev
+[shape] --seed 1 (initialiser); FF_SEED=0, shuffle RandomState(0)
+2026-09-25 22:17:44.571387: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX AVX2
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-09-25 22:17:44.642280: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1616] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 5527 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 4060 Ti, pci bus id: 0000:01:00.0, compute capability: 8.9
+2026-09-25 22:17:44.696376: I tensorflow/stream_executor/cuda/cuda_blas.cc:1614] TensorFloat-32 will be used for the matrix multiplication. This will only be logged once.
+[shape] PARAMS total=305180 (encoder=2736, trunk x5@248, c=[a,re,z16,s,paint4]=23d w_uy=1 enc_w=32, OB=50)
+[shape] curriculum ep1-10: 5468921/11708921 rows
+[shape] ep   1/80 lr=1e-03 loss=0.60543 (5468921 rows, 668 steps) 15.0s
+[shape] holdout (ep1): ux=1.1939e-01  uy=1.7210e-01  p=3.6519e-01  nut=2.5542e+00  | explosions 0/20
+[shape] ep   2/80 lr=1e-03 loss=0.16168 (5468921 rows, 668 steps) 11.5s
+[shape] ep   3/80 lr=1e-03 loss=0.11304 (5468921 rows, 668 steps) 11.6s
+[shape] ep   4/80 lr=1e-03 loss=0.09275 (5468921 rows, 668 steps) 11.6s
+[shape] ep   5/80 lr=1e-03 loss=0.07992 (5468921 rows, 668 steps) 11.6s
+[shape] ep   6/80 lr=1e-03 loss=0.07097 (5468921 rows, 668 steps) 11.5s
+[shape] ep   7/80 lr=1e-03 loss=0.06456 (5468921 rows, 668 steps) 11.6s
+[shape] ep   8/80 lr=1e-03 loss=0.05634 (5468921 rows, 668 steps) 11.4s
+[shape] ep   9/80 lr=1e-03 loss=0.05523 (5468921 rows, 668 steps) 11.4s
+[shape] ep  10/80 lr=1e-03 loss=0.06182 (5468921 rows, 668 steps) 11.5s
+[shape] holdout (ep10): ux=1.5520e-01  uy=1.4220e-01  p=1.3424e-01  nut=8.7044e+00  | explosions 0/20
+[shape] ep  11/80 lr=1e-03 loss=0.10081 (11708921 rows, 1430 steps) 25.7s
+[shape] ep  12/80 lr=1e-03 loss=0.04597 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  13/80 lr=1e-03 loss=0.03226 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  14/80 lr=1e-03 loss=0.02172 (11708921 rows, 1430 steps) 25.5s
+[shape] ep  15/80 lr=1e-03 loss=0.01912 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  16/80 lr=1e-03 loss=0.01705 (11708921 rows, 1430 steps) 24.8s
+[shape] ep  17/80 lr=1e-03 loss=0.01245 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  18/80 lr=1e-03 loss=0.01256 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  19/80 lr=1e-03 loss=0.01196 (11708921 rows, 1430 steps) 24.8s
+[shape] ep  20/80 lr=1e-03 loss=0.01035 (11708921 rows, 1430 steps) 24.6s
+[shape] holdout (ep20): ux=4.0124e-03  uy=8.3818e-03  p=2.0081e-02  nut=1.4921e-02  | explosions 0/20
+[shape] ep  21/80 lr=1e-03 loss=0.00934 (11708921 rows, 1430 steps) 24.3s
+[shape] ep  22/80 lr=1e-03 loss=0.00961 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  23/80 lr=1e-03 loss=0.00880 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  24/80 lr=1e-03 loss=0.00936 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  25/80 lr=1e-03 loss=0.00707 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  26/80 lr=1e-03 loss=0.00768 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  27/80 lr=1e-03 loss=0.00651 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  28/80 lr=1e-03 loss=0.00711 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  29/80 lr=1e-03 loss=0.00617 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  30/80 lr=1e-03 loss=0.00560 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  31/80 lr=3e-04 loss=0.00291 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  32/80 lr=3e-04 loss=0.00294 (11708921 rows, 1430 steps) 24.9s
+[shape] ep  33/80 lr=3e-04 loss=0.00289 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  34/80 lr=3e-04 loss=0.00286 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  35/80 lr=3e-04 loss=0.00276 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  36/80 lr=3e-04 loss=0.00274 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  37/80 lr=3e-04 loss=0.00266 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  38/80 lr=3e-04 loss=0.00258 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  39/80 lr=3e-04 loss=0.00261 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  40/80 lr=3e-04 loss=0.00244 (11708921 rows, 1430 steps) 24.5s
+[shape] holdout (ep40): ux=1.9965e-03  uy=2.5447e-03  p=2.9876e-03  nut=1.0553e-02  | explosions 0/20
+[shape] ep  41/80 lr=3e-04 loss=0.00242 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  42/80 lr=3e-04 loss=0.00238 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  43/80 lr=3e-04 loss=0.00229 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  44/80 lr=3e-04 loss=0.00224 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  45/80 lr=3e-04 loss=0.00220 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  46/80 lr=3e-04 loss=0.00217 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  47/80 lr=3e-04 loss=0.00215 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  48/80 lr=3e-04 loss=0.00208 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  49/80 lr=3e-04 loss=0.00206 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  50/80 lr=3e-04 loss=0.00204 (11708921 rows, 1430 steps) 24.3s
+[shape] ep  51/80 lr=3e-04 loss=0.00201 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  52/80 lr=3e-04 loss=0.00198 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  53/80 lr=3e-04 loss=0.00194 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  54/80 lr=3e-04 loss=0.00193 (11708921 rows, 1430 steps) 24.4s
+[shape] ep  55/80 lr=3e-04 loss=0.00188 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  56/80 lr=3e-04 loss=0.00192 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  57/80 lr=3e-04 loss=0.00184 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  58/80 lr=3e-04 loss=0.00185 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  59/80 lr=3e-04 loss=0.00181 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  60/80 lr=3e-04 loss=0.00178 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  61/80 lr=1e-04 loss=0.00126 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  62/80 lr=1e-04 loss=0.00128 (11708921 rows, 1430 steps) 24.8s
+[shape] ep  63/80 lr=1e-04 loss=0.00127 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  64/80 lr=1e-04 loss=0.00128 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  65/80 lr=1e-04 loss=0.00124 (11708921 rows, 1430 steps) 24.8s
+[shape] ep  66/80 lr=1e-04 loss=0.00122 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  67/80 lr=1e-04 loss=0.00122 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  68/80 lr=1e-04 loss=0.00120 (11708921 rows, 1430 steps) 24.3s
+[shape] ep  69/80 lr=1e-04 loss=0.00120 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  70/80 lr=1e-04 loss=0.00120 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  71/80 lr=1e-04 loss=0.00118 (11708921 rows, 1430 steps) 24.5s
+[shape] ep  72/80 lr=1e-04 loss=0.00118 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  73/80 lr=1e-04 loss=0.00117 (11708921 rows, 1430 steps) 24.8s
+[shape] ep  74/80 lr=1e-04 loss=0.00114 (11708921 rows, 1430 steps) 24.9s
+[shape] ep  75/80 lr=1e-04 loss=0.00114 (11708921 rows, 1430 steps) 25.0s
+[shape] ep  76/80 lr=1e-04 loss=0.00113 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  77/80 lr=1e-04 loss=0.00112 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  78/80 lr=1e-04 loss=0.00112 (11708921 rows, 1430 steps) 24.6s
+[shape] ep  79/80 lr=1e-04 loss=0.00110 (11708921 rows, 1430 steps) 24.7s
+[shape] ep  80/80 lr=1e-04 loss=0.00110 (11708921 rows, 1430 steps) 24.5s
+[shape] holdout (ep80): ux=1.4586e-03  uy=1.5077e-03  p=2.3170e-03  nut=5.2554e-03  | explosions 0/20
+[shape] wrote C:\Users\KHU\nfgpu\supervised_field\_nf_shape_f0cm_s1.npz (1901s total)

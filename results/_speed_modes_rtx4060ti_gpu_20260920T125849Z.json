@@ -1,0 +1,80 @@
+{
+ "schema": "VF_SPEED_SURFACE_MODES_V1",
+ "utc": "20260920T125849Z",
+ "tag": "rtx4060ti",
+ "host": "Windows-10-10.0.26200-SP0",
+ "cpu_count": 20,
+ "tf": "2.10.0",
+ "device": "gpu",
+ "gpus": [
+  "/physical_device:GPU:0"
+ ],
+ "weights": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz",
+  "op2": "CANDIDATE_op2_m325_BT.npz",
+  "lift_closure": "lift_closure_poly2.npz"
+ },
+ "note": "same chain as vf_speed_surface.py (deployed reference = eager CPU); graph = tf.function without XLA; medians after warm-up; GPU timings include the host copy of one output",
+ "modes": {
+  "eager": {
+   "1": {
+    "sheet_cl_us_per_case": 21538.64997671917,
+    "full_chain_us_per_case": 93199.80000145733,
+    "grad_dCl_dCST16_us_per_case": 244270.49997029826,
+    "grad_dCd_dCST16_us_per_case": 226013.19995010272,
+    "batch_wall_full_chain_ms": 93.19980000145733,
+    "ratios": {
+     "grad_cl_over_chain": 2.620933735549633,
+     "grad_cd_over_chain": 2.425039538138157
+    }
+   },
+   "64": {
+    "sheet_cl_us_per_case": 336.5468746778788,
+    "full_chain_us_per_case": 1458.8976559934963,
+    "grad_dCl_dCST16_us_per_case": 3868.7117184963427,
+    "grad_dCd_dCST16_us_per_case": 3606.00390649779,
+    "batch_wall_full_chain_ms": 93.36944998358376,
+    "ratios": {
+     "grad_cl_over_chain": 2.6518047394227833,
+     "grad_cd_over_chain": 2.4717319214843303
+    }
+   },
+   "1024": {
+    "error": "ResourceExhaustedError()"
+   },
+   "2737": {
+    "error": "ResourceExhaustedError()"
+   }
+  },
+  "graph": {
+   "1": {
+    "sheet_cl_us_per_case": 2202.9500105418265,
+    "full_chain_us_per_case": 8242.799987783656,
+    "grad_dCl_dCST16_us_per_case": 15678.600000683218,
+    "grad_dCd_dCST16_us_per_case": 14727.899979334325,
+    "batch_wall_full_chain_ms": 8.242799987783656,
+    "ratios": {
+     "grad_cl_over_chain": 1.90209637792011,
+     "grad_cd_over_chain": 1.7867593537586732
+    }
+   },
+   "64": {
+    "sheet_cl_us_per_case": 32.47187487431802,
+    "full_chain_us_per_case": 172.94999952355283,
+    "grad_dCl_dCST16_us_per_case": 468.831249690993,
+    "grad_dCd_dCST16_us_per_case": 472.31171856765286,
+    "batch_wall_full_chain_ms": 11.068799969507381,
+    "ratios": {
+     "grad_cl_over_chain": 2.710790696632215,
+     "grad_cd_over_chain": 2.7309148301173143
+    }
+   },
+   "1024": {
+    "error": "ResourceExhaustedError()"
+   },
+   "2737": {
+    "error": "ResourceExhaustedError()"
+   }
+  }
+ }
+}

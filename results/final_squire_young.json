@@ -1,0 +1,39 @@
+{
+ "op2_weights": "op2_final_eps0.50_direct.m325_BT.npz",
+ "head_mode": "bt",
+ "closure": "squire_young",
+ "op1_weights": "op1_supervised_eps0.50.scr_bd128.npz",
+ "n": 2737,
+ "cd_raw_r2": 0.8389828897053597,
+ "cd_log_r2": 0.8851142264129982,
+ "cd_medape_pct": 4.527050256729126,
+ "nonfinite_cd_pred": 0,
+ "clamped_rows": 2,
+ "te_state_median_rel_err": {
+  "theta_TE": 0.02469232256476961,
+  "dstar_TE": 0.05214219434090228,
+  "ue_TE": 0.003993762908165999
+ },
+ "te_state_r2": {
+  "theta_TE": 0.9458766925414238,
+  "dstar_TE": 0.32986976507633725,
+  "ue_TE": 0.9424667625066028
+ },
+ "cl_raw_r2": 0.9862296918968161,
+ "cl_mae": 0.023656690808181707,
+ "by_alpha_band": {
+  "a<0": {
+   "n": 613,
+   "cd_raw_r2": 0.8799326770326178
+  },
+  "0<=a<8": {
+   "n": 1255,
+   "cd_raw_r2": 0.8231795212920563
+  },
+  "a>=8": {
+   "n": 869,
+   "cd_raw_r2": 0.7228848043253455
+  }
+ },
+ "gate": "holdout_targets.npz, the exact gate of max_phys_lever_a_clip.py / cdgate_deployed_state.py"
+}

@@ -1,0 +1,286 @@
+{
+ "schema": "DEPLOYED_WEIGHT_FIELD_RESULTS_V1",
+ "utc": "2026-09-20T21:40+09:00",
+ "note": "Pruned copy for the release of VortFoil/tables/field_deployed_weights.json (research repository, sha256 b4a8547d02e36139610e2937aea30bbbb0d6383229cfb35622a13b6bbdde299e). It keeps the two field decoders the manuscript reports: deployed.xfoil_conditioned and deployed.operator_conditioned (renamed from deployed.airfrans_only, without its 'previous' field), selection.f0a, selection.f0cm, by_alpha_band_operator_conditioned (renamed from by_alpha_band_airfrans_only) and their sources. Entries for other decoders and the status notes are omitted, and one clause naming other decoders is cut from selection.f0a.source. Paths are research-tree paths; the shipped files are weights/field_decoder_f0a_s<run>.npz and weights/field_decoder_f0cm_s<run>.npz.",
+ "selection": {
+  "f0a": {
+   "rule": "argmin over runs of the mean of the four standardized channel MSEs on the trainer's 20-case AirfRANS validation holdout (never in full_test)",
+   "recorded_20260920_from_duplicate_rerun": {
+    "holdout": {
+     "0": {
+      "epoch": 80,
+      "ux": 0.0013153,
+      "uy": 0.0020089,
+      "p": 0.0075882,
+      "nut": 0.0039725
+     },
+     "1": {
+      "epoch": 80,
+      "ux": 0.0017726,
+      "uy": 0.0017964,
+      "p": 0.01237,
+      "nut": 0.0033752
+     },
+     "2": {
+      "epoch": 40,
+      "ux": 0.0022085,
+      "uy": 0.0026421,
+      "p": 0.01361,
+      "nut": 0.0090729
+     }
+    },
+    "score": {
+     "0": 0.003721225,
+     "1": 0.004828550000000001,
+     "2": 0.006883375000000001
+    },
+    "deployed_seed": 0,
+    "note": "copied on 2026-09-20 from GPU logs that a duplicate re-run (scheduled task re-fired 2026-09-03 23:59 KST) had overwritten; the run 2 entry was an epoch-40 line of a killed run; none of these values belongs to the deployed weight files"
+   },
+   "holdout": {
+    "0": {
+     "ux": 0.0013668546784580422,
+     "uy": 0.0018797814522250938,
+     "p": 0.01108928198585451,
+     "nut": 0.003305289729066117,
+     "epoch": 80,
+     "sha256": "d90b88a5757e8bca8dcb13c43a6ca2e5edc56e1476f8848e0a7afb4eaaa5fc69"
+    },
+    "1": {
+     "ux": 0.0012388553969885307,
+     "uy": 0.0015248726508645465,
+     "p": 0.01068980065284216,
+     "nut": 0.0027589789240672602,
+     "epoch": 80,
+     "sha256": "118face2a9e8fae74fb2a4dde042e1c8cc886a8bb42c314595737d73fc3ad844"
+    },
+    "2": {
+     "ux": 0.001748368137281691,
+     "uy": 0.002664452397987047,
+     "p": 0.006629108654319422,
+     "nut": 0.0038569717983132504,
+     "epoch": 80,
+     "sha256": "1440f8f4dbd3c9aad819509530bdf386015dfcaf7e70c6e5b06979e6d8008552"
+    }
+   },
+   "score": {
+    "0": 0.004410301961400941,
+    "1": 0.004053126906190624,
+    "2": 0.0037247252469753524
+   },
+   "deployed_seed": 2,
+   "source": "VortFoil/code/field_holdout_score.py -> VortFoil/artifacts/f0a_holdout_rescore_20260930.jsonl (numpy forward of the sealed trainer holdout()); independent check wf_e972ebb4-c79"
+  },
+  "f0cm": {
+   "rule": "argmin over runs of the mean of the four standardized channel MSEs on the trainer's 20-case AirfRANS validation holdout (never in full_test)",
+   "s_rule": "teH: s = clip((max(H_TE,upper, H_TE,lower) - 2)/8, 0, 1), AirfRANS training rows and evaluation",
+   "holdout": {
+    "0": {
+     "epoch": 80,
+     "ux": 0.0014082,
+     "uy": 0.0014913,
+     "p": 0.0056258,
+     "nut": 0.0036444
+    },
+    "1": {
+     "epoch": 80,
+     "ux": 0.0014586,
+     "uy": 0.0015077,
+     "p": 0.002317,
+     "nut": 0.0052554
+    },
+    "2": {
+     "epoch": 80,
+     "ux": 0.0013329,
+     "uy": 0.001617,
+     "p": 0.0064275,
+     "nut": 0.0040418
+    }
+   },
+   "score": {
+    "0": 0.0030424249999999996,
+    "1": 0.002634675,
+    "2": 0.0033548000000000002
+   },
+   "deployed_seed": 1,
+   "source": [
+    "VortFoil/artifacts/one_rule_retrain/f0cm_summary.json",
+    "VortFoil/artifacts/one_rule_retrain/gpu_logs/f0cm_s0.log",
+    "VortFoil/artifacts/one_rule_retrain/gpu_logs/f0cm_s1.log",
+    "VortFoil/artifacts/one_rule_retrain/gpu_logs/f0cm_s2.log"
+   ]
+  }
+ },
+ "deployed": {
+  "xfoil_conditioned": {
+   "seed": 2,
+   "weights": "supervised_field/_nf_shape_f0a_s2.npz",
+   "weights_sha256": "1440f8f4dbd3c9aad819509530bdf386015dfcaf7e70c6e5b06979e6d8008552",
+   "full_test_all": {
+    "ux": 0.001613642966372428,
+    "uy": 0.0020691321482721363,
+    "p": 0.0035356291059567635,
+    "nut": 0.00933965555370697
+   },
+   "vs_MARIO": {
+    "ux": 1.0616072147187026,
+    "uy": 1.8310903967010053,
+    "p": 1.4731787941486512,
+    "nut": 0.9728807868444753
+   },
+   "sealed_evaluation": "evaluation_runs/_nf_shape_f0a_s2__full_test__n200__verify__20260903T040834Z",
+   "previous_seed0_full_test_all": {
+    "ux": 0.0015765954270061356,
+    "uy": 0.001855935345003906,
+    "p": 0.0037560638525731397,
+    "nut": 0.0139702794538248
+   }
+  },
+  "operator_conditioned": {
+   "seed": 1,
+   "weights": "supervised_field/_nf_shape_f0cm_s1.npz",
+   "weights_sha256": "5e72da181372c9b966f2b306c32f9a92aaa069704979646ed713726718568c33",
+   "selection": "selection.f0cm",
+   "s_rule": "teH (gate0_confirmed_state_provider.ConfirmedStateProvider(s_rule='teH'), no MeanSideProvider)",
+   "full_test_all": {
+    "ux": 0.001255903233237137,
+    "uy": 0.0012727830943330995,
+    "p": 0.002128384531025773,
+    "nut": 0.00706358128939325
+   },
+   "vs_xfoil_conditioned": {
+    "ux": {
+     "R": 0.7783030443596127,
+     "ci95": [
+      0.6435097317677821,
+      0.9055582908476131
+     ],
+     "n_improved": 131
+    },
+    "uy": {
+     "R": 0.6151289541346879,
+     "ci95": [
+      0.4605418800293057,
+      0.8065619364031773
+     ],
+     "n_improved": 133
+    },
+    "p": {
+     "R": 0.6019818446001336,
+     "ci95": [
+      0.2758253432950343,
+      0.9647195324730797
+     ],
+     "n_improved": 114
+    },
+    "nut": {
+     "R": 0.756299977956861,
+     "ci95": [
+      0.3271549197866224,
+      1.6321319359484943
+     ],
+     "n_improved": 155
+    }
+   },
+   "vs_MARIO": {
+    "ux": 0.8262521271296953,
+    "uy": 1.1263567206487606,
+    "p": 0.8868268879274055,
+    "nut": 0.7357897176451302
+   },
+   "source": "VortFoil/artifacts/step2_eval_f0cm_20260925T213247Z"
+  }
+ },
+ "by_alpha_band_operator_conditioned": {
+  "[-6,0)": {
+   "n": 55,
+   "abs": {
+    "ux": 0.0011255353585300288,
+    "uy": 0.0006749464595085417,
+    "p": 0.0005773563810054981,
+    "nut": 0.0029814264701260055
+   },
+   "over_xfoil_conditioned": {
+    "ux": 0.9144469588083328,
+    "uy": 0.9447389032915614,
+    "p": 1.044657618889775,
+    "nut": 1.078311075897524
+   },
+   "over_MARIO_aggregate": {
+    "ux": 0.7404837885065978,
+    "uy": 0.5972977517774706,
+    "p": 0.2405651587522909,
+    "nut": 0.3105652573047923
+   }
+  },
+  "[0,8)": {
+   "n": 79,
+   "abs": {
+    "ux": 0.0006466970103879032,
+    "uy": 0.0005718202964034714,
+    "p": 0.00031798818851918817,
+    "nut": 0.0007245245864326056
+   },
+   "over_xfoil_conditioned": {
+    "ux": 1.0316908148408632,
+    "uy": 0.9666548505874105,
+    "p": 1.1259831607518294,
+    "nut": 0.744617722186211
+   },
+   "over_MARIO_aggregate": {
+    "ux": 0.4254585594657259,
+    "uy": 0.5060356605340456,
+    "p": 0.1324950785496617,
+    "nut": 0.07547131108672976
+   }
+  },
+  "[8,12)": {
+   "n": 44,
+   "abs": {
+    "ux": 0.0018622071547904741,
+    "uy": 0.0018102413819798525,
+    "p": 0.0018391362530653778,
+    "nut": 0.0036262759772404123
+   },
+   "over_xfoil_conditioned": {
+    "ux": 1.0137253988331751,
+    "uy": 0.8033177588290475,
+    "p": 0.6289630989698867,
+    "nut": 0.9147899309761501
+   },
+   "over_MARIO_aggregate": {
+    "ux": 1.2251362860463648,
+    "uy": 1.6019835238759756,
+    "p": 0.7663067721105742,
+    "nut": 0.37773708096254305
+   }
+  },
+  "[12,16)": {
+   "n": 22,
+   "abs": {
+    "ux": 0.002556819240765935,
+    "uy": 0.004209551789575557,
+    "p": 0.013085420146452715,
+    "nut": 0.04690655530431662
+   },
+   "over_xfoil_conditioned": {
+    "ux": 0.45113675899372546,
+    "uy": 0.40503223808503663,
+    "p": 0.547549840363387,
+    "nut": 0.7046032710325343
+   },
+   "over_MARIO_aggregate": {
+    "ux": 1.6821179215565358,
+    "uy": 3.7252670704208466,
+    "p": 5.452258394355298,
+    "nut": 4.886099510866315
+   }
+  }
+ },
+ "sources": {
+  "f0a_sealed": [
+   "evaluation_runs/_nf_shape_f0a_s2__full_test__n200__verify__20260903T040834Z"
+  ],
+  "f0cm": "VortFoil/artifacts/step2_eval_f0cm_20260925T213247Z/per_case.npz"
+ }
+}

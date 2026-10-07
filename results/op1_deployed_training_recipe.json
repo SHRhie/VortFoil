@@ -1,0 +1,29 @@
+{
+ "schema": "OP1_DEPLOYED_TRAINING_RECIPE_V1",
+ "utc": "20260919T225517Z",
+ "deployed_file": ".neurofoil_clone/staged/weights/op1_supervised_eps0.50.scr_bd128.npz",
+ "deployed_sha256": "3bc4baaba1cc2f3dc1d22138437431c0bcb2de68fa9e8d77f92df34e8a45297d",
+ "identical_to": ".neurofoil_clone/staged/weights/op1_supervised_eps0.50.d500k.npz",
+ "d500k_sha256": "3bc4baaba1cc2f3dc1d22138437431c0bcb2de68fa9e8d77f92df34e8a45297d",
+ "origin_commit": "6a33e033 2026-05-28 (d500k: 10x data is the new best); trainer version b0c5b856 staged/train_op1_supervised.py",
+ "deck": "449,732 gated rows of a ~500k XFOIL generation (meeting_0527.md:59), CST-16, Ncrit 7",
+ "loss": "total = L_cp + lambda_te*L_te + lambda_stag_phys*L_stag_phys + lambda_stag_sup*L_stag_sup + lambda_cl*L_cl; L_cp = MSE(1-Ut^2, XFOIL viscous Cp, 240 midpoints); L_te = MSE on 3 panels either side of TE; L_stag_phys = mean(Ut(s_stag_head)^2) label-free; L_stag_sup = MSE(s_stag_head, XFOIL s_stag); L_cl = masked MSE(2*sum(gamma_mid ds), XFOIL viscous Cl)",
+ "reconstruction": {
+  "d500k": {
+   "epochs": 400,
+   "lambda_te": 10.000000953674316,
+   "lambda_stag_phys": 10.000008583068848,
+   "lambda_stag_sup": 3.645976175903343e-05,
+   "lambda_cl": 0.9999985098838806,
+   "max_abs_residual": 1.4901161193847656e-08
+  },
+  "scr_bd128": {
+   "epochs": 600,
+   "lambda_te": 10.0,
+   "lambda_stag_phys": 9.999998092651367,
+   "lambda_stag_sup": -1.3535825928556733e-05,
+   "lambda_cl": 1.0000003576278687,
+   "max_abs_residual": 1.4901161193847656e-08
+  }
+ }
+}

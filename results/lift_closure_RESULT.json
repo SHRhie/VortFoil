@@ -1,0 +1,158 @@
+{
+ "schema": "LIFT_CLOSURE_RESULT_V1",
+ "utc": "20260919T202702Z",
+ "decision": "ADOPTED 2026-09-20 (user): deployed lift = sheet circulation lift + degree-2 ridge closure in the predicted trailing-edge state (cl_circ, theta_u/l, dstar_u/l, ue_TE), 28 coefficients, fit on all 325,370 gated training-deck rows, frozen",
+ "model": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz",
+  "op2": "CANDIDATE_op2_m325_BT.npz (VortFoil_v2/artifacts/op2_cdloss_20260917T044259Z/weights)",
+  "drag_closure": "fitted_poly2 (unchanged)",
+  "lift_closure": {
+   "path": "/Users/shr/Desktop/Operator/airfoil_operator/VortFoil_v2/artifacts/lift_closure_20260920/weights/lift_closure_poly2.npz",
+   "sha256": "788f7c73efb246d346b0300e4c4db2e85174afce2409e09bba51827f9d4c0c9a",
+   "module": ".neurofoil_clone/staged/common/lift_closure_tf.py (copy in source/)"
+  }
+ },
+ "fit": {
+  "n_train": 325370,
+  "lam": "1e-2 * n on standardized features (same recipe as the drag closure)",
+  "features": [
+   "cl_circ",
+   "theta_u",
+   "theta_l",
+   "dstar_u",
+   "dstar_l",
+   "ue_te"
+  ],
+  "target": "cl_xfoil - cl_circ",
+  "pilot_40k_json": "VortFoil/tables/cl_decamber_closure_20260919T201149Z.json"
+ },
+ "numbers": {
+  "coefficients": "/Users/shr/Desktop/Operator/airfoil_operator/VortFoil_v2/artifacts/lift_closure_20260920/raw/lift_closure_poly2.npz",
+  "n_coef": 28,
+  "tf_float32_max_abs_dev": 1.1356974916054696e-07,
+  "holdout": {
+   "n": 2737,
+   "r2_circ": 0.9862296918968161,
+   "r2_closed": 0.987952453884532,
+   "rmse_circ": 0.06286574750709065,
+   "rmse_closed": 0.0588019263596387,
+   "mae_circ": 0.023656690808181707,
+   "mae_closed": 0.023220771101809565,
+   "bias_circ": 0.007020183967151629,
+   "bias_closed": 0.004534945973886028,
+   "bands": {
+    "alpha<0": {
+     "n": 613,
+     "r2_circ": 0.9065310266766847,
+     "r2_closed": 0.9093280260737864
+    },
+    "0<=alpha<8": {
+     "n": 1255,
+     "r2_circ": 0.9821458616326386,
+     "r2_closed": 0.9835945433165639
+    },
+    "alpha>=8": {
+     "n": 869,
+     "r2_circ": 0.9187422078251749,
+     "r2_closed": 0.9368824815375212
+    }
+   }
+  },
+  "separated": {
+   "n": 1930,
+   "r2_circ": 0.9892675833563631,
+   "r2_closed": 0.9941209293392278,
+   "rmse_circ": 0.0980169414812567,
+   "rmse_closed": 0.07254487298133874,
+   "mae_circ": 0.039664471673404006,
+   "mae_closed": 0.03239828304031241
+  }
+ },
+ "ablation": {
+  "poly2 all six state variables": {
+   "r2_holdout": 0.987952453884532,
+   "r2_separated": 0.9941209293392278,
+   "n_coef": 28
+  },
+  "linear all six": {
+   "r2_holdout": 0.9869601805950462,
+   "r2_separated": 0.991257458026734,
+   "n_coef": 7
+  },
+  "physics-minimal a*(dstar_u-dstar_l)+b": {
+   "r2_holdout": 0.9869707951133322,
+   "r2_separated": 0.9910135264270864,
+   "n_coef": 2
+  },
+  "poly2 BL state only (no cl_circ)": {
+   "r2_holdout": 0.9876579459446484,
+   "r2_separated": 0.9933095628117744,
+   "n_coef": 21
+  },
+  "constant offset only": {
+   "r2_holdout": 0.9863735536779417,
+   "r2_separated": 0.9894582899943383,
+   "n_coef": 1
+  }
+ },
+ "comparators": {
+  "neuralfoil_xlarge_r2_holdout": 0.9937,
+  "neuralfoil_xlarge_r2_separated": 0.9993,
+  "nf_bands_cl": {
+   "alpha_lt0": 0.9259,
+   "alpha_0_8": 0.9968,
+   "alpha_ge8": 0.9735
+  }
+ },
+ "speed": {
+  "run": "VortFoil/tables/speed/_speed_confirmed_surface_20260919T202148Z.json",
+  "note": "full chain now includes the lift closure; grad of deployed lift at B=1024 = 3.13x chain (dCd 3.12x); sheet-lift grad 2.34x sheet forward"
+ },
+ "gradient_check": {
+  "files": [
+   "_grad_check_20260919T202320Z.json",
+   "_grad_check_20260919T202324Z.json"
+  ],
+  "deployed_lift": {
+   "eps=0.01": {
+    "rel_err_median": 0.007981781624079259,
+    "rel_err_p90": 0.08277154708085188,
+    "rel_err_max": 2.1825740423671323,
+    "sign_agreement": 0.9970703125,
+    "componentwise_rel_err_median": 0.0016596924500762158,
+    "grad_norm_median": 1.4310216423669242
+   },
+   "eps=0.005": {
+    "rel_err_median": 0.0026160509659081867,
+    "rel_err_p90": 0.020781662023129085,
+    "rel_err_max": 0.2841900986737902,
+    "sign_agreement": 1.0,
+    "componentwise_rel_err_median": 0.0012407546780095306,
+    "grad_norm_median": 1.4310216423669242
+   },
+   "eps=0.001": {
+    "rel_err_median": 0.004623817163890791,
+    "rel_err_p90": 0.011045237579359823,
+    "rel_err_max": 0.02296972406581928,
+    "sign_agreement": 0.998046875,
+    "componentwise_rel_err_median": 0.004123453321434415,
+    "grad_norm_median": 1.4310216423669242
+   },
+   "eps=0.0005": {
+    "rel_err_median": 0.009076682246656517,
+    "rel_err_p90": 0.019103132243288683,
+    "rel_err_max": 0.029730358462416985,
+    "sign_agreement": 0.9970703125,
+    "componentwise_rel_err_median": 0.007565770898924098,
+    "grad_norm_median": 1.4310216423669242
+   }
+  }
+ },
+ "field_decoder": "unchanged: conditions on the UNCORRECTED circulation lift (its training input)",
+ "manuscript": "CMAME_v2: new sec:liftclosure / eq:liftclosure (02b), abstract, tab:contract row, sheet-returns paragraph, tab:standing (0.988/0.994), tab:regime (0.909/0.984/0.937), 04e speed table (7 cols) + ratios, schematic",
+ "inputs_sha": {
+  "train_deck": "8d20626b2869ad0c98444453af295b30055dd677326f1606cf52f4c5edaf2d95",
+  "holdout": "aaf9dd5e23a543e7902d71e43231f2df0ace290c31f9312373abdcc8bef77d91",
+  "separated": "d9e6804072c9a280fbbf79a27828143a073e9afa1422069cc30959e8a7cddc1e"
+ }
+}

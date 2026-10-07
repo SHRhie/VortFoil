@@ -1,0 +1,164 @@
+{
+ "weights": "_nf_shape_f0a_s0.npz",
+ "split": "full_test",
+ "n": 200,
+ "all": {
+  "ux": 0.0015765954270061367,
+  "uy": 0.001855935345003906,
+  "p": 0.0037560638525731397,
+  "nut": 0.0139702794538248
+ },
+ "near_wall": {
+  "ux": 0.0024574672779173606,
+  "uy": 0.0029638134737546627,
+  "p": 0.006054086628843154,
+  "nut": 0.004173462963518071
+ },
+ "off_body": {
+  "ux": 0.00016735888548314828,
+  "uy": 7.971482804265897e-05,
+  "p": 7.134629274840086e-05,
+  "nut": 0.02961644043384336
+ },
+ "mario": {
+  "ux": 0.00152,
+  "uy": 0.00113,
+  "p": 0.0024,
+  "nut": 0.0096,
+  "p_surf": 0.027
+ },
+ "all_agg_volMSE": 0.005289718519601996,
+ "proofs": {
+  "p1_original_vs_patched_per_case": {
+   "n_cases": 200,
+   "n_values": 2400,
+   "n_exact_mismatch": 0,
+   "mismatches": [],
+   "bit_identical": true,
+   "original_aggregate": {
+    "all": {
+     "ux": 0.0015765954270061367,
+     "uy": 0.001855935345003906,
+     "p": 0.0037560638525731397,
+     "nut": 0.0139702794538248
+    },
+    "near_wall": {
+     "ux": 0.0024574672779173606,
+     "uy": 0.0029638134737546627,
+     "p": 0.006054086628843154,
+     "nut": 0.004173462963518071
+    },
+    "off_body": {
+     "ux": 0.00016735888548314828,
+     "uy": 7.971482804265897e-05,
+     "p": 7.134629274840086e-05,
+     "nut": 0.02961644043384336
+    }
+   }
+  },
+  "p2_percase_reaggregates_to_aggregate": {
+   "exact": true,
+   "channels": {
+    "all/ux": {
+     "from_percase_npz": 0.0015765954270061367,
+     "aggregate_json": 0.0015765954270061367,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "all/uy": {
+     "from_percase_npz": 0.001855935345003906,
+     "aggregate_json": 0.001855935345003906,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "all/p": {
+     "from_percase_npz": 0.0037560638525731397,
+     "aggregate_json": 0.0037560638525731397,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "all/nut": {
+     "from_percase_npz": 0.0139702794538248,
+     "aggregate_json": 0.0139702794538248,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "near_wall/ux": {
+     "from_percase_npz": 0.0024574672779173606,
+     "aggregate_json": 0.0024574672779173606,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "near_wall/uy": {
+     "from_percase_npz": 0.0029638134737546627,
+     "aggregate_json": 0.0029638134737546627,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "near_wall/p": {
+     "from_percase_npz": 0.006054086628843154,
+     "aggregate_json": 0.006054086628843154,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "near_wall/nut": {
+     "from_percase_npz": 0.004173462963518071,
+     "aggregate_json": 0.004173462963518071,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "off_body/ux": {
+     "from_percase_npz": 0.00016735888548314828,
+     "aggregate_json": 0.00016735888548314828,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "off_body/uy": {
+     "from_percase_npz": 7.971482804265897e-05,
+     "aggregate_json": 7.971482804265897e-05,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "off_body/p": {
+     "from_percase_npz": 7.134629274840086e-05,
+     "aggregate_json": 7.134629274840086e-05,
+     "exact": true,
+     "abs_diff": 0.0
+    },
+    "off_body/nut": {
+     "from_percase_npz": 0.02961644043384336,
+     "aggregate_json": 0.02961644043384336,
+     "exact": true,
+     "abs_diff": 0.0
+    }
+   }
+  },
+  "p3_mutation_control": {
+   "mutated_one_percase_value": true,
+   "aggregate_changed": true,
+   "mutated_mean": 0.001576595427100168,
+   "reported_mean": 0.0015765954270061367
+  },
+  "p3b_mutation_control_identity": {
+   "mutated_original_aggregate": 0.0015765954320061365,
+   "patched_aggregate": 0.0015765954270061367,
+   "detects_mismatch": true
+  }
+ },
+ "errors": [],
+ "n_attempted": 200,
+ "n_error": 0,
+ "xfoil_blocked": true,
+ "xfoil_attempts_total": 13,
+ "n_cl_fallback": 4,
+ "n_s_fallback": 13,
+ "contaminated_by_xfoil_run": false,
+ "statistical_unit": {
+  "field": "case",
+  "cluster_key": "geom_key (NACA parameter tuple from the case name)",
+  "clusters": 200,
+  "cases": 200,
+  "max_cases_per_cluster": 1,
+  "note": "mesh nodes are NOT bootstrap units; per-mask node counts are exported"
+ }
+}

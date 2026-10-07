@@ -1,0 +1,31 @@
+{
+ "schema": "F0CM_HOLDOUT_RESCORE_EXTRACT_V1",
+ "note": "Extracted for the release: the holdout_rescore block of the operator-conditioned decoder's verification record, copied verbatim (source below); nothing else of that record is shipped. The scores are code/field/field_holdout_score.py re-scores (numpy forward) of weights/field_decoder_f0cm_s{0,1,2}.npz on the trainer's 20-case AirfRANS validation holdout (300,360 rows) of the training corpus named in each file's run_config; that corpus is not shipped. maxrel_vs_log is the largest per-channel relative difference to the epoch-80 holdout line of the run's training log in results/one_rule_retrain/gpu_logs/. Run 1 is the argmin and the deployed run; its score, 0.00262, is the validation score the manuscript reports (the training log gives 0.00263).",
+ "source": {
+  "path": "VortFoil/artifacts/f0cm_final_verify_20261002T053031Z/result.json",
+  "sha256": "f0284de742982470520e9855de50e2bd892f6bc49d8277520d6902773dc710da",
+  "key": "item5_table.holdout_rescore"
+ },
+ "corpus": {
+  "name": "_nf_train_v5_full800_provider_maxs.npz",
+  "sha256": "a387d918e81e2bbe035fbdac2d40eb678422be05089307a7dbc836b3cb51a7c7"
+ },
+ "holdout_rescore": {
+  "scores": {
+   "0": 0.0030111889989053076,
+   "1": 0.002619344869916355,
+   "2": 0.0033356882949025788
+  },
+  "argmin": "1",
+  "maxrel_vs_log": {
+   "0": 0.01829704159417811,
+   "1": 0.016039200459804115,
+   "2": 0.006641723089562901
+  },
+  "sha": {
+   "0": "e1da6228e8279f4b6db1bcd4fdb89bfa134004e2381ccca9f5f2a4edda6b1f08",
+   "1": "5e72da181372c9b966f2b306c32f9a92aaa069704979646ed713726718568c33",
+   "2": "fed72563ca1eb55ec03b651c3b2b504dd715c0358199c31562266ce51de831b7"
+  }
+ }
+}

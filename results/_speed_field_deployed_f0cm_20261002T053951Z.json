@@ -1,0 +1,121 @@
+{
+ "schema": "VF_SPEED_FIELD_DEPLOYED_V1",
+ "utc": "20261002T053951Z",
+ "host": "macOS-27.0.1-arm64-arm-64bit",
+ "cpu_count": 18,
+ "loadavg_start": [
+  2.4072265625,
+  2.546875,
+  3.7119140625
+ ],
+ "loadavg_end": [
+  4.73095703125,
+  3.330078125,
+  3.83056640625
+ ],
+ "n_cases": 3,
+ "note": "Cost of the field pathway as it is actually deployed, with and without the faster kernels.",
+ "median": {
+  "original": {
+   "provider_state_s": 0.012831687490688637,
+   "paint_s": 5.387423875014065,
+   "nearest_panel_s": 0.8644531250174623,
+   "encoder_s": 7.593749614898115e-05,
+   "decoder_s": 1.2582205000217073,
+   "total_s": 7.507226708010421
+  },
+  "fast": {
+   "provider_state_s": 0.012831687490688637,
+   "paint_s": 0.6075842499849387,
+   "nearest_panel_s": 0.020559333002893254,
+   "encoder_s": 7.593749614898115e-05,
+   "decoder_s": 0.3267185000004247,
+   "total_s": 0.9630255419906462
+  }
+ },
+ "speedup_total": 7.795459601717749,
+ "prediction_agreement": "the decoder's own outputs, max relative difference per channel: [1.3985186476906018e-12, 1.8141842633155952e-13, 9.978900938803338e-14]",
+ "rows": [
+  {
+   "case": "airFoil2D_SST_31.812_1.334_0.371_3.287_0.0_19.548",
+   "n_points": 179033,
+   "original": {
+    "provider_state_s": 0.012831687490688637,
+    "paint_s": 5.5629685829917435,
+    "nearest_panel_s": 1.0096026670071296,
+    "encoder_s": 7.758350693620741e-05,
+    "decoder_s": 1.290194999979576,
+    "total_s": 7.875675520976074
+   },
+   "fast": {
+    "provider_state_s": 0.012831687490688637,
+    "paint_s": 0.6436243329953868,
+    "nearest_panel_s": 0.0212859169987496,
+    "encoder_s": 7.758350693620741e-05,
+    "decoder_s": 0.3350298329896759,
+    "total_s": 1.0128493539814372
+   },
+   "speedup": 7.775762002530155,
+   "prediction_max_rel_diff": [
+    5.167345457789347e-13,
+    1.3985186476906018e-12,
+    1.0079066882136943e-12,
+    7.133413852450934e-13
+   ]
+  },
+  {
+   "case": "airFoil2D_SST_31.863_-1.58_1.567_6.956_10.028",
+   "n_points": 172029,
+   "original": {
+    "provider_state_s": 0.01324618750368245,
+    "paint_s": 5.387423875014065,
+    "nearest_panel_s": 0.8482602079748176,
+    "encoder_s": 7.593749614898115e-05,
+    "decoder_s": 1.2582205000217073,
+    "total_s": 7.507226708010421
+   },
+   "fast": {
+    "provider_state_s": 0.01324618750368245,
+    "paint_s": 0.6075842499849387,
+    "nearest_panel_s": 0.020404042006703094,
+    "encoder_s": 7.593749614898115e-05,
+    "decoder_s": 0.321715124999173,
+    "total_s": 0.9630255419906462
+   },
+   "speedup": 7.795459601717749,
+   "prediction_max_rel_diff": [
+    1.8141842633155952e-13,
+    1.8752971049046386e-14,
+    1.202863018976913e-13,
+    3.263698165060131e-15
+   ]
+  },
+  {
+   "case": "airFoil2D_SST_32.137_12.122_4.854_5.202_9.247",
+   "n_points": 164976,
+   "original": {
+    "provider_state_s": 0.01279681250161957,
+    "paint_s": 5.234971208992647,
+    "nearest_panel_s": 0.8644531250174623,
+    "encoder_s": 7.231249765027314e-05,
+    "decoder_s": 1.2154589160054456,
+    "total_s": 7.327752375014825
+   },
+   "fast": {
+    "provider_state_s": 0.01279681250161957,
+    "paint_s": 0.5834152919996995,
+    "nearest_panel_s": 0.020559333002893254,
+    "encoder_s": 7.231249765027314e-05,
+    "decoder_s": 0.3267185000004247,
+    "total_s": 0.9435622500022873
+   },
+   "speedup": 7.766050809045256,
+   "prediction_max_rel_diff": [
+    9.978900938803338e-14,
+    6.656628782969647e-14,
+    4.2291632296930594e-14,
+    1.494510726504255e-14
+   ]
+  }
+ ]
+}

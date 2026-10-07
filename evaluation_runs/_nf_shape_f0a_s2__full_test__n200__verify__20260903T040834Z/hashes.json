@@ -1,0 +1,57 @@
+{
+ "run_id": "_nf_shape_f0a_s2__full_test__n200__verify__20260903T040834Z",
+ "inputs": {
+  "supervised_field/_nf_shape_f0a_s2.npz": {
+   "bytes": 1243682,
+   "md5": "3c7fdea5a10ec98941a9f3348589b614",
+   "sha256": "1440f8f4dbd3c9aad819509530bdf386015dfcaf7e70c6e5b06979e6d8008552"
+  },
+  "airfrans_data/Dataset/manifest.json": {
+   "bytes": 187191,
+   "md5": "5fd640c4426d1d7bc48c725a378d1c00",
+   "sha256": "3d1320005bcf3d94df80df2bf8338dd6ce6d394c6beafa14849b4ce1de7def13"
+  },
+  "supervised_field/nf_eval_percase.py": {
+   "bytes": 22854,
+   "md5": "87f1c31aebed703c237e5a16fb82c3d1",
+   "sha256": "84605ec2a1e33c188673d09a854bf5267f897fe5528d934527b3435ae3271ac8"
+  },
+  "supervised_field/nf_eval_shape_par.py": {
+   "bytes": 4108,
+   "md5": "b14e9cecade706b00f0be9348b52aed5",
+   "sha256": "87c3553abd73b4421d74269895c426a74a7d9133b2ddafe8fae22d854a113360"
+  },
+  "supervised_field/nf_eval_shape.py": {
+   "bytes": 7651,
+   "md5": "50f7d08ec09ecf763a18d8bd5b81c65d",
+   "sha256": "96ce6ab0e7e8c4b10b37c7c36087e95e68b9f66bf5900b6f8877baaa55447a14"
+  },
+  "supervised_field/nf_hybrid_field.py": {
+   "bytes": 11107,
+   "md5": "4b4b30b236a613c73887d572c5009451",
+   "sha256": "7c80f425883d7709c29e166f255d3f422f29bb400ffdf4c0ad0294aedb744bdf"
+  }
+ },
+ "artifacts": {
+  "per_case_metrics.npz": {
+   "bytes": 45658,
+   "md5": "584c4eb926261819056b67fefa544cc1",
+   "sha256": "3c5bfdae82fad615a06ce63a81a3ff26a0909ade13b6d332c59449f3babe977a"
+  },
+  "predictions.npz": {
+   "bytes": 36718785,
+   "md5": "7cfa24d3a25a89eceb126094e74d3be8",
+   "sha256": "151a6aaf5f8809fb09af9e6250d6d12e0ef8fd94a273bdcf5204791ff97ae266"
+  },
+  "aggregate.json": {
+   "bytes": 4124,
+   "md5": "406f2c1d466e7ffed943061128f75828",
+   "sha256": "511612697149913a394b2035b258d6067ff342f163064113ffbf1de01e898e4d"
+  },
+  "config.json": {
+   "bytes": 3233,
+   "md5": "28da46451369ed2f4f3a79049c50f4ac",
+   "sha256": "71a77953e082002ad96cb2f7c21c6fa95e0d89b211ef8bfc3a9bc0e03b3e7a22"
+  }
+ }
+}

@@ -1,0 +1,19 @@
+{
+ "model": "OP1 scr_bd128 (CST-16, 19-input) -- the confirmed single model",
+ "weights_file": "/Users/shr/Desktop/Operator/airfoil_operator/.neurofoil_clone/staged/weights/op1_supervised_eps0.50.scr_bd128.npz",
+ "n": 2737,
+ "gate": "holdout_targets.npz, same gate as the drag route",
+ "kutta_residual_max": 3.5837292671203613e-06,
+ "kutta_residual_median": 1.9371509552001953e-07,
+ "cl_route_gap_rmse": 0.026206076845293035,
+ "cl_route_gap_pct_of_rms_truth": 3.0587459298820745,
+ "cl_route_gap_pct_of_mean_abs_truth": 3.6612262301654073,
+ "cm_route_gap_rmse": 0.004823587158572069,
+ "tangency_un_rms_median": 0.056653719395399094,
+ "tangency_un_rms_pct_of_ut_rms_median": 5.183663756199256,
+ "tangency_un_max_median": 0.2415238320827484,
+ "cl_circ_r2": 0.9862296854608563,
+ "cl_press_r2": 0.9865680508862736,
+ "cl_circ_rmse": 0.06286576219816971,
+ "cl_press_rmse": 0.06208858667451589
+}

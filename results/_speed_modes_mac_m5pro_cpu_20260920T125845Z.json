@@ -1,0 +1,112 @@
+{
+ "schema": "VF_SPEED_SURFACE_MODES_V1",
+ "utc": "20260920T125845Z",
+ "tag": "mac_m5pro",
+ "host": "macOS-26.6.1-arm64-arm-64bit",
+ "cpu_count": 18,
+ "tf": "2.10.0",
+ "device": "cpu",
+ "gpus": [
+  "/physical_device:GPU:0"
+ ],
+ "weights": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz",
+  "op2": "CANDIDATE_op2_m325_BT.npz",
+  "lift_closure": "lift_closure_poly2.npz"
+ },
+ "note": "same chain as vf_speed_surface.py (deployed reference = eager CPU); graph = tf.function without XLA; medians after warm-up; GPU timings include the host copy of one output",
+ "modes": {
+  "eager": {
+   "1": {
+    "sheet_cl_us_per_case": 2401.478821411729,
+    "full_chain_us_per_case": 11273.042298853397,
+    "grad_dCl_dCST16_us_per_case": 32611.625269055367,
+    "grad_dCd_dCST16_us_per_case": 31309.74993109703,
+    "batch_wall_full_chain_ms": 11.273042298853397,
+    "ratios": {
+     "grad_cl_over_chain": 2.892885913536611,
+     "grad_cd_over_chain": 2.777400199614403
+    }
+   },
+   "64": {
+    "sheet_cl_us_per_case": 55.275715567404404,
+    "full_chain_us_per_case": 589.8063172935508,
+    "grad_dCl_dCST16_us_per_case": 1739.1425717505626,
+    "grad_dCd_dCST16_us_per_case": 1733.1249982817098,
+    "batch_wall_full_chain_ms": 37.74760430678725,
+    "ratios": {
+     "grad_cl_over_chain": 2.9486672501762623,
+     "grad_cd_over_chain": 2.938464623835355
+    }
+   },
+   "1024": {
+    "sheet_cl_us_per_case": 11.249349199715653,
+    "full_chain_us_per_case": 317.4676719481795,
+    "grad_dCl_dCST16_us_per_case": 984.9338987351075,
+    "grad_dCd_dCST16_us_per_case": 973.6988113218104,
+    "batch_wall_full_chain_ms": 325.0868960749358,
+    "ratios": {
+     "grad_cl_over_chain": 3.1024699072221726,
+     "grad_cd_over_chain": 3.067080201730739
+    }
+   },
+   "2737": {
+    "sheet_cl_us_per_case": 7.996726767518985,
+    "full_chain_us_per_case": 388.9169405150858,
+    "grad_dCl_dCST16_us_per_case": 1436.0406162788236,
+    "grad_dCd_dCST16_us_per_case": 1430.462580514479,
+    "batch_wall_full_chain_ms": 1064.4656661897898,
+    "ratios": {
+     "grad_cl_over_chain": 3.692409526766604,
+     "grad_cd_over_chain": 3.6780670407927176
+    }
+   }
+  },
+  "graph": {
+   "1": {
+    "sheet_cl_us_per_case": 360.77038384974,
+    "full_chain_us_per_case": 1296.1039319634438,
+    "grad_dCl_dCST16_us_per_case": 2640.167251229286,
+    "grad_dCd_dCST16_us_per_case": 2628.6672800779343,
+    "batch_wall_full_chain_ms": 1.2961039319634438,
+    "ratios": {
+     "grad_cl_over_chain": 2.037002732666466,
+     "grad_cd_over_chain": 2.028130009678942
+    }
+   },
+   "64": {
+    "sheet_cl_us_per_case": 26.896810595644638,
+    "full_chain_us_per_case": 172.511710843537,
+    "grad_dCl_dCST16_us_per_case": 576.235030166572,
+    "grad_dCd_dCST16_us_per_case": 589.142906392226,
+    "batch_wall_full_chain_ms": 11.040749493986368,
+    "ratios": {
+     "grad_cl_over_chain": 3.340266161345997,
+     "grad_cd_over_chain": 3.4150893496532597
+    }
+   },
+   "1024": {
+    "sheet_cl_us_per_case": 5.097330586067983,
+    "full_chain_us_per_case": 163.36094199687068,
+    "grad_dCl_dCST16_us_per_case": 561.9313146780769,
+    "grad_dCd_dCST16_us_per_case": 565.3097330196033,
+    "batch_wall_full_chain_ms": 167.28160460479558,
+    "ratios": {
+     "grad_cl_over_chain": 3.4398143632695333,
+     "grad_cd_over_chain": 3.4604950614843557
+    }
+   },
+   "2737": {
+    "sheet_cl_us_per_case": 4.653665783264187,
+    "full_chain_us_per_case": 191.9606777440905,
+    "grad_dCl_dCST16_us_per_case": 656.7705516214457,
+    "grad_dCd_dCST16_us_per_case": 656.0963343054459,
+    "batch_wall_full_chain_ms": 525.3963749855757,
+    "ratios": {
+     "grad_cl_over_chain": 3.421380666810364,
+     "grad_cd_over_chain": 3.417868398965078
+    }
+   }
+  }
+ }
+}

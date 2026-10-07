@@ -1,0 +1,345 @@
+{
+ "schema": "XFOIL_PER_CASE_TIME_V1",
+ "host": "Xeon Gold 6530, Windows, single process",
+ "n": 40,
+ "n_converged": 39,
+ "settings": {
+  "n_panels": 200,
+  "max_iter": 200,
+  "n_crit": 7.0,
+  "timeout": 90.0,
+  "cache_bypassed": true
+ },
+ "secs_all": {
+  "median": 0.10408920000190847,
+  "mean": 0.14057692999995197,
+  "min": 0.07997970000724308,
+  "max": 0.9983500000089407
+ },
+ "secs_converged": {
+  "median": 0.10381990001769736,
+  "mean": 0.1185827487176702
+ },
+ "rows": [
+  {
+   "shape": 0,
+   "alpha": -4.0,
+   "Re": 200000.0,
+   "secs": 0.15170609997585416,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": -4.0,
+   "Re": 500000.0,
+   "secs": 0.16782200001762249,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": -4.0,
+   "Re": 1000000.0,
+   "secs": 0.08688420001999475,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": -4.0,
+   "Re": 3000000.0,
+   "secs": 0.08150940001360141,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 0.0,
+   "Re": 200000.0,
+   "secs": 0.10381990001769736,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 0.0,
+   "Re": 500000.0,
+   "secs": 0.08960430001025088,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 0.0,
+   "Re": 1000000.0,
+   "secs": 0.08612049999646842,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 0.0,
+   "Re": 3000000.0,
+   "secs": 0.09133719999226741,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 4.0,
+   "Re": 200000.0,
+   "secs": 0.12065279998932965,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 4.0,
+   "Re": 500000.0,
+   "secs": 0.09581869997782633,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 4.0,
+   "Re": 1000000.0,
+   "secs": 0.09081829999922775,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 4.0,
+   "Re": 3000000.0,
+   "secs": 0.18219599997974,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 8.0,
+   "Re": 200000.0,
+   "secs": 0.16138279999722727,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 8.0,
+   "Re": 500000.0,
+   "secs": 0.11440419999416918,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 8.0,
+   "Re": 1000000.0,
+   "secs": 0.9983500000089407,
+   "converged": false,
+   "viscal_failed": 1
+  },
+  {
+   "shape": 0,
+   "alpha": 8.0,
+   "Re": 3000000.0,
+   "secs": 0.08989149998524226,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 12.0,
+   "Re": 200000.0,
+   "secs": 0.21901960001559928,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 12.0,
+   "Re": 500000.0,
+   "secs": 0.28860130000975914,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 12.0,
+   "Re": 1000000.0,
+   "secs": 0.11207429997739382,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 0,
+   "alpha": 12.0,
+   "Re": 3000000.0,
+   "secs": 0.11887420000857674,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": -4.0,
+   "Re": 200000.0,
+   "secs": 0.08626219999860041,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": -4.0,
+   "Re": 500000.0,
+   "secs": 0.07997970000724308,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": -4.0,
+   "Re": 1000000.0,
+   "secs": 0.08192600001348183,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": -4.0,
+   "Re": 3000000.0,
+   "secs": 0.08063979999860749,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 0.0,
+   "Re": 200000.0,
+   "secs": 0.1159408999956213,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 0.0,
+   "Re": 500000.0,
+   "secs": 0.08826799999224022,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 0.0,
+   "Re": 1000000.0,
+   "secs": 0.09037900000112131,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 0.0,
+   "Re": 3000000.0,
+   "secs": 0.0864595000166446,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 4.0,
+   "Re": 200000.0,
+   "secs": 0.10478110000258312,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 4.0,
+   "Re": 500000.0,
+   "secs": 0.10343590000411496,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 4.0,
+   "Re": 1000000.0,
+   "secs": 0.10986050000065006,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 4.0,
+   "Re": 3000000.0,
+   "secs": 0.09535429999232292,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 8.0,
+   "Re": 200000.0,
+   "secs": 0.08938119999947958,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 8.0,
+   "Re": 500000.0,
+   "secs": 0.10435849998611957,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 8.0,
+   "Re": 1000000.0,
+   "secs": 0.1493606999865733,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 8.0,
+   "Re": 3000000.0,
+   "secs": 0.13936949998605996,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 12.0,
+   "Re": 200000.0,
+   "secs": 0.15996089999680407,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 12.0,
+   "Re": 500000.0,
+   "secs": 0.17597370001021773,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 12.0,
+   "Re": 1000000.0,
+   "secs": 0.12693600001512095,
+   "converged": true,
+   "viscal_failed": 0
+  },
+  {
+   "shape": 1,
+   "alpha": 12.0,
+   "Re": 3000000.0,
+   "secs": 0.10356250000768341,
+   "converged": true,
+   "viscal_failed": 0
+  }
+ ]
+}

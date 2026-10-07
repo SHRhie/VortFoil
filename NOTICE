@@ -1,0 +1,58 @@
+VortFoil
+Copyright (C) 2026 Sang-Hyun Rhie, Gyuwon Kim, Jeongsu Lee
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details. The
+license text is in LICENSE; see also <https://www.gnu.org/licenses/>.
+
+
+Code derived from XFOIL
+-----------------------
+
+xfoil_closures.py, shipped twice with identical bodies
+(src/vortfoil/_staged/common/xfoil_closures.py and
+code/model/staged/common/xfoil_closures.py), is a line-by-line Python/TensorFlow
+translation of boundary-layer closure routines of XFOIL 6.99: HKIN, HSL, HST,
+CFL, CFT, DIL, DILW and DAMPL and terms of BLVAR, BLDIF and TRDIF from
+src/xblsys.f, and the BLPINI constants from src/xbl.f.
+
+    XFOIL 6.99
+    Copyright (C) 2000 Mark Drela, Harold Youngren
+    (the headers of xblsys.f and xbl.f read "Copyright (C) 2000 Mark Drela")
+    https://web.mit.edu/drela/Public/web/xfoil/
+
+XFOIL is free software distributed under the GNU General Public License,
+"either version 2 of the License, or (at your option) any later version" (the
+headers of xblsys.f and xbl.f in the xfoil6.99.tgz distribution). The
+translation is a modified version of that work. This release distributes it,
+together with the rest of the package, under version 3 of the GPL or any later
+version, which XFOIL's "or later" clause permits. Version 3 rather than
+version 2 because the package depends on TensorFlow, whose Apache License 2.0
+the Free Software Foundation lists as compatible with GPL version 3 but not
+with version 2.
+
+XFOIL's authors have not reviewed or endorsed the translation. XFOIL itself is
+not included, and no XFOIL process is run at inference time; scripts that
+regenerate training labels call an XFOIL binary the user supplies (XFOIL_EXE).
+
+
+Data
+----
+
+The training and evaluation data keep their own licenses; details and
+attributions are in DATA_LICENSES.md.
+
+  - AirfRANS (Bonnet et al., 2022), Open Database License (ODbL) v1.0:
+    weights/airfrans_surface_tokens.npz is an extract of it, and the field
+    figures and field decoders are produced from it.
+  - UIUC Airfoil Coordinates Database (M. S. Selig, UIUC Applied Aerodynamics
+    Group): the evaluation shapes in data/eval/ are fits of its sections.
+
+DATA_LICENSES.md also carries the attribution for dataset-derived files that
+remain reachable in this repository's earlier commits.

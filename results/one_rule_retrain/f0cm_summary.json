@@ -1,0 +1,58 @@
+{
+ "cfg": "f0cm",
+ "deployed_seed": 1,
+ "validation_ep80": {
+  "0": {
+   "ux": 0.0014082,
+   "uy": 0.0014913,
+   "p": 0.0056258,
+   "nut": 0.0036444,
+   "mean4": 0.0030424249999999996
+  },
+  "1": {
+   "ux": 0.0014586,
+   "uy": 0.0015077,
+   "p": 0.002317,
+   "nut": 0.0052554,
+   "mean4": 0.002634675
+  },
+  "2": {
+   "ux": 0.0013329,
+   "uy": 0.001617,
+   "p": 0.0064275,
+   "nut": 0.0040418,
+   "mean4": 0.0033548000000000002
+  }
+ },
+ "new_eval": "VortFoil/artifacts/step2_eval_f0cm_20260925T213247Z",
+ "recipe_check": {
+  "run_config_keys_differing": [
+   "argv",
+   "corpus",
+   "corpus_sha256",
+   "wall_s"
+  ],
+  "unexpected": [],
+  "argv_identical_except_corpus_and_tag": true,
+  "code_sha256_same": true
+ },
+ "channels": {
+  "ux": {
+   "new": 0.001255903233237137,
+   "new_over_MARIO": 0.8262521271296953
+  },
+  "uy": {
+   "new": 0.001272783094333099,
+   "new_over_MARIO": 1.1263567206487604
+  },
+  "p": {
+   "new": 0.002128384531025773,
+   "new_over_MARIO": 0.8868268879274055
+  },
+  "nut": {
+   "new": 0.00706358128939325,
+   "new_over_MARIO": 0.7357897176451302
+  }
+ },
+ "release_note": "Release copy of VortFoil/artifacts/one_rule_retrain/f0cm_summary.json (sha256 aaab5e19dee41399467ed4a1d039cba2e58e0a41beaa1a98848f3e94f926361a) without the entries that point to, or compare its errors with, records of a decoder the manuscript does not report (two record pointers and four entries per channel); every other entry is unchanged. channels.*.new are the full_test mean errors of the deployed run 1 and new_over_MARIO their ratios to MARIO's published aggregate; new_eval is the research path of results/step2_eval_f0cm_20260925T213247Z/."
+}

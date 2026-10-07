@@ -1,0 +1,25 @@
+{
+ "schema": "VF_SPEED_NEURALFOIL_V1",
+ "utc": "20260919T163001Z",
+ "host": "macOS-26.6.1-arm64-arm-64bit",
+ "cpu_count": 18,
+ "neuralfoil": "0.3.3",
+ "model_size": "xlarge",
+ "n_rows": 2688,
+ "n_shapes": 79,
+ "calls_per_sweep": 79,
+ "sweep_wall_s": 0.07739500002935529,
+ "us_per_case_batched": 28.792782749016105,
+ "single_query_ms_median": 0.690896064043045,
+ "single_query_ms_min": 0.6005838513374329,
+ "loadavg_start": [
+  6.58349609375,
+  6.48974609375,
+  5.39306640625
+ ],
+ "loadavg_end": [
+  6.58349609375,
+  6.48974609375,
+  5.39306640625
+ ]
+}

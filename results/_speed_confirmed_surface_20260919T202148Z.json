@@ -1,0 +1,98 @@
+{
+ "schema": "VF_SPEED_SURFACE_V2",
+ "utc": "20260919T202148Z",
+ "host": "macOS-26.6.1-arm64-arm-64bit",
+ "cpu_count": 18,
+ "tf": "2.10.0",
+ "threads": {
+  "intra": 0,
+  "inter": 0
+ },
+ "weights": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz",
+  "op2": "CANDIDATE_op2_m325_BT.npz",
+  "lift_closure": "lift_closure_poly2.npz"
+ },
+ "mode": "eager CPU, as deployed",
+ "n_rows_source": 2880,
+ "loadavg_start": [
+  9.16552734375,
+  6.9912109375,
+  4.3408203125
+ ],
+ "per_batch": {
+  "1": {
+   "repeats": 50,
+   "op1_cl_us_per_case": 2711.9999285787344,
+   "op1_full_readout_us_per_case": 5093.083251267672,
+   "op2_te_us_per_case": 5157.332867383957,
+   "full_chain_us_per_case": 12643.729569390416,
+   "grad_dCl_dCST16_us_per_case": 6310.207769274712,
+   "grad_dClclosed_dCST16_us_per_case": 34973.5002964735,
+   "grad_dCd_dCST16_us_per_case": 30859.624966979027,
+   "batch_wall_full_chain_ms": 12.643729569390416,
+   "ratios": {
+    "grad_cl_over_op1_cl": 2.326772837557438,
+    "grad_clclosed_over_chain": 2.766074685838101,
+    "grad_cd_over_chain": 2.440705869072684,
+    "chain_over_op1_full": 2.482529529876305
+   }
+  },
+  "64": {
+   "repeats": 20,
+   "op1_cl_us_per_case": 59.17577800573781,
+   "op1_full_readout_us_per_case": 385.8160780509934,
+   "op2_te_us_per_case": 111.75260078744031,
+   "full_chain_us_per_case": 535.6139372452162,
+   "grad_dCl_dCST16_us_per_case": 139.0211546095088,
+   "grad_dClclosed_dCST16_us_per_case": 1794.7239575732965,
+   "grad_dCd_dCST16_us_per_case": 1744.102864904562,
+   "batch_wall_full_chain_ms": 34.27929198369384,
+   "ratios": {
+    "grad_cl_over_op1_cl": 2.3492915394543528,
+    "grad_clclosed_over_chain": 3.3507790458253726,
+    "grad_cd_over_chain": 3.2562686360905357,
+    "chain_over_op1_full": 1.3882623553454505
+   }
+  },
+  "1024": {
+   "repeats": 8,
+   "op1_cl_us_per_case": 9.948872957465937,
+   "op1_full_readout_us_per_case": 295.4999386020063,
+   "op2_te_us_per_case": 18.986796249009785,
+   "full_chain_us_per_case": 317.48531068842567,
+   "grad_dCl_dCST16_us_per_case": 23.294352104130667,
+   "grad_dClclosed_dCST16_us_per_case": 993.695006627604,
+   "grad_dCd_dCST16_us_per_case": 989.0831704524317,
+   "batch_wall_full_chain_ms": 325.1049581449479,
+   "ratios": {
+    "grad_cl_over_op1_cl": 2.341406127479985,
+    "grad_clclosed_over_chain": 3.129892858579521,
+    "grad_cd_over_chain": 3.115366718251415,
+    "chain_over_op1_full": 1.0744005978154545
+   }
+  },
+  "2737": {
+   "repeats": 5,
+   "op1_cl_us_per_case": 8.754354109119925,
+   "op1_full_readout_us_per_case": 399.4559735783836,
+   "op2_te_us_per_case": 14.345070424091219,
+   "full_chain_us_per_case": 411.9275057478068,
+   "grad_dCl_dCST16_us_per_case": 17.120219953562337,
+   "grad_dClclosed_dCST16_us_per_case": 1480.9448150172693,
+   "grad_dCd_dCST16_us_per_case": 1466.765284203442,
+   "batch_wall_full_chain_ms": 1127.4455832317472,
+   "ratios": {
+    "grad_cl_over_op1_cl": 1.955623423517584,
+    "grad_clclosed_over_chain": 3.5951588431289268,
+    "grad_cd_over_chain": 3.5607364493436755,
+    "chain_over_op1_full": 1.0312212934449358
+   }
+  }
+ },
+ "loadavg_end": [
+  11.55322265625,
+  8.255859375,
+  5.07275390625
+ ]
+}

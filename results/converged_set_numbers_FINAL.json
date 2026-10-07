@@ -1,0 +1,383 @@
+{
+ "schema": "CONVERGED_SET_NUMBERS_V1",
+ "utc": "20260920T133858Z",
+ "definition": "attached set restricted to rows whose XFOIL solution converged (viscal_failed false) and has a finite moment; identical rows for every model compared; the separated set has no unconverged rows",
+ "weights": {
+  "op1": "op1_supervised_eps0.50.scr_bd128.npz",
+  "op2": "CANDIDATE_op2_m325_BT.npz"
+ },
+ "sets": {
+  "attached_converged": {
+   "bands": {
+    "all": {
+     "n": 2678,
+     "cl_deployed": 0.9887317966969011,
+     "cl_gamma": 0.9870607690770115,
+     "cl_nf": 0.9950568953971359,
+     "cd": 0.9204821641756042,
+     "cd_nf": 0.9550152251920979,
+     "cm_press": 0.9529184728719468,
+     "cm_circ": 0.9179441760293245,
+     "cm_nf": 0.9963428544703749
+    },
+    "alpha<0": {
+     "n": 600,
+     "cl_deployed": 0.9088804205019974,
+     "cl_gamma": 0.9064763883347507,
+     "cl_nf": 0.9252521849644245,
+     "cd": 0.9480909859002664,
+     "cd_nf": 0.9283675756076147,
+     "cm_press": 0.9641179385693822,
+     "cm_circ": 0.9522068200329361,
+     "cm_nf": 0.9986339703961044
+    },
+    "0<=alpha<8": {
+     "n": 1221,
+     "cl_deployed": 0.9851978875730906,
+     "cl_gamma": 0.9840901812984607,
+     "cl_nf": 0.99729452574113,
+     "cd": 0.9187900509742993,
+     "cd_nf": 0.9498409898249629,
+     "cm_press": 0.9648916726330953,
+     "cm_circ": 0.9453212367910158,
+     "cm_nf": 0.9955286631216523
+    },
+    "alpha>=8": {
+     "n": 857,
+     "cl_deployed": 0.9439541967428712,
+     "cl_gamma": 0.9253512520076125,
+     "cl_nf": 0.9910610239929157,
+     "cd": 0.8597600445423236,
+     "cd_nf": 0.929573035494064,
+     "cm_press": 0.9191412231999956,
+     "cm_circ": 0.8395143547497386,
+     "cm_nf": 0.995308092481853
+    }
+   },
+   "contract": {
+    "n": 2678,
+    "kutta_residual_max": 3.5837292671203613e-06,
+    "kutta_residual_median": 1.9371509552001953e-07,
+    "cl_route_gap_rmse": 0.025891089378971978,
+    "cl_route_gap_pct_of_rms_truth": 3.015406416185175,
+    "cl_route_gap_pct_of_mean_abs_truth": 3.607630064117493,
+    "cm_route_gap_rmse": 0.0048216160430968715,
+    "tangency_un_rms_median": 0.0566579420119524,
+    "tangency_un_rms_pct_of_ut_rms_median": 5.182502491117956,
+    "cl_circ_r2": 0.9870607690770115,
+    "cl_press_r2": 0.9875312477391459,
+    "cl_deployed_r2": 0.9887317966969011
+   },
+   "drag_closures": {
+    "fitted": {
+     "cd_raw_r2": 0.9204821641756042,
+     "cd_log_r2": 0.9655421546463064,
+     "cd_medape_pct": 4.791156991171208
+    },
+    "marched": {
+     "cd_raw_r2": 0.8715123353118708,
+     "cd_log_r2": 0.9288080824095486,
+     "cd_medape_pct": 3.6783206607888532
+    },
+    "squire_young": {
+     "cd_raw_r2": 0.8669532601165862,
+     "cd_log_r2": 0.8909828917243274,
+     "cd_medape_pct": 4.492869537874111
+    }
+   },
+   "surface": {
+    "n": 2678,
+    "cp_rel_l2_median": 0.10014708546380138,
+    "cp_rel_l2_p90": 0.1707520224018441,
+    "cp_rmse_case_median": 0.06475131883077134,
+    "stag_unique_crossing_rate": 0.9887976101568334,
+    "stag_zero_crossing_rate": 0.0,
+    "stag_multi_crossing_rate": 0.011202389843166542,
+    "stag_err_panels_median": 0.772023766327794,
+    "stag_within_one_panel": 0.657580283793876,
+    "cm_press_r2": 0.9529184728719468,
+    "cm_circ_r2": 0.9179441760293245
+   }
+  },
+  "attached_all_gated": {
+   "bands": {
+    "all": {
+     "n": 2737,
+     "cl_deployed": 0.9879524529020504,
+     "cl_gamma": 0.9862296854608563,
+     "cl_nf": 0.993731760602822,
+     "cd": 0.8903534652456143,
+     "cd_nf": 0.9381410954413828,
+     "cm_press": 0.9104813818003927,
+     "cm_circ": 0.8741805989624004,
+     "cm_nf": 0.9535016723555483
+    },
+    "alpha<0": {
+     "n": 613,
+     "cl_deployed": 0.909328312079493,
+     "cl_gamma": 0.906531286419022,
+     "cl_nf": 0.9258879076109554,
+     "cd": 0.9408286048250775,
+     "cd_nf": 0.9160200222331162,
+     "cm_press": 0.9250744229456402,
+     "cm_circ": 0.911503077796272,
+     "cm_nf": 0.95599045511535
+    },
+    "0<=alpha<8": {
+     "n": 1255,
+     "cl_deployed": 0.9835945933212233,
+     "cl_gamma": 0.9821459151282051,
+     "cl_nf": 0.9968226290035778,
+     "cd": 0.9181455754637272,
+     "cd_nf": 0.9117118475862905,
+     "cm_press": 0.898322477616024,
+     "cm_circ": 0.8756027922592572,
+     "cm_nf": 0.9275058506466577
+    },
+    "alpha>=8": {
+     "n": 869,
+     "cl_deployed": 0.9368821546639887,
+     "cl_gamma": 0.9187418169484938,
+     "cl_nf": 0.9734541209248959,
+     "cd": 0.7954182218997083,
+     "cd_nf": 0.906721075884735,
+     "cm_press": 0.9032940086994556,
+     "cm_circ": 0.8244053273794584,
+     "cm_nf": 0.9830123396922722
+    }
+   },
+   "contract": {
+    "n": 2737,
+    "kutta_residual_max": 3.5837292671203613e-06,
+    "kutta_residual_median": 1.9371509552001953e-07,
+    "cl_route_gap_rmse": 0.026206076845293035,
+    "cl_route_gap_pct_of_rms_truth": 3.0587459298820745,
+    "cl_route_gap_pct_of_mean_abs_truth": 3.6612262301654073,
+    "cm_route_gap_rmse": 0.004823587158572069,
+    "tangency_un_rms_median": 0.056653719395399094,
+    "tangency_un_rms_pct_of_ut_rms_median": 5.183663756199256,
+    "cl_circ_r2": 0.9862296854608563,
+    "cl_press_r2": 0.9865680508862736,
+    "cl_deployed_r2": 0.9879524529020504
+   },
+   "drag_closures": {
+    "fitted": {
+     "cd_raw_r2": 0.8903534652456143,
+     "cd_log_r2": 0.9593211915524202,
+     "cd_medape_pct": 4.84797432700359
+    },
+    "marched": {
+     "cd_raw_r2": 0.850682093708436,
+     "cd_log_r2": 0.9239487968249808,
+     "cd_medape_pct": 3.6952601874192803
+    },
+    "squire_young": {
+     "cd_raw_r2": 0.8389827457259951,
+     "cd_log_r2": 0.8851142042008654,
+     "cd_medape_pct": 4.52708124606227
+    }
+   },
+   "surface": {
+    "n": 2678,
+    "cp_rel_l2_median": 0.10014708546380138,
+    "cp_rel_l2_p90": 0.1707520224018441,
+    "cp_rmse_case_median": 0.06475131883077134,
+    "stag_unique_crossing_rate": 0.9887976101568334,
+    "stag_zero_crossing_rate": 0.0,
+    "stag_multi_crossing_rate": 0.011202389843166542,
+    "stag_err_panels_median": 0.772023766327794,
+    "stag_within_one_panel": 0.657580283793876,
+    "cm_press_r2": 0.9529184728719468,
+    "cm_circ_r2": 0.9179441760293245
+   }
+  },
+  "separated": {
+   "n_unconverged": 0,
+   "bands": {
+    "all": {
+     "n": 1930,
+     "cl_deployed": 0.9941208965225918,
+     "cl_gamma": 0.9892675200373966,
+     "cl_nf": 0.9993449368144666,
+     "cd": 0.9338032957566096,
+     "cd_nf": 0.9831185164980721,
+     "cm_press": 0.8427792589974772,
+     "cm_nf": 0.9943726379209854
+    },
+    "H<6": {
+     "n": 891,
+     "cl_deployed": 0.9976848845657592,
+     "cl_gamma": 0.9976252081767302,
+     "cl_nf": 0.9996515768781948,
+     "cd": 0.8641878260125174,
+     "cd_nf": 0.9572573306354124,
+     "cm_press": 0.9098694730105391,
+     "cm_nf": 0.9963409096622275
+    },
+    "6<=H<10": {
+     "n": 577,
+     "cl_deployed": 0.8788889477792835,
+     "cl_gamma": 0.8578206819430496,
+     "cl_nf": 0.9861834049382997,
+     "cd": 0.9021293623756557,
+     "cd_nf": 0.9579331909790615,
+     "cm_press": 0.7208935111396597,
+     "cm_nf": 0.988026837615879
+    },
+    "H>=10": {
+     "n": 462,
+     "cl_deployed": 0.9262262588500771,
+     "cl_gamma": 0.8143171464147159,
+     "cl_nf": 0.992861578183477,
+     "cd": 0.8393416073314868,
+     "cd_nf": 0.9871742285891564,
+     "cm_press": 0.7401637862204757,
+     "cm_nf": 0.9921566284830425
+    }
+   },
+   "drag_closures": {
+    "fitted": {
+     "cd_raw_r2": 0.9338032957566096,
+     "cd_log_r2": 0.9711373274673749,
+     "cd_medape_pct": 5.048067537645351
+    },
+    "marched": {
+     "cd_raw_r2": 0.6849394608384318,
+     "cd_log_r2": 0.8280099032326159,
+     "cd_medape_pct": 19.677163857922313
+    },
+    "squire_young": {
+     "cd_raw_r2": 0.8451672939301029,
+     "cd_log_r2": 0.8811067441721947,
+     "cd_medape_pct": 12.694359529390015
+    }
+   },
+   "drag_closures_H10": {
+    "fitted": {
+     "cd_raw_r2": 0.8393416073314868,
+     "cd_log_r2": 0.8770143763566521,
+     "cd_medape_pct": 6.980178060079279
+    },
+    "marched": {
+     "cd_raw_r2": -0.2764313757982928,
+     "cd_log_r2": -0.6582948575462457,
+     "cd_medape_pct": 33.82863307593545
+    },
+    "squire_young": {
+     "cd_raw_r2": 0.5004053664960009,
+     "cd_log_r2": -0.09721960977968735,
+     "cd_medape_pct": 21.23847890427097
+    }
+   }
+  }
+ },
+ "attached_unconverged": {
+  "total": 59,
+  "by_band": {
+   "all": 59,
+   "alpha<0": 13,
+   "0<=alpha<8": 34,
+   "alpha>=8": 12
+  }
+ },
+ "lift_closure": {
+  "ablation_attached_converged": {
+   "poly2 all six state variables": 0.9887318042789294,
+   "linear all six": 0.9877728527328615,
+   "physics-minimal a*(dstar_u-dstar_l)+b": 0.9877688086777651,
+   "poly2 BL state only (no cl_circ)": 0.9884669890248208,
+   "constant offset only": 0.987200029081102
+  },
+  "ablation_separated": {
+   "poly2 all six state variables": 0.9941209293392278,
+   "linear all six": 0.991257458026734,
+   "physics-minimal a*(dstar_u-dstar_l)+b": 0.9910135264270864,
+   "poly2 BL state only (no cl_circ)": 0.9933095628117744,
+   "constant offset only": 0.9894582899943383
+  },
+  "no_correction_attached_converged": 0.9870607824208443,
+  "no_correction_separated": 0.9892675833563631,
+  "attached_converged": {
+   "r2_circ": 0.9870607824208443,
+   "r2_closed": 0.9887318042789294,
+   "rmse_circ": 0.06101,
+   "rmse_closed": 0.05694,
+   "bias_circ": 0.00687,
+   "bias_closed": 0.00435,
+   "n": 2678
+  },
+  "separated": {
+   "r2_circ": 0.98927,
+   "r2_closed": 0.99412,
+   "rmse_circ": 0.09802,
+   "rmse_closed": 0.07254,
+   "n": 1930
+  },
+  "source": "VortFoil_v2/artifacts/lift_closure_20260920/raw/cl_decamber_closure_20260920T134221Z.json"
+ },
+ "kutta_note": "the sealed contract run (graph mode, all 2,737 rows) reports max 3.584e-6 / median 1.937e-7; this recomputation returns exactly 0 in float32 in both eager and graph mode, so the quoted sealed values are an upper bound for any subset and are kept unchanged",
+ "cp_truth_note": "the 59 unconverged rows carry no XFOIL surface solution (their Cp row is all zeros), so the converged subset is exactly the set on which surface metrics can be computed",
+ "extra_converged_statistics": {
+  "attached_H_TE_ge6_count": {
+   "all_gated": 190,
+   "converged": 185
+  },
+  "attached_median_cd_truth": {
+   "all_gated": 0.01068,
+   "converged": 0.0107
+  },
+  "marched_closure_training_set_comparison": {
+   "note": "current boundary-layer operator (filtered 325,370-row training set) vs the previously released one (unfiltered 449,732 rows), same marched closure, attached set",
+   "current": {
+    "all_gated": 0.8507,
+    "converged": 0.8715
+   },
+   "previously_released": {
+    "all_gated": 0.8416,
+    "converged": 0.8692
+   }
+  },
+  "cl_readouts_converged": {
+   "circulation": 0.98706,
+   "pressure_force": 0.98753
+  }
+ },
+ "cdloss_ablation_converged": {
+  "0": {
+   "cd_all": 0.8903535827994347,
+   "cd_conv": 0.9204823151230812,
+   "th_all": 2.46923565864563,
+   "th_conv": 2.4360716342926025,
+   "ds_all": 5.214220285415649,
+   "ds_conv": 5.168217420578003
+  },
+  "50": {
+   "cd_all": 0.89442078769207,
+   "cd_conv": 0.9243748560547829,
+   "th_all": 3.9478957653045654,
+   "th_conv": 3.9284497499465942,
+   "ds_all": 4.587757587432861,
+   "ds_conv": 4.544538259506226
+  },
+  "200": {
+   "cd_all": 0.8968146964907646,
+   "cd_conv": 0.9269641637802124,
+   "th_all": 4.557287693023682,
+   "th_conv": 4.542562365531921,
+   "ds_all": 4.65317964553833,
+   "ds_conv": 4.611113667488098
+  }
+ },
+ "testate_medians_attached": {
+  "all_gated": {
+   "theta": 2.47,
+   "dstar": 5.21,
+   "ue": 0.4
+  },
+  "converged": {
+   "theta": 2.44,
+   "dstar": 5.17,
+   "ue": 0.4
+  }
+ }
+}
