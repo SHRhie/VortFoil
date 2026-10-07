@@ -20,6 +20,7 @@ generation; it does not follow a prior 1.x package.
   (`field_decoder_f0cm_s*.npz`, run 1 deployed) and the XFOIL-conditioned decoder it is compared with
   (`field_decoder_f0a_s*.npz`, run 2 deployed), with the evaluations, training logs and validation scores behind
   the field results.
-- The scorers and generators that reproduce the manuscript's numbers and figures, and the records they read.
+- The scorers and generators that reproduce the manuscript's numbers and figures (`--print` draws the figures at
+  the manuscript's text width, as shipped in `figures/`), and the records they read.
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and
   `DATA_LICENSES.md`.

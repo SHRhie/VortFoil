@@ -4,7 +4,9 @@ gen_xfoil_all_targets.py: Cp = 1-ue^2, s_stag = argmax Cp in s in (0.4,0.6)).
 Stagnation crossing exactly as stag_recompute.py / vf_talk_stag_accuracy_fig.py: sign changes of Ut along the
 loop, the one nearest s=0.5, linear interpolation; unique = exactly one sign change.
 Also writes the paper figures vf_cp_dist_cst16.{pdf,png} and vf_stagnation_cst16.{pdf,png} + numbers json.
-Usage: surface_cp_stag_cst16.py <out.json>"""
+Usage: vf_surface_cst16_fig.py <out.json> [--print]
+--print: drawn at the manuscript text width (5.40 in) with 11 pt titles/labels and 10 pt ticks and legends; the shipped
+figures/ are this render (stagnation legend entry "XFOIL node", two-line histogram title). Numbers are the same either way."""
 # LAYOUT-ONLY COPY (2026-09-19) of the sealed generator
 #   VortFoil_v2/artifacts/op2_cdloss_20260917T044259Z/source/surface_cp_stag_cst16.py
 # Only the subplot grid / figsize / axis-label placement of the two figures differ (author 5:4 aspect).
@@ -22,6 +24,10 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "-1")
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from plot_style import apply_ncfe_style; apply_ncfe_style()
 plt.rcParams["savefig.bbox"] = None   # after the style (which sets a tight bbox): Cp figure is exactly 5x4 in; the stagnation figure still passes bbox_inches="tight"
+PRINT = "--print" in sys.argv   # 2026-10-07: manuscript text width 5.40 in, 11/10 pt text, included 1:1 (the shipped figures)
+if PRINT:
+    plt.rcParams.update({"font.size": 11, "axes.titlesize": 11, "axes.labelsize": 11, "xtick.labelsize": 10, "ytick.labelsize": 10, "legend.fontsize": 10})
+FS = (lambda old, new: new if PRINT else old)
 import tensorflow as tf; tf.config.set_visible_devices([], "GPU")
 from staged.op1_inviscid import build_op1
 from staged.common.geometry import build_single_loop_contour_cst_tf
@@ -82,14 +88,14 @@ sel = [i for i in range(N) if abs(al[i, 0] - 4.0) < 1e-6 and abs(re[i, 0] - 1e6)
 for i in sel:
     if names[i] not in seen: seen.add(names[i]); pick.append(i)
     if len(pick) == 4: break
-fig, ax = plt.subplots(2, 2, figsize=(5, 4), sharex=True, sharey=True, constrained_layout=True); ax = ax.ravel()
+fig, ax = plt.subplots(2, 2, figsize=FS((5, 4), (5.40, 4.32)), sharex=True, sharey=True, constrained_layout=True); ax = ax.ravel()
 xlo, xhi = min(XC[i].min() for i in pick), max(XC[i].max() for i in pick)  # shared x: exact plotted x/c range, no margins (2026-09-19)
 for a_, i in zip(ax, pick):
     a_.plot(XC[i, :120], cp_t[i, :120], "k-", lw=0.8, label="XFOIL"); a_.plot(XC[i, 120:], cp_t[i, 120:], "k-", lw=0.8)
     a_.plot(XC[i, :120], cp_p[i, :120], "-", color="#b2182b", lw=0.8, label="sheet readout"); a_.plot(XC[i, 120:], cp_p[i, 120:], "-", color="#b2182b", lw=0.8)
     a_.set_xlim(xlo, xhi)
     if a_ is ax[0]: a_.invert_yaxis()   # once: sharey propagates, 4 calls cancelled (fixed 2026-09-19)
-    a_.set_title(f"({'abcd'[list(pick).index(i)]}) {names[i]}   rel $L_2$ {rel_l2[i]:.3f}", fontsize=7.5)
+    a_.set_title(f"({'abcd'[list(pick).index(i)]}) {names[i]}   rel $L_2$ {rel_l2[i]:.3f}", fontsize=FS(7.5, 11))
     # airfoil outline inset so the reader sees which shape each panel is (author request 2026-09-20)
     gi = build_single_loop_contour_cst_tf(tf.constant(cst[i:i + 1]), n_surface_pts=121)
     xo, yo = gi["x_nodes"].numpy()[0], gi["y_nodes"].numpy()[0]
@@ -97,18 +103,19 @@ for a_, i in zip(ax, pick):
     ins.set_aspect("equal"); ins.axis("off")
 for j in (0, 2): ax[j].set_ylabel("$C_p$")
 for j in (2, 3): ax[j].set_xlabel("$x/c$")
-ax[0].legend(frameon=False, fontsize=6.5)
+ax[0].legend(frameon=False, fontsize=FS(6.5, 10))
 for e in ("pdf", "png"): fig.savefig(f"{FIG}/vf_cp_dist_cst16.{e}", dpi=400)
 plt.close(fig)
-fig, ax = plt.subplots(1, 2, figsize=(6.0, 2.0)); k = pick[0]; m = (sp > 0.4) & (sp < 0.6)
+fig, ax = plt.subplots(1, 2, figsize=FS((6.0, 2.0), (5.40, 2.7)), constrained_layout=PRINT); k = pick[0]; m = (sp > 0.4) & (sp < 0.6)
 ax[0].plot(sp[m], ut[k, m], "-", color="#b2182b", lw=0.9, label="$U_t(s)$ sheet"); ax[0].axhline(0, color="k", lw=0.5)
-ax[0].axvline(s_t[k], color="k", ls="--", lw=0.7, label="XFOIL stagnation node"); ax[0].axvline(s_p[k], color="#2166ac", ls=":", lw=0.9, label="sheet crossing")
+ax[0].axvline(s_t[k], color="k", ls="--", lw=0.7, label=FS("XFOIL stagnation node", "XFOIL node")); ax[0].axvline(s_p[k], color="#2166ac", ls=":", lw=0.9, label="sheet crossing")
 ax[0].set_xlim(sp[m].min(), sp[m].max())  # exact plotted nose-region arc-length range, no margins (2026-09-19)
-ax[0].set_xlabel("arc-length $s$"); ax[0].set_ylabel("$U_t/U_\\infty$"); ax[0].legend(frameon=False, fontsize=6); ax[0].set_title(f"{names[k]}, $\\alpha=4^\\circ$", fontsize=7)
+ax[0].set_xlabel("arc-length $s$"); ax[0].set_ylabel("$U_t/U_\\infty$"); ax[0].legend(frameon=False, **FS(dict(fontsize=6), dict(fontsize=10, handlelength=1.2, handletextpad=0.5, labelspacing=0.35, borderaxespad=0.3))); ax[0].set_title(f"{names[k]}, $\\alpha=4^\\circ$", fontsize=FS(7, 11))
 hb = np.arange(0, 6.25, 0.25)
 ax[1].hist(np.clip(err_panels[np.isfinite(err_panels)], 0, 6), bins=hb, color="0.4"); ax[1].set_xlim(hb.min(), hb.max())  # exact bin-edge span, no margins (2026-09-19)
 ax[1].set_xlabel("|crossing $-$ XFOIL node| (panels)"); ax[1].set_ylabel("cases")
-ax[1].set_title(f"unique crossing {100*S['stag_unique_crossing_rate']:.2f}%, median {S['stag_err_panels_median']:.2f} panels", fontsize=7)
-for e in ("pdf", "png"): fig.savefig(f"{FIG}/vf_stagnation_cst16.{e}", dpi=400, bbox_inches="tight")
+sep = FS(", ", "\n")
+ax[1].set_title(f"unique crossing {100*S['stag_unique_crossing_rate']:.2f}%{sep}median {S['stag_err_panels_median']:.2f} panels", fontsize=FS(7, 11))
+for e in ("pdf", "png"): fig.savefig(f"{FIG}/vf_stagnation_cst16.{e}", dpi=400, **FS(dict(bbox_inches="tight"), {}))
 S["figure_cases_alpha4_Re1e6"] = [str(names[i]) for i in pick]
 json.dump(S, open(sys.argv[1], "w"), indent=1); json.dump(S, open(f"{FIG}/vf_surface_cst16_numbers.json", "w"), indent=1); print(json.dumps(S, indent=1))

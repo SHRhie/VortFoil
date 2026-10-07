@@ -141,3 +141,6 @@ its AirfRANS extraction.
 | `vf_surface_cst16_fig.py` | Figs. 2–3: Cp, stagnation and Cm readouts of the confirmed single model against XFOIL truth on the 2,678 converged attached rows (layout copy of the sealed generator with the converged-row mask). |
 | `vf_drag_closure_fig.py` | Figures for CMAME_v2 §Profile drag. Generator + saved numbers, per the figure-provenance rule. |
 | `vf_field_f2_contour.py` | Fig. 6: RANS truth against a decoder's stored prediction (`--preds`, from `code/field/step2_store_preds.py`). |
+
+With `--print`, each generator reproduces its files in `figures/`: drawn at the manuscript's text width (5.40 in)
+with 11 pt titles and labels and 10 pt ticks and legends. Without it, they draw the earlier smaller-text layout.
