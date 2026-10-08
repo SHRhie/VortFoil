@@ -61,7 +61,7 @@ def test_open_trailing_edge_is_closed(PF):
 
 
 def test_viewer_writes_one_figure(tmp_path):
-    import matplotlib
+    matplotlib = pytest.importorskip("matplotlib")                      # the viewer's one extra dependency
     matplotlib.use("Agg")
     import view_airfoil
     out = tmp_path / "view.png"
