@@ -22,5 +22,11 @@ generation; it does not follow a prior 1.x package.
   the field results.
 - The scorers and generators that reproduce the manuscript's numbers and figures (`--print` draws the figures at
   the manuscript's text width, as shipped in `figures/`), and the records they read.
+- `vortfoil.RangeWarning`: `predict()`, `sweep()` and `gradients()` warn when an incidence or Reynolds number lies
+  outside the training range (-10 to 18 deg, 5e4 to 1e7), or when coordinates fit the 16-parameter form poorly or have
+  a blunt trailing edge; the rows are flagged in `result.info["outside_training_range"]`.
+- `code/field/predict_field.py`: the operator-conditioned field decoder for any section, incidence and Reynolds
+  number from coordinates alone, with warnings outside its AirfRANS training domain, and its validation
+  (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`).
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and
   `DATA_LICENSES.md`.

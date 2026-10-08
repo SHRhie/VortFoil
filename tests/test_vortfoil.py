@@ -6,6 +6,7 @@
 Without it they are skipped and the fast checks still run.
 """
 import os
+import warnings
 
 import numpy as np
 import pytest
@@ -99,6 +100,25 @@ def test_coords_route_and_frame_normalization(model):
     turned = model.predict(coords=(loop @ rot.T) * 1.5, alpha=11.0)
     assert abs(turned.info["fit"][0]["rotation_deg"] - 7.0) < 1e-3
     assert abs(turned.cl[0] - base.cl[0]) < 1e-4
+
+
+def test_range_warnings(model):
+    """Inputs outside the training range, or sections the 16-parameter form misrepresents, raise RangeWarning."""
+    three = np.repeat(NACA2412_CST[None], 3, 0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", vortfoil.RangeWarning)          # the range ends are inside: silent
+        r = model.predict(cst=three, alpha=[-10.0, 4.0, 18.0], Re=[5e4, 1e6, 1e7])
+    assert not r.info["outside_training_range"].any()
+    with pytest.warns(vortfoil.RangeWarning, match="incidences"):
+        r = model.predict(cst=three[:2], alpha=[4.0, 25.0], Re=1e6)
+    assert r.info["outside_training_range"].tolist() == [False, True]
+    with pytest.warns(vortfoil.RangeWarning, match="Reynolds"):
+        model.predict(cst=NACA2412_CST, alpha=4.0, Re=1e8)
+    x, yu, yl = vortfoil.geometry.surface(NACA2412_CST, 121)
+    blunt = np.r_[np.c_[x[::-1], yu[::-1] + 0.01 * x[::-1]], np.c_[x[1:], yl[1:] - 0.01 * x[1:]]]   # 2% chord gap
+    with pytest.warns(vortfoil.RangeWarning) as rec:
+        model.predict(coords=blunt, alpha=4.0)
+    assert any("trailing-edge gap" in str(w.message) for w in rec)
 
 
 def test_stagnation_moves_with_incidence(model):

@@ -29,7 +29,8 @@ os.environ.setdefault("XFOIL_EXE", os.path.expanduser("~/src/xfoil/bin/xfoil"))
 import numpy as np
 from multiprocessing import Pool
 
-import airfrans as af
+# airfrans / pyvista are imported inside the functions that read AirfRANS files (2026-10-08), so the paint and the
+# decoder forward run without them (code/field/predict_field.py).
 from supervised_field.airfrans_p3_fields_v2 import (
     case_params, analytic_polyline, paint_points_v2, nearest_idx)
 from supervised_field.airfrans_p1_labels import run_one
@@ -67,6 +68,7 @@ def panel_mids_normals(nodes):
 
 
 def main():
+    import airfrans as af
     with open(os.path.join(ROOT, "manifest.json")) as f:
         names = sorted(json.load(f)["scarce_train"])
     assert len(names) == 200, len(names)

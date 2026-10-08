@@ -9,11 +9,11 @@
 ``vortfoil.about()`` prints what this build is: the weights it carries, the recipe they were trained
 with, the populations they were evaluated on and the scores it reproduces.
 """
-from .api import VortFoil, SurfacePrediction, manifest
+from .api import VortFoil, SurfacePrediction, RangeWarning, manifest
 from . import geometry
 
 __version__ = "2.0.0"
-__all__ = ["VortFoil", "SurfacePrediction", "load_model", "about", "manifest", "geometry", "__version__"]
+__all__ = ["VortFoil", "SurfacePrediction", "RangeWarning", "load_model", "about", "manifest", "geometry", "__version__"]
 
 _CACHE = {}
 

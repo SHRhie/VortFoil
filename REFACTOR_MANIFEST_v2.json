@@ -2,7 +2,7 @@
   "schema": "VORTFOIL_RELEASE_REFACTOR_MANIFEST_V1",
   "date": "2026-09-20",
   "branch": "v2-single-model",
-  "updated": "2026-10-07",
+  "updated": "2026-10-08",
   "principle": "COPY the confirmed single-model chain into this release repo; never move or edit the source trees (sealed artifacts embed absolute paths and sha manifests). Module names are preserved so internal imports keep working; scripts add code/model and code/field to sys.path via code/vortfoil_paths.py.",
   "src_root": "/Users/shr/Desktop/Operator/airfoil_operator",
   "delete_from_branch": [
@@ -86,6 +86,20 @@
     "code/figures/vf_drag_closure_fig.py": "--print: 5.40 in figures with 11/10 pt text, written to figures/ (the research flag writes to a print/ subfolder)",
     "code/figures/vf_field_f2_contour.py": "--print as in the research generator, output to figures/; docstring command for Fig. 6 uses --print",
     "code/figures/vf_surface_cst16_fig.py": "--print flag carrying the research print copy's sizes, fonts, legend entry 'XFOIL node', two-line histogram title and untrimmed canvas"
+  },
+  "edited_2026-10-08": {
+    "code/field/supervised_field/airfrans_p3_fields_v2.py": "the airfrans / pyvista / NACA-generator imports moved into the functions that read AirfRANS files; logic unchanged",
+    "code/field/supervised_field/nf_extract.py": "the airfrans import moved into main(); logic unchanged",
+    "code/field/supervised_field/nf_eval_shape.py": "the airfrans import moved into main(); logic unchanged",
+    "code/field/state_provider.py": "ConfirmedStateProvider.state_for_polygon(poly, alpha, Re): the same state for any closed section; state_for passes the NACA polyline to it (identical result). The GPU-hiding and thread settings are skipped when TensorFlow is already initialized (they raise then)",
+    "src/vortfoil/api.py, src/vortfoil/__init__.py": "RangeWarning and the training-range check in _prep (result.info['outside_training_range'])",
+    "src/vortfoil/weights/MANIFEST.json": "limits: the training range and the RangeWarning"
+  },
+  "created_2026-10-08": {
+    "code/field/predict_field.py": "the operator-conditioned decoder for any section, incidence and Reynolds number from coordinates alone",
+    "code/field/validate_predict_field.py": "its validation on AirfRANS full_test against the deployed evaluation",
+    "results/predict_field_validation.json, results/predict_field_validation_per_case.npz": "the validation record",
+    "tests/test_field_predict.py": "the field route runs from the repository's files (no AirfRANS, no XFOIL) and warns outside its domain"
   },
   "create": {
     "code/vortfoil_paths.py": "add_paths(): insert <release>/code/model and <release>/code/field into sys.path (so `import staged...`, `import supervised_field...`, `import sdf2d...`, `import state_provider` work); export RELEASE_ROOT, WEIGHTS, DATA_EVAL, RESULTS; honour a VORTFOIL_ROOT env override.",

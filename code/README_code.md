@@ -83,6 +83,8 @@ paths explicitly or run from a tree that has them.
 | `step2_eval_f0c.py` | Step 2b: evaluate the operator-conditioned decoder runs (default `--weights-tag f0cm`, rule `teH`), seed-pooled and paired against the three sealed XFOIL-conditioned runs; `results/step2_eval_f0cm_20260925T213247Z/` is its record. |
 | `step2_store_preds.py` | Store full-field predictions of an operator-conditioned decoder for the figure cases (rule `teH`); Fig. 6 uses `--weights-tag f0cm --seed 1 --cases 128`. |
 | `vf_field_fast.py` | Faster kernels for the field pathway with the same arithmetic; `verify()` checks them against the originals on `field_decoder_f0cm_s1.npz`. |
+| `predict_field.py` | The deployed operator-conditioned decoder for any section, incidence and Reynolds number, from coordinates alone (no AirfRANS files, no XFOIL): `--coords section.dat` or `--naca 2412`, `--alpha`, `--Re`, a grid (`--window`, `--h`) or `--points`, in the wind or chord frame; writes the field (AirfRANS units and normalized) to an npz and, with `--png`, a quick-look figure. Warns (`FieldRangeWarning`) outside the decoder's training domain (AirfRANS: NACA 4/5-digit sections, incidence −5 to 15°, Re 2×10⁶ to 6×10⁶) or for a section whose shape code lies far from every training section. |
+| `validate_predict_field.py` | Checks `predict_field.py` on AirfRANS full_test (200 cases) against the deployed evaluation: the same inputs reproduce the recorded errors; the coordinates-only route, from the case's 441-node section and from a sparse 161-node one, is scored against RANS; writes `results/predict_field_validation.json` and `_per_case.npz`. Needs `AIRFRANS_ROOT`. |
 
 ### `code/field/supervised_field/`
 
@@ -107,6 +109,10 @@ In the other modules of this package, only paths, comments, printed strings, the
 constant (`MARIO_PUBLISHED`) and the JSON key it is written under (`mario_published`, in `nf_eval200.py`,
 `nf_eval200_v5.py` and `nf_train.py`) differ from the research tree, and `nf_extract_shape.py` keeps only
 its AirfRANS extraction.
+In `airfrans_p3_fields_v2.py`, `nf_extract.py` and `nf_eval_shape.py` the `airfrans` and `pyvista` imports sit inside
+the functions that read AirfRANS files (2026-10-08), so the paint and the decoder forward run without them
+(`predict_field.py`). `state_provider.ConfirmedStateProvider.state_for_polygon` gives the operator state for any
+closed section; `state_for` passes it the NACA polyline, as before.
 
 ### `code/field/sdf2d/`
 
