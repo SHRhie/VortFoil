@@ -19,6 +19,7 @@ RELEASE_ROOT = os.environ.get(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 )
 CODE = os.path.join(RELEASE_ROOT, "code")
+SRC = os.path.join(RELEASE_ROOT, "src")
 MODEL = os.path.join(CODE, "model")
 FIELD = os.path.join(CODE, "field")
 WEIGHTS = os.environ.get("VORTFOIL_WEIGHTS", os.path.join(RELEASE_ROOT, "weights"))
@@ -28,8 +29,9 @@ FIGURES = os.path.join(RELEASE_ROOT, "figures")
 
 
 def add_paths():
-    """Put code/model and code/field on sys.path (idempotent)."""
-    for p in (MODEL, FIELD):
+    """Put src, code/model and code/field on sys.path (idempotent). src goes ahead of site-packages, so the scripts
+    use this checkout's vortfoil package rather than another installed copy of a different version."""
+    for p in (SRC, MODEL, FIELD):
         if p not in sys.path:
             sys.path.insert(0, p)
     return RELEASE_ROOT

@@ -53,9 +53,10 @@ def fit_cst16(coords, normalize=True):
         raise ValueError(f"coords must be (P,2), got {g.shape}")
     if len(g) < 2 * N_BERN:
         raise ValueError(f"need at least {2 * N_BERN} points, got {len(g)}")
-    if np.allclose(g[0], g[-1]):
+    closed = np.allclose(g[0], g[-1])
+    if closed:
         g = g[:-1]
-    te = 0.5 * (g[0] + g[-1])
+    te = g[0] if closed else 0.5 * (g[0] + g[-1])          # closed: g[-1] is the last lower node, not the trailing edge
     d = np.hypot(*(g - te).T)
     li = int(np.argmax(d))
     le = g[li]
@@ -83,7 +84,7 @@ def fit_cst16(coords, normalize=True):
         "rms_error": float(np.sqrt(np.mean(np.r_[ru, rl] ** 2))),
         "rotation_deg": float(np.degrees(ang)),
         "chord": chord,
-        "te_gap": float(abs(gn[0, 1] - gn[-1, 1])),
+        "te_gap": 0.0 if closed else float(abs(gn[0, 1] - gn[-1, 1])),
     }
     return np.r_[au, al].astype(np.float32), info
 

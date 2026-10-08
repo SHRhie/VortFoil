@@ -210,8 +210,8 @@ def field_inputs(P, poly, alpha, Re, cl, s, surf=None):
 
 
 def decode(inp, z, w):
-    from supervised_field.nf_eval_shape import fwd_np
-    pred = fwd_np(inp["X"].astype(np.float64), inp["s_row"].astype(np.float64), inp["PA"].astype(np.float64), z, w)
+    import vf_field_fast as F                    # nf_eval_shape.fwd_np over row blocks: memory bounded, rows independent
+    pred = F.fwd_parallel(inp["X"].astype(np.float64), inp["s_row"].astype(np.float64), inp["PA"].astype(np.float64), z, w)
     pred[inp["sm"], 0] = 0.0; pred[inp["sm"], 1] = 0.0; pred[inp["sm"], 3] = 0.0
     return pred
 

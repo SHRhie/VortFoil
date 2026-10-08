@@ -228,6 +228,13 @@ class VortFoil:
         if cst.shape[1] != 16:
             raise ValueError(f"cst must have 16 columns, got {cst.shape}")
         n = len(cst)
+        sizes = dict(alpha=np.size(alpha), Re=np.size(Re))
+        if n == 1 and max(sizes.values()) > 1:            # one shape, many conditions; the fit info stays per shape
+            n = max(sizes.values())
+            cst = np.repeat(cst, n, axis=0)
+        for k, m in sizes.items():
+            if m not in (1, n):
+                raise ValueError(f"{k} has {m} values for {n} shapes: give one value, one per shape, or a single shape")
         alpha = np.broadcast_to(np.asarray(alpha, np.float32).reshape(-1, 1), (n, 1)).copy()
         Re = np.broadcast_to(np.asarray(Re, np.float32).reshape(-1, 1), (n, 1)).copy()
         if "chord_rotation_deg" in info:
@@ -242,7 +249,8 @@ class VortFoil:
 
     # ---------------------------------------------------------------- public
     def predict(self, cst=None, coords=None, alpha=0.0, Re=1e6):
-        """Evaluate the chain. Give either ``cst`` (N,16) or ``coords`` ((N,)P,2); scalars broadcast.
+        """Evaluate the chain. Give either ``cst`` (N,16) or ``coords`` ((N,)P,2); scalars broadcast, and a
+        single shape is repeated over arrays of ``alpha`` and ``Re`` (a polar straight from coordinates).
 
         When ``coords`` is given the shape is fitted to the CST form first and the incidence is
         measured from the fitted chord line, so a rotated section is handled correctly; the fit
