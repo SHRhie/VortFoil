@@ -46,7 +46,7 @@ def section(airfoil):
 _MODEL = None
 
 
-def compute(loop, alpha, Re, h):
+def compute(loop, alpha, Re, h, family=None):
     """Surface results (vortfoil package) and the field (predict_field), with their warnings."""
     global _MODEL
     import vortfoil
@@ -59,7 +59,7 @@ def compute(loop, alpha, Re, h):
     surf_w = [str(w.message) for w in ws if issubclass(w.category, vortfoil.RangeWarning)]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PF.FieldRangeWarning)          # kept in meta["warnings"]
-        out, meta = PF.predict(loop, alpha, Re, h=h)
+        out, meta = PF.predict(loop, alpha, Re, h=h, family=family)
     return r, surf_w, out, meta
 
 
@@ -295,7 +295,7 @@ def main(argv=None):
         matplotlib.use("Agg")
     loop, name = section(airfoil)
     print(f"computing {name} at alpha {alpha:g} deg, Re {Re:.3g} ...", flush=True)
-    r, surf_w, out, meta = compute(loop, alpha, Re, a.h)
+    r, surf_w, out, meta = compute(loop, alpha, Re, a.h, family="naca" if re.fullmatch(r"\d{4,5}", airfoil.strip()) else None)
     layout = a.layout if a.layout != "auto" else ("portrait" if not a.no_show and screen_is_portrait() else "landscape")
     fig = figure(name, alpha, Re, r, surf_w, out, meta, layout=layout)
     if a.save:

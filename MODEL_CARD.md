@@ -154,7 +154,11 @@ absolute terms.
 - Run for a new section by `code/field/predict_field.py`: from dense coordinates alone it matches the deployed evaluation
   (mean errors 0.99, 0.99, 1.07, 1.03 times on the 200 test cases); a sparse 161-point section raises near-wall errors
   on a RANS mesh (u_y 3.8 times) but changes a 0.01-chord grid by under 6% of the decoder's error. Outside AirfRANS's
-  NACA 4/5-digit sections, −5° to 15° and Re 2×10⁶ to 6×10⁶ it warns, and such fields are unvalidated.
+  NACA 4/5-digit sections, −5° to 15° and Re 2×10⁶ to 6×10⁶ it warns.
+- **Other airfoil families:** on ten UIUC sections computed with the AirfRANS protocol inside those ranges, its errors were
+  1.5 to 80 times its NACA test level (26 times on average for u_x), largest near the wall. Only near-NACA shapes (RAE 2822,
+  NACA 64₂-415, DU 84-132V) stayed within the test tail. The shape-code distance did not flag them, so every non-NACA input
+  carries a family warning.
 
 The numbers are in the README's results summary.
 
