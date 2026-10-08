@@ -38,6 +38,9 @@ FIT_ERROR_WARN = 5e-3      # chord fraction, CST16 fit away from the TE node (ab
 TE_GAP_WARN = 1e-2         # chord fraction (about the 95th percentile of the same sections)
 
 
+BL_X = np.linspace(0.0, 1.0, 121)  # x/c of the boundary-layer operator's 121 stations on each surface (theta, dstar)
+
+
 class RangeWarning(UserWarning):
     """An input lies outside the range the model was trained on, or the 16-parameter shape form misrepresents it."""
 
@@ -96,6 +99,9 @@ class SurfacePrediction:
     ue_te: np.ndarray              # edge velocity at the trailing edge, per unit freestream
     theta_te: np.ndarray           # summed momentum thickness at the trailing edge
     dstar_te: np.ndarray           # summed displacement thickness at the trailing edge
+    x_cp: np.ndarray               # (N, 240) x/c of the panel midpoints that cp is given on
+    theta: np.ndarray              # (N, 2, 121) momentum thickness, [upper, lower], at x/c = BL_X
+    dstar: np.ndarray              # (N, 2, 121) displacement thickness, [upper, lower], at x/c = BL_X
     info: dict = _field(default_factory=dict)
 
     def __len__(self):
@@ -103,7 +109,8 @@ class SurfacePrediction:
 
     def as_dict(self):
         return {k: getattr(self, k) for k in
-                ("cl", "cl_gamma", "cd", "cm", "cp", "stagnation", "n_crossings", "ue_te", "theta_te", "dstar_te")}
+                ("cl", "cl_gamma", "cd", "cm", "cp", "stagnation", "n_crossings", "ue_te", "theta_te", "dstar_te",
+                 "x_cp", "theta", "dstar")}
 
 
 class VortFoil:
@@ -183,7 +190,9 @@ class VortFoil:
                         cl_gamma=cl_gamma,
                         cd=wake_ode_cd_tf(theta_te, dstar_te, ue_te, closure="fitted_poly2"),
                         cm=cm, cp=cp, ut=ut, ue_te=ue_te, theta_te=theta_te, dstar_te=dstar_te,
-                        n_crossings=n_cross)
+                        n_crossings=n_cross, x_cp=xc,
+                        theta=tf.stack([bl["theta_u"], bl["theta_l"]], axis=1),
+                        dstar=tf.stack([bl["delta_u"], bl["delta_l"]], axis=1))
 
         def grad(c, a, r, which):
             with tf.GradientTape() as tape:

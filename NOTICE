@@ -41,6 +41,15 @@ XFOIL's authors have not reviewed or endorsed the translation. XFOIL itself is
 not included, and no XFOIL process is run at inference time; scripts that
 regenerate training labels call an XFOIL binary the user supplies (XFOIL_EXE).
 
+code/field/naca_generator.py is copied verbatim from the airfrans package 0.1.5.1
+(airfrans/naca_generator.py, https://github.com/Extrality/airfrans_lib), the NACA
+4- and 5-digit generator the AirfRANS sections were built with:
+
+    Copyright (c) 2023 Extrality
+    MIT License (the full text is in the file's header)
+
+The MIT License permits its inclusion in this GPL-3.0-or-later distribution.
+
 
 Data
 ----

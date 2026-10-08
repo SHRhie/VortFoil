@@ -58,3 +58,12 @@ def test_open_trailing_edge_is_closed(PF):
     loop = np.r_[np.c_[x[::-1], yu[::-1] + 0.002 * x[::-1]], np.c_[x[1:], yl[1:] - 0.002 * x[1:]]]   # 0.4% chord gap
     g, shift = PF.close_trailing_edge(loop)
     assert np.allclose(g[0], g[-1]) and abs(shift - 0.002) < 1e-9
+
+
+def test_viewer_writes_one_figure(tmp_path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import view_airfoil
+    out = tmp_path / "view.png"
+    view_airfoil.main(["--airfoil", "2412", "--alpha", "4", "--Re", "3e6", "--h", "0.05", "--no-show", "--save", str(out)])
+    assert out.exists() and out.stat().st_size > 20000

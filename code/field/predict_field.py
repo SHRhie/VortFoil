@@ -2,7 +2,7 @@
 """RANS field of the operator-conditioned decoder for any airfoil, incidence and Reynolds number.
 
     python code/field/predict_field.py --coords section.dat --alpha 4 --Re 3e6 --out field.npz --png field.png
-    python code/field/predict_field.py --naca 2412 --alpha 4 --Re 3e6 --out field.npz      (needs the airfrans package)
+    python code/field/predict_field.py --naca 2412 --alpha 4 --Re 3e6 --out field.npz
 
 The decoder's inputs are built from the shape alone, the way they were built for training; no AirfRANS file and no
 XFOIL run is needed:
@@ -70,8 +70,8 @@ def read_coords(path):
 
 
 def naca_coords(code):
-    """The NACA 4- or 5-digit section exactly as the AirfRANS cases were generated (needs the airfrans package)."""
-    from airfrans.naca_generator import naca_generator
+    """The NACA 4- or 5-digit section exactly as the AirfRANS cases were generated (airfrans' generator, vendored)."""
+    from naca_generator import naca_generator
     c = str(code).strip()
     if len(c) == 4:
         prm = (float(c[0]), float(c[1]), float(c[2:]))
@@ -367,21 +367,20 @@ def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", deco
 
 
 # ------------------------------------------------------------------------------------------- output
-def plot(out, meta, path):
-    """Quick look of a grid result, in the frame it was computed in."""
-    import matplotlib
-    matplotlib.use("Agg")
+STYLE = {"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"], "mathtext.fontset": "stix",
+         "font.size": 10, "xtick.direction": "in", "ytick.direction": "in"}
+
+
+def draw_fields(fig, axes, out, meta):
+    """The four field panels (u along / across the freestream or u, v; C_p; nu_t) of a grid result on four axes."""
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
-    plt.rcParams.update({"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"], "mathtext.fontset": "stix",
-                         "font.size": 10, "xtick.direction": "in", "ytick.direction": "in"})
     sec = np.asarray(meta["section"])
     wind = meta["frame"] == "wind"
-    fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharex=True, sharey=True, constrained_layout=True)
     panels = [("u_over_U", r"$u_\parallel/U_\infty$" if wind else r"$u/U_\infty$", "viridis", None),
               ("v_over_U", r"$u_\perp/U_\infty$" if wind else r"$v/U_\infty$", "coolwarm", "sym"),
               ("cp", r"$C_p$", "coolwarm", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]
-    for ax, (k, lab, cmap, kind) in zip(axes.ravel(), panels):
+    for ax, (k, lab, cmap, kind) in zip(axes, panels):
         cm = plt.get_cmap(cmap).copy(); cm.set_bad("0.25")                  # cells inside the section take its colour
         f = np.ma.masked_invalid(out[k])
         if kind == "log":
@@ -396,6 +395,16 @@ def plot(out, meta, path):
         ax.set_aspect("equal"); ax.set_title(lab)
         ax.set_xlim(out["x"].min(), out["x"].max()); ax.set_ylim(out["y"].min(), out["y"].max())
         fig.colorbar(cf, ax=ax, shrink=0.9, pad=0.01)
+
+
+def plot(out, meta, path):
+    """Quick look of a grid result, in the frame it was computed in."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    plt.rcParams.update(STYLE)
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharex=True, sharey=True, constrained_layout=True)
+    draw_fields(fig, axes.ravel(), out, meta)
     fig.suptitle(rf"$\alpha$ = {meta['alpha_used']:.2f}$^\circ$, Re = {meta['Re']:.3g}   ($C_l^\gamma$ = {meta['cl_gamma']:.3f}, $s_{{sep}}$ = {meta['s_sep']:.2f})", fontsize=10)
     fig.savefig(path, dpi=200)
     plt.close(fig)
@@ -406,7 +415,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--coords", help="airfoil coordinates, Selig or Lednicer .dat")
-    g.add_argument("--naca", help="NACA 4- or 5-digit designation (needs the airfrans package)")
+    g.add_argument("--naca", help="NACA 4- or 5-digit designation, e.g. 2412 or 23012")
     ap.add_argument("--alpha", type=float, required=True, help="incidence, deg")
     ap.add_argument("--Re", type=float, required=True, help="Reynolds number (chord 1 m, nu 1.56e-5 m^2/s)")
     ap.add_argument("--window", default=",".join(f"{v:g}" for v in WINDOW), help="x0,x1,y0,y1 in chords (default %(default)s)")

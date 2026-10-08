@@ -132,6 +132,7 @@ r  = vf.predict(cst=cst16, alpha=4.0, Re=1e6)    # or coords=(P,2) airfoil point
 r.cl, r.cd, r.cm                                 # deployed lift, drag, moment
 r.cl_gamma                                       # circulation lift alone, 2 * oint gamma ds
 r.cp, r.stagnation, r.ue_te, r.theta_te, r.dstar_te
+r.x_cp, r.theta, r.dstar                         # Cp abscissae; BL thicknesses [upper, lower] at x/c = vortfoil.BL_X
 
 vf.sweep(cst16, np.linspace(-4, 12, 33))         # one shape, many incidences, one batch
 vf.gradients(cst=cst16, alpha=4.0, of="cl")      # reverse-mode d/dCST16 through the whole chain
@@ -168,7 +169,7 @@ any section, incidence and Reynolds number, from the coordinates alone, with no 
 
 ```bash
 python code/field/predict_field.py --coords section.dat --alpha 4 --Re 3e6 --out field.npz --png field.png
-python code/field/predict_field.py --naca 23012 --alpha 8 --Re 4e6 --out field.npz    # needs the airfrans package
+python code/field/predict_field.py --naca 23012 --alpha 8 --Re 4e6 --out field.npz
 ```
 
 It writes u, v, p and ν_t on a grid in AirfRANS units (chord 1 m, air, U∞ = Re·ν) and normalized (u/U∞, v/U∞, C_p,
@@ -190,6 +191,20 @@ Validation on the 200 AirfRANS test cases (`code/field/validate_predict_field.py
   predictions differ by 0.3% to 6% of the decoder's own test error.
 
 Give dense coordinates (at least 441 points) when the near-wall field matters.
+
+### One window for one airfoil
+
+`code/view_airfoil.py` asks for an airfoil (a NACA 4- or 5-digit designation or a `.dat` file), an incidence and a
+Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame; on
+the right are the sheet's surface pressure, both surfaces' boundary-layer thicknesses, and the coefficients with every
+range warning. Arguments skip the questions, and `--save` also writes the figure:
+
+```bash
+python code/view_airfoil.py
+python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
+```
+
+![Viewer: NACA 2412 at 6 degrees, Re 3e6](docs/viewer_example.png)
 
 ## Execution conditions
 

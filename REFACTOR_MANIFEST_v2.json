@@ -92,14 +92,19 @@
     "code/field/supervised_field/nf_extract.py": "the airfrans import moved into main(); logic unchanged",
     "code/field/supervised_field/nf_eval_shape.py": "the airfrans import moved into main(); logic unchanged",
     "code/field/state_provider.py": "ConfirmedStateProvider.state_for_polygon(poly, alpha, Re): the same state for any closed section; state_for passes the NACA polyline to it (identical result). The GPU-hiding and thread settings are skipped when TensorFlow is already initialized (they raise then)",
-    "src/vortfoil/api.py, src/vortfoil/__init__.py": "RangeWarning and the training-range check in _prep (result.info['outside_training_range'])",
-    "src/vortfoil/weights/MANIFEST.json": "limits: the training range and the RangeWarning"
+    "src/vortfoil/api.py, src/vortfoil/__init__.py": "RangeWarning and the training-range check in _prep (result.info['outside_training_range']); SurfacePrediction.x_cp / theta / dstar and BL_X",
+    "src/vortfoil/weights/MANIFEST.json": "limits: the training range and the RangeWarning",
+    "code/field/predict_field.py": "draw_fields() shared with the viewer; --naca uses the vendored generator. results/predict_field_validation.json was made with the version committed in 1ccd0e1 (sha256 d4eb6585...); since then only plotting, the --naca import and text changed, and the computing functions (prepare, field_inputs, decode, the section handling) are unchanged",
+    "NOTICE": "the MIT notice of the vendored NACA generator"
   },
   "created_2026-10-08": {
     "code/field/predict_field.py": "the operator-conditioned decoder for any section, incidence and Reynolds number from coordinates alone",
     "code/field/validate_predict_field.py": "its validation on AirfRANS full_test against the deployed evaluation",
     "results/predict_field_validation.json, results/predict_field_validation_per_case.npz": "the validation record",
-    "tests/test_field_predict.py": "the field route runs from the repository's files (no AirfRANS, no XFOIL) and warns outside its domain"
+    "tests/test_field_predict.py": "the field route runs from the repository's files (no AirfRANS, no XFOIL) and warns outside its domain; the viewer writes a figure headless",
+    "code/view_airfoil.py": "one window per airfoil: field panels, surface C_p, boundary-layer thicknesses, coefficients, warnings",
+    "code/field/naca_generator.py": "airfrans 0.1.5.1 naca_generator.py, verbatim, MIT License (Copyright (c) 2023 Extrality)",
+    "docs/viewer_example.png": "the README's viewer example (NACA 2412, 6 deg, Re 3e6)"
   },
   "create": {
     "code/vortfoil_paths.py": "add_paths(): insert <release>/code/model and <release>/code/field into sys.path (so `import staged...`, `import supervised_field...`, `import sdf2d...`, `import state_provider` work); export RELEASE_ROOT, WEIGHTS, DATA_EVAL, RESULTS; honour a VORTFOIL_ROOT env override.",

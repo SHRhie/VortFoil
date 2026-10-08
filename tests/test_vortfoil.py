@@ -121,6 +121,16 @@ def test_range_warnings(model):
     assert any("trailing-edge gap" in str(w.message) for w in rec)
 
 
+def test_surface_distributions(model):
+    """cp comes with its panel abscissae; the boundary-layer distributions end at the trailing-edge state."""
+    r = model.predict(cst=np.repeat(NACA2412_CST[None], 2, 0), alpha=[0.0, 6.0], Re=1e6)
+    assert r.x_cp.shape == r.cp.shape == (2, 240) and 0.0 <= r.x_cp.min() and r.x_cp.max() <= 1.0
+    assert r.theta.shape == r.dstar.shape == (2, 2, len(vortfoil.BL_X))
+    assert np.allclose(r.theta[:, :, -1].sum(1), r.theta_te, rtol=1e-5)
+    assert np.allclose(r.dstar[:, :, -1].sum(1), r.dstar_te, rtol=1e-5)
+    assert (r.dstar[:, :, 1:] > r.theta[:, :, 1:]).all()              # shape factor above one
+
+
 def test_stagnation_moves_with_incidence(model):
     r = model.sweep(NACA2412_CST, np.array([-4.0, 0.0, 4.0, 8.0]))
     assert np.all(np.diff(r.stagnation) > 0)
