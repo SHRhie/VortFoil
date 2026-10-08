@@ -73,7 +73,11 @@ manuscript with the DOI in place.
    > without `--no-deps`, pip will pull a newer TensorFlow and Keras over the
    > one you have pinned.
 
-7. Only once the TestPyPI install passes the self-check, upload to PyPI.
+7. Do not upload to PyPI by hand. Publishing the GitHub release in step 9 runs the `publish` job of
+   `.github/workflows/ci.yml`, which uploads with PyPI's trusted publishing once the tests and the clean-wheel check
+   pass. On PyPI, the pending publisher is: project `VortFoil` (normalized `vortfoil`), repository
+   `SHRhie/VortFoil`, workflow `ci.yml`, environment `pypi`. It was registered on 2026-10-08 and becomes active with
+   that first upload. The job also checks that the release tag is `v` + the wheel's version.
 8. Confirm the Zenodo GitHub integration is already connected for this repository. If it is not,
    connect it now; a release created before it is connected will not be archived.
 9. Tag the commit `v2.0.0` and create a GitHub release, attaching the wheel and the source
@@ -83,14 +87,20 @@ manuscript with the DOI in place.
    gh release create v2.0.0 dist/* --notes-file docs/RELEASE_NOTES_v2.0.0.md
    ```
 
+   This one step triggers the PyPI upload (step 7) and the Zenodo archive (step 8). GitHub creates the `pypi`
+   environment when the job first runs. A private repository may need a paid plan for environments, which is one
+   more reason the release comes after the repository is public. A version uploaded to PyPI can never be
+   re-uploaded, so a fix after this needs 2.0.1.
+
 10. Zenodo mints a DOI for the archived release. Put it in `CITATION.cff` (which carries an
     author placeholder for exactly this) and in the manuscript's code-and-data-availability
     section, then rebuild the manuscript.
 
-## State as of 2026-10-07
+## State as of 2026-10-08
 
 Version `2.0.0` agrees across `src/vortfoil/__init__.py`, `pyproject.toml` and
 `src/vortfoil/weights/MANIFEST.json`. The repository starts from a single commit of the release tree that matches
 the 51-page manuscript build of 2026-10-06 (the manuscript PDF itself is added after submission). It is private
 until the publication gate above is closed. There are no tags and no releases, no DOI has been minted, and the
-name `vortfoil` was unclaimed on PyPI and TestPyPI on 2026-10-01.
+name `vortfoil` was unclaimed on PyPI and TestPyPI on 2026-10-01. A PyPI pending trusted publisher for it was
+registered on 2026-10-08 (step 7).
