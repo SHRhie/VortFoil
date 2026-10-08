@@ -90,9 +90,10 @@ def field_frame(loop, tol=0.01):
     midpoint) and the rotation is returned so that the incidence can be measured from that chord.
     Returns (open loop in the frame, rotation deg, map for other points, LE index)."""
     g = np.asarray(loop, np.float64)
-    if np.allclose(g[0], g[-1]):
+    closed = np.allclose(g[0], g[-1])
+    if closed:
         g = g[:-1]
-    te = 0.5 * (g[0] + g[-1]); li = int(np.argmin(g[:, 0]))
+    te = g[0] if closed else 0.5 * (g[0] + g[-1]); li = int(np.argmin(g[:, 0]))   # closed: g[-1] is the last lower node
     if abs(g[li, 0]) < tol and abs(te[0] - 1.0) < tol and abs(te[1]) < tol:   # the nose of a cambered section may sit above y = 0
         return g, 0.0, (lambda P: np.asarray(P, np.float64)), li
     li = int(np.argmax(np.hypot(*(g - te).T))); le = g[li]
@@ -285,13 +286,13 @@ def prepare(loop, alpha, Re, decoder=DECODER):
     msgs = []
     w = load_decoder(decoder)
     g, rot, to_frame, li = field_frame(loop)
-    te_gap = float(abs(g[0, 1] - g[-1, 1]))
+    closed = np.allclose(np.asarray(loop, np.float64)[0], np.asarray(loop, np.float64)[-1])
+    te_gap = 0.0 if closed else float(abs(g[0, 1] - g[-1, 1]))
     if rot:
         msgs.append(f"the coordinates were not in the chord frame (LE at the origin, chord 1 along +x); they were normalized "
                     f"and the incidence is measured from the chord through the node farthest from the trailing edge "
                     f"(rotation {rot:.2f} deg)")
     a = float(alpha) - rot
-    closed = np.allclose(np.asarray(loop, np.float64)[0], np.asarray(loop, np.float64)[-1])
     te_shift = 0.0
     if not closed:
         g, te_shift = close_trailing_edge(g)                      # g now ends on its first node
