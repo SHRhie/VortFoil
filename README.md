@@ -197,7 +197,7 @@ Give dense coordinates (at least 441 points) when the near-wall field matters.
 `code/view_airfoil.py` asks for an airfoil (a NACA 4- or 5-digit designation or a `.dat` file), an incidence and a
 Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame; on
 the right are the sheet's surface pressure, both surfaces' boundary-layer thicknesses, and the coefficients with every
-range warning. Arguments skip the questions, and `--save` also writes the figure:
+range warning. It needs matplotlib. Arguments skip the questions, and `--save` also writes the figure:
 
 ```bash
 python code/view_airfoil.py
