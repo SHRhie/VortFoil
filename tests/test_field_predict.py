@@ -60,6 +60,16 @@ def test_open_trailing_edge_is_closed(PF):
     assert np.allclose(g[0], g[-1]) and abs(shift - 0.002) < 1e-9
 
 
+def test_closed_loop_with_a_coarse_trailing_edge_panel_stays_in_frame(PF):
+    loop = PF.naca_coords("2412")[::20]                                   # closed, last panel 2.5% chord long
+    g, rot, _, _ = PF.field_frame(loop)
+    assert rot == 0.0 and np.allclose(g, loop[:-1])
+    with warnings.catch_warnings(record=True) as ws:
+        warnings.simplefilter("always")
+        _, meta = PF.predict(loop, 4.0, 3e6, window=(-0.5, 1.5, -0.5, 0.5), h=0.1)
+    assert meta["te_gap"] == 0.0 and not any("gap" in str(w.message) for w in ws)
+
+
 def test_viewer_writes_one_figure(tmp_path):
     matplotlib = pytest.importorskip("matplotlib")                      # the viewer's one extra dependency
     matplotlib.use("Agg")
