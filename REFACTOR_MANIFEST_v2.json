@@ -101,7 +101,7 @@
     "code/field/predict_field.py (later)": "decode() runs the decoder through vf_field_fast.fwd_parallel (row blocks, threaded; bitwise equal to one fwd_np call); draw_fields() shades the fields with Gouraud interpolation (section interior filled from its neighbours, drawn over); STYLE and plot() save at 400 dpi",
     "src/vortfoil/geometry.py": "fit_cst16 takes a closed loop's trailing edge at its first node (it took the midpoint with the last lower node) and reports no gap for it; code/field/state_provider.py keeps its training-time rule, since its inputs are 441-node polygons whose last panel is about 5e-5 chord",
     "code/vortfoil_paths.py": "add_paths() also puts <release>/src first, so the scripts use this checkout's vortfoil package rather than another installed copy",
-    "code/view_airfoil.py": "imports through vortfoil_paths.add_paths() (this checkout's package and code/field); scale_with_window(): a window resize zooms the frozen design layout (letterboxed) instead of re-flowing it; figure(fig=, layout=) redraws into a given figure, side by side or stacked; --layout auto stacks on an upright screen; figures saved at 400 dpi; the surface model is loaded once per process"
+    "code/view_airfoil.py": "imports through vortfoil_paths.add_paths() (this checkout's package and code/field); scale_with_window(): a window resize zooms the frozen design layout (letterboxed) instead of re-flowing it; figure(fig=, layout=) redraws into a given figure in the landscape, square or portrait layout; --layout auto uses portrait on an upright screen; figures saved at 400 dpi; the surface model is loaded once per process"
   },
   "created_2026-10-08": {
     "code/field/predict_field.py": "the operator-conditioned decoder for any section, incidence and Reynolds number from coordinates alone",
@@ -111,7 +111,7 @@
     "code/view_airfoil.py": "one window per airfoil: field panels, surface C_p, boundary-layer thicknesses, coefficients, warnings",
     "code/field/naca_generator.py": "airfrans 0.1.5.1 naca_generator.py, verbatim, MIT License (Copyright (c) 2023 Extrality)",
     "docs/viewer_example.png": "the README's viewer example (NACA 2412, 6 deg, Re 3e6)",
-    "code/vortfoil_app.py": "the desktop application: NACA, UIUC database (downloaded on demand, cached, not redistributed) or a user file; run; figure stacked or side by side; save at 400 dpi; --selftest"
+    "code/vortfoil_app.py": "the desktop application: NACA, UIUC database (downloaded on demand, cached, not redistributed) or a user file; run; figure in the layout (landscape, square, portrait) the window shows largest; save at 400 dpi; --shortcut (Windows desktop shortcut, Linux menu entry, macOS: prints the terminal command only); --selftest (figure, canvas as shown, window capture where permitted)"
   },
   "create": {
     "code/vortfoil_paths.py": "add_paths(): insert <release>/code/model and <release>/code/field into sys.path (so `import staged...`, `import supervised_field...`, `import sdf2d...`, `import state_provider` work); export RELEASE_ROOT, WEIGHTS, DATA_EVAL, RESULTS; honour a VORTFOIL_ROOT env override.",

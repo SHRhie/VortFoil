@@ -101,6 +101,19 @@ def test_viewer_window_resize_zooms_the_figure():
     assert abs(fig.axes[0].title.get_fontsize() - f0) < 1e-9 and np.allclose(pos[:, 3], pos0[:, 3] / 2)
 
 
+def test_viewer_layouts():
+    """The three layouts of the result figure build at their design sizes."""
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    import view_airfoil as V
+    loop, name = V.section("2412")
+    res = V.compute(loop, 4.0, 3e6, 0.05)
+    for layout, size in V.DESIGNS.items():
+        fig = V.figure(name, 4.0, 3e6, *res, layout=layout)
+        assert tuple(fig.get_size_inches()) == size and len(fig.axes) == 11      # 4 fields, 4 colour bars, C_p, BL, text
+        matplotlib.pyplot.close(fig)
+
+
 def test_application_helpers():
     """The application's database list parser and the field panels' fill of the section interior (no window needed)."""
     import vortfoil_app as A

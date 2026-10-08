@@ -32,7 +32,10 @@ generation; it does not follow a prior 1.x package.
 - `code/view_airfoil.py`: one window per airfoil with the field panels, the surface pressure, the boundary-layer
   thicknesses and the coefficients; resizing the window zooms the figure instead of re-flowing its layout, and an
   upright screen gets the panels stacked. `code/vortfoil_app.py`: the same as a desktop application (NACA sections,
-  the UIUC database downloaded on demand, or your own coordinate file; figures saved at 400 dpi).
+  the UIUC database downloaded on demand, or your own coordinate file; figures saved at 400 dpi; `--shortcut` adds a
+  launcher for the environment it runs in: a desktop shortcut on Windows, a menu entry on Linux, the terminal command
+  on macOS), with installation steps in the README. Three layouts (side by side, fields over a row of surface
+  panels, stacked); the application uses the one that shows the figure largest.
   `SurfacePrediction` gains `x_cp`, `theta` and `dstar` (with `vortfoil.BL_X`).
   The NACA generator of the AirfRANS sections is vendored (`code/field/naca_generator.py`, MIT).
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and
