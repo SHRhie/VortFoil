@@ -58,16 +58,17 @@ def fetch(url, path):
 
 
 def load_section(kind, value):
-    """(coordinates, display name) of a NACA designation, a UIUC database name or a coordinate file."""
+    """(coordinates, display name, family) of a NACA designation, a UIUC database name or a coordinate file; family is
+    "naca" for a designation (the decoder's training family) and None otherwise (the field gets a family warning)."""
     import predict_field as PF
     if kind == "naca":
         code = value.upper().replace("NACA", "").strip()
         if not re.fullmatch(r"\d{4,5}", code):
             raise ValueError(f"'{value}' is not a NACA 4- or 5-digit designation")
-        return PF.naca_coords(code), f"NACA {code}"
+        return PF.naca_coords(code), f"NACA {code}", "naca"
     if kind == "uiuc":
-        return PF.read_coords(fetch(f"{UIUC}coord/{value}.dat", os.path.join(CACHE, value + ".dat"))), value
-    return PF.read_coords(value), os.path.splitext(os.path.basename(value))[0]
+        return PF.read_coords(fetch(f"{UIUC}coord/{value}.dat", os.path.join(CACHE, value + ".dat"))), value, None
+    return PF.read_coords(value), os.path.splitext(os.path.basename(value))[0], None
 
 
 def load_index():
@@ -76,9 +77,9 @@ def load_index():
         return uiuc_index(f.read())
 
 
-def run_case(loop, alpha, Re, h, name):
+def run_case(loop, alpha, Re, h, name, family):
     t0 = time.perf_counter()
-    res = V.compute(loop, alpha, Re, h)
+    res = V.compute(loop, alpha, Re, h, family)
     return res, time.perf_counter() - t0
 
 
@@ -237,12 +238,13 @@ class App:
                 self.finish(1)
             return
         self.section = res
-        loop, name = res
+        loop, name, family = res
         self.pax.clear(); self.pax.axis("off")
         self.pax.fill(loop[:, 0], loop[:, 1], color="0.75", lw=0.8, ec="0.2"); self.pax.set_aspect("equal")
         self.pcan.draw_idle()
         self.pname.configure(text=f"{name}: {len(loop)} points")
-        self.status.configure(text=f"{name} loaded. Set the flow and press Run.")
+        self.status.configure(text=f"{name} loaded. Set the flow and press Run." + ("" if family == "naca" else
+                              " Not a NACA 4/5-digit section: the field decoder was trained on those only (see the warnings)."))
         if self.selftest:
             self.run()
 
@@ -255,10 +257,10 @@ class App:
         except ValueError:
             self.status.configure(text="The incidence and the Reynolds number must be numbers (e.g. 4 and 3e6).")
             return
-        loop, name = self.section
+        loop, name, family = self.section
         self.run_btn.configure(state="disabled"); self.bar.configure(mode="indeterminate"); self.bar.start(12)
         self.status.configure(text=f"Computing {name} at {alpha:g} deg, Re {Re:.3g} ... (the first run also loads the models)")
-        self.submit("run", loop, alpha, Re, DETAIL[self.detail.get()], name)
+        self.submit("run", loop, alpha, Re, DETAIL[self.detail.get()], name, family)
 
     def done_run(self, args, res, err):
         self.bar.stop(); self.bar.configure(mode="determinate", value=0); self.run_btn.configure(state="normal")
@@ -269,7 +271,7 @@ class App:
                 self.finish(1)
             return
         (r, surf_w, out, meta), dt = res
-        loop, alpha, Re, h, name = args
+        loop, alpha, Re, h, name, family = args
         self.args = (name, alpha, Re)
         self.last = (name, alpha, Re, r, surf_w, out, meta)
         self.draw(self.orientation())

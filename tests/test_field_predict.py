@@ -35,7 +35,7 @@ def section():
 def test_field_route_inside_the_domain(PF, section):
     with warnings.catch_warnings():
         warnings.simplefilter("error", PF.FieldRangeWarning)
-        out, meta = PF.predict(section, 4.0, 3e6, window=(-0.5, 1.5, -0.5, 0.5), h=0.05)
+        out, meta = PF.predict(section, 4.0, 3e6, window=(-0.5, 1.5, -0.5, 0.5), h=0.05, family="naca")
     fluid = ~out["inside"]
     for k in ("u", "v", "p", "nut"):
         assert np.isfinite(out[k][fluid]).all(), k
@@ -48,9 +48,19 @@ def test_field_route_inside_the_domain(PF, section):
 
 def test_field_route_warns_outside_the_domain(PF, section):
     with pytest.warns(PF.FieldRangeWarning, match="Reynolds"):
-        PF.predict(section, 4.0, 1e5, h=0.1)
+        PF.predict(section, 4.0, 1e5, h=0.1, family="naca")
     with pytest.warns(PF.FieldRangeWarning, match="incidence"):
-        PF.predict(section, 20.0, 3e6, h=0.1)
+        PF.predict(section, 20.0, 3e6, h=0.1, family="naca")
+
+
+def test_family_warning(PF, section):
+    """Coordinates warn that the decoder knows only NACA 4/5-digit sections; a NACA designation does not."""
+    with pytest.warns(PF.FieldRangeWarning, match="NACA 4- and 5-digit sections only"):
+        PF.predict(section, 4.0, 3e6, h=0.1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PF.FieldRangeWarning)
+        _, meta = PF.predict(PF.naca_coords("2412"), 4.0, 3e6, h=0.1, family="naca")
+    assert meta["family"] == "naca" and not meta["warnings"]
 
 
 def test_open_trailing_edge_is_closed(PF):

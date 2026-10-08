@@ -23,6 +23,11 @@ nu_t in m^2/s. Normalized copies are stored too: u/U, v/U, Cp = p/(U^2/2), nu_t/
 Domain. The decoder was trained on 780 AirfRANS k-omega SST cases only: NACA 4- and 5-digit sections at incidences of
 -5 to 15 deg and Reynolds numbers of 2e6 to 6e6. Outside those ranges, or for a section whose shape code lies farther from
 every training section than the training sections lie from each other, a FieldRangeWarning is issued and recorded.
+Families. Ten UIUC sections of other families, run with the AirfRANS protocol (k-omega SST, inside the ranges above),
+gave mean errors 26 times the decoder's NACA test level for u_x (1.5 to 80 times per section: the near-NACA rae2822,
+naca642415 and du84132v stay in the test tail, cambered high-lift and thin low-Re sections are far off), largest near the
+wall; the shape-code distance did not flag any of them. So every section that is not given as a NACA designation
+(family="naca") gets a FieldRangeWarning saying so.
 The validation of this pathway against the deployed evaluation is code/field/validate_predict_field.py.
 """
 import os, sys, json, hashlib, warnings
@@ -279,11 +284,16 @@ def _closed_upper_first(g):
     return np.r_[g, g[:1]]
 
 
-def prepare(loop, alpha, Re, decoder=DECODER):
+FAMILY_NOTE = ("the field decoder was trained on NACA 4- and 5-digit sections only; on ten UIUC sections of other "
+               "families its errors were 1.5 to 80 times its NACA test level (26 times on average for u_x), largest near "
+               "the wall: read this field as indicative")
+
+
+def prepare(loop, alpha, Re, decoder=DECODER, family=None):
     """Everything the decoder needs about the section and the flow condition; the query points come later.
     Coordinates with at least 2 x 220 nodes are used as given (the training sections had 441); sparser ones are
     resampled to 441 nodes through every given point (section_polygon). An open trailing edge is closed first."""
-    msgs = []
+    msgs = [] if family == "naca" else [FAMILY_NOTE]
     w = load_decoder(decoder)
     g, rot, to_frame, li = field_frame(loop)
     closed = np.allclose(np.asarray(loop, np.float64)[0], np.asarray(loop, np.float64)[-1])
@@ -323,11 +333,11 @@ def prepare(loop, alpha, Re, decoder=DECODER):
                 meta=dict(alpha_given=float(alpha), alpha_used=a, chord_rotation_deg=rot, Re=float(Re), cl_gamma=st["cl"],
                           s_sep=st["s"], section_nodes_given=int(len(g)), section_resampled=bool(not dense),
                           cst16_fit_max_error=fit_err, te_gap=te_gap, trailing_edge_closed_by=te_shift, shape_code_distance=dz, shape_code_reference=dref,
-                          warnings=msgs, decoder=os.path.basename(decoder),
+                          warnings=msgs, family=family or "coordinates", decoder=os.path.basename(decoder),
                           decoder_sha256=_sha256(decoder)))
 
 
-def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", decoder=DECODER, fast=True):
+def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", decoder=DECODER, fast=True, family=None):
     """Field for a section given as a coordinate loop, at `points` (n,2) or on a grid over `window`, both in `frame`:
     'wind' (freestream along +x, the section at its incidence; default) or 'body' (the chord frame: LE at the origin,
     chord along +x). Velocity components are returned in the same frame; x_body, y_body give the points in the chord frame."""
@@ -336,7 +346,7 @@ def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", deco
     if fast:
         import vf_field_fast as F
         F.install()
-    c = prepare(loop, alpha, Re, decoder)
+    c = prepare(loop, alpha, Re, decoder, family)            # family="naca": a NACA 4/5-digit designation (no family warning)
     for m in c["meta"]["warnings"]:
         warnings.warn(m, FieldRangeWarning, stacklevel=2)
     a, poly = c["alpha"], c["poly"]
@@ -446,7 +456,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     loop = read_coords(a.coords) if a.coords else naca_coords(a.naca)
     pts = np.load(a.points) if a.points else None
-    out, meta = predict(loop, a.alpha, a.Re, points=pts, window=tuple(float(v) for v in a.window.split(",")), h=a.h, frame=a.frame)
+    out, meta = predict(loop, a.alpha, a.Re, points=pts, window=tuple(float(v) for v in a.window.split(",")), h=a.h, frame=a.frame,
+                        family="naca" if a.naca else None)
     np.savez_compressed(a.out, meta=json.dumps(meta), **out)
     print(f"wrote {a.out}: {np.size(out['u'])} points; C_l^gamma {meta['cl_gamma']:.4f}, s {meta['s_sep']:.3f}, "
           f"alpha used {meta['alpha_used']:.3f} deg, U {meta['U']:.2f} m/s; warnings: {len(meta['warnings'])}")

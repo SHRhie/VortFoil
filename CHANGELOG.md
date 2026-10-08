@@ -56,3 +56,7 @@ generation; it does not follow a prior 1.x package.
 - The field route's peak memory: the fast kernels and the decoder now work in tasks of 2,048 rows, so a default
   80,601-point field needs about 0.9 GB above the loaded models instead of 2.9 GB (outputs bitwise unchanged).
 - On macOS the field route printed spurious `RuntimeWarning`s from Accelerate's matrix products in worker threads.
+- The field route warned only outside the decoder's incidence and Reynolds ranges. Ten UIUC sections computed with the
+  AirfRANS protocol showed errors 1.5 to 80 times the NACA test level (26 times on average for u_x), and the
+  shape-code check flagged none of them. Every section not given as a NACA designation now carries a family warning,
+  and the README and model card state the measurement.

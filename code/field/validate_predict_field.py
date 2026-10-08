@@ -77,7 +77,7 @@ def _work(nm):
         coarse = np.asarray(naca_generator(np.array(prm), nb_samples=80, cosine_spacing=True, verbose=False, CTE=True), np.float64)
         prep = {}
         for tag, loop in (("U", poly), ("C", coarse)):
-            c = prep[tag] = PF.prepare(loop, a, Re)
+            c = prep[tag] = PF.prepare(loop, a, Re, family="naca")    # AirfRANS sections are NACA 4/5-digit
             PU = c["to_frame"](P)
             inp = PF.field_inputs(PU, c["poly"], c["alpha"], Re, c["cl"], c["s"], surf=sm)
             inside = (inp["d"] <= 0.0) & ~sm

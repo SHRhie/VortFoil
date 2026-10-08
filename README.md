@@ -212,8 +212,15 @@ chords at 0.005 chord in the wind frame (freestream along +x). `--points` takes 
 the chord frame.
 
 The decoder was trained on AirfRANS k–ω SST fields of NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶.
-It issues a `FieldRangeWarning` outside that range, and for a section whose shape code lies farther from every training
-section than the training sections lie from each other. Fields of sections unlike the training set are unvalidated.
+It issues a `FieldRangeWarning` outside that range.
+
+**Other airfoil families: much less accurate.** Ten UIUC sections of other families were computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above) and scored with the deployed metric. The decoder's errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
+
+- The errors are largest near the wall but also large off the body.
+- Sections close to a NACA shape stayed within the test tail: RAE 2822 1.5 times, NACA 64₂-415 2.8 times and DU 84-132V 2.9 times.
+- The others were far off: FX 63-137 7.7 times, Clark Y 10 times, NLF(1)-0416 13 times, SD7003 15 times, E387 26 times, AH 79-100C 51 times and S1223 80 times.
+
+The shape-code distance check did not flag any of them, so it is not a family detector. Every section that is not given as a NACA designation (`--naca`, a NACA airfoil in the viewer or the application) therefore gets a `FieldRangeWarning` saying so; read such a field as indicative. The surface results come from the separate surface model and are not affected.
 
 Validation on the 200 AirfRANS test cases (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
 
