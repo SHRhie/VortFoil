@@ -84,6 +84,7 @@ paths explicitly or run from a tree that has them.
 | `step2_store_preds.py` | Store full-field predictions of an operator-conditioned decoder for the figure cases (rule `teH`); Fig. 6 uses `--weights-tag f0cm --seed 1 --cases 128`. |
 | `vf_field_fast.py` | Faster kernels for the field pathway with the same arithmetic; `verify()` checks them against the originals on `field_decoder_f0cm_s1.npz`. |
 | `predict_field.py` | The deployed operator-conditioned decoder for any section, incidence and Reynolds number, from coordinates alone (no AirfRANS files, no XFOIL): `--coords section.dat` or `--naca 2412`, `--alpha`, `--Re`, a grid (`--window`, `--h`) or `--points`, in the wind or chord frame; writes the field (AirfRANS units and normalized) to an npz and, with `--png`, a quick-look figure. Warns (`FieldRangeWarning`) outside the decoder's training domain (AirfRANS: NACA 4/5-digit sections, incidence −5 to 15°, Re 2×10⁶ to 6×10⁶) or for a section whose shape code lies far from every training section. |
+| `naca_generator.py` | The NACA 4/5-digit generator the AirfRANS sections were built with, copied verbatim from the airfrans package 0.1.5.1 (MIT License; see `NOTICE`); `predict_field.py --naca` uses it. |
 | `validate_predict_field.py` | Checks `predict_field.py` on AirfRANS full_test (200 cases) against the deployed evaluation: the same inputs reproduce the recorded errors; the coordinates-only route, from the case's 441-node section and from a sparse 161-node one, is scored against RANS; writes `results/predict_field_validation.json` and `_per_case.npz`. Needs `AIRFRANS_ROOT`. |
 
 ### `code/field/supervised_field/`
@@ -150,3 +151,9 @@ closed section; `state_for` passes it the NACA polyline, as before.
 
 With `--print`, each generator reproduces its files in `figures/`: drawn at the manuscript's text width (5.40 in)
 with 11 pt titles and labels and 10 pt ticks and legends. Without it, they draw the earlier smaller-text layout.
+
+## `code/view_airfoil.py`
+
+One window for one airfoil: asks for (or takes) the airfoil, incidence and Reynolds number and shows the field decoder's
+four field panels next to the surface model's C_p, boundary-layer thicknesses and coefficients, with every range warning
+(`--save` writes the figure, `--no-show` skips the window).

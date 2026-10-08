@@ -28,5 +28,8 @@ generation; it does not follow a prior 1.x package.
 - `code/field/predict_field.py`: the operator-conditioned field decoder for any section, incidence and Reynolds
   number from coordinates alone, with warnings outside its AirfRANS training domain, and its validation
   (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`).
+- `code/view_airfoil.py`: one window per airfoil with the field panels, the surface pressure, the boundary-layer
+  thicknesses and the coefficients. `SurfacePrediction` gains `x_cp`, `theta` and `dstar` (with `vortfoil.BL_X`).
+  The NACA generator of the AirfRANS sections is vendored (`code/field/naca_generator.py`, MIT).
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and
   `DATA_LICENSES.md`.
