@@ -18,7 +18,9 @@ import os, sys, re, argparse, warnings
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE); sys.path.insert(0, os.path.join(HERE, "field"))
+sys.path.insert(0, HERE)
+import vortfoil_paths  # noqa: E402
+vortfoil_paths.add_paths()            # this checkout's vortfoil package (src) and code/field, ahead of other installs
 
 
 def ask(prompt, default, cast=str):
@@ -105,6 +107,64 @@ def figure(name, alpha, Re, r, surf_w, out, meta):
     return fig
 
 
+def scale_with_window(fig):
+    """Make a window resize zoom the figure as a whole instead of re-flowing it. The layout is computed once at the
+    design size and frozen; on every resize the axes keep their design places scaled by s = min(width, height ratio)
+    and centred (letterboxed when the window's aspect ratio differs), and fonts, lines and ticks scale by s.
+    Returns the resize handler (also connected to the canvas)."""
+    fig.canvas.draw()                                         # constrained layout at the design size
+    fig.set_layout_engine("none")
+    W0, H0 = fig.get_size_inches()
+    boxes = [(ax, ax.get_position().bounds) for ax in fig.axes]
+    texts = [fig._suptitle] if fig._suptitle else []
+    texts += list(fig.texts)
+    places = [(t, t.get_position()) for t in texts]           # figure-fraction positions of figure-level texts
+    for ax in fig.axes:
+        texts += [ax.title, ax._left_title, ax._right_title, ax.xaxis.label, ax.yaxis.label,
+                  ax.xaxis.get_offset_text(), ax.yaxis.get_offset_text()] + list(ax.texts)
+    fonts = [(t, t.get_fontsize()) for t in texts]
+    lines = [(l, l.get_linewidth(), l.get_markersize()) for ax in fig.axes for l in ax.lines]
+    # a legend's paddings and handle lengths are fixed when it is built, so it is rebuilt at the scaled font size,
+    # pinned (upper-left corner, axes fraction) where the design layout put it ("best" could otherwise move it)
+    renderer = fig.canvas.get_renderer()
+    legends = [(ax, lg.get_window_extent(renderer).transformed(ax.transAxes.inverted()), getattr(lg, "_ncols", getattr(lg, "_ncol", 1)),
+                lg.get_frame_on(), lg.get_texts()[0].get_fontsize())
+               for ax in fig.axes for lg in [ax.get_legend()] if lg is not None and lg.get_texts()]
+    edges = [(p, p.get_linewidth()) for ax in fig.axes for p in list(ax.patches) + list(ax.spines.values())]
+    ticks = []
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            for which, get in (("major", axis.get_major_ticks), ("minor", axis.get_minor_ticks)):
+                tk = get()
+                if tk:
+                    t0 = tk[0]
+                    ticks.append((axis, which, t0.label1.get_fontsize(), t0.tick1line.get_markersize(), t0.tick1line.get_markeredgewidth()))
+
+    def on_resize(event=None):
+        W, H = fig.get_size_inches()
+        s = min(W / W0, H / H0)
+        ox, oy = (W - W0 * s) / 2, (H - H0 * s) / 2
+        for ax, (x, y, w, h) in boxes:
+            ax.set_position([(ox + x * W0 * s) / W, (oy + y * H0 * s) / H, w * W0 * s / W, h * H0 * s / H])
+        for t, (x, y) in places:
+            t.set_position(((ox + x * W0 * s) / W, (oy + y * H0 * s) / H))
+        for t, f in fonts:
+            t.set_fontsize(f * s)
+        for l, lw, ms in lines:
+            l.set_linewidth(lw * s); l.set_markersize(ms * s)
+        for p, lw in edges:
+            p.set_linewidth(lw * s)
+        for axis, which, f, ln, wd in ticks:
+            axis.set_tick_params(which=which, labelsize=f * s, length=ln * s, width=wd * s)
+        for ax, bb, ncols, frame, f in legends:
+            ax.legend(*ax.get_legend_handles_labels(), loc="upper left", bbox_to_anchor=(bb.x0, bb.y1), bbox_transform=ax.transAxes,
+                      borderaxespad=0.0, ncols=ncols, frameon=frame, fontsize=f * s)
+        fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("resize_event", on_resize)
+    return on_resize
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--airfoil", help="NACA 4/5-digit designation (e.g. 2412, 23012) or a coordinate .dat file")
@@ -137,6 +197,7 @@ def main(argv=None):
                 fig.savefig(path, dpi=150)
             print(f"no interactive display (matplotlib backend {matplotlib.get_backend()}); the figure is in {path}")
         else:
+            scale_with_window(fig)
             plt.show()
 
 

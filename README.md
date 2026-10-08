@@ -135,6 +135,7 @@ r.cp, r.stagnation, r.ue_te, r.theta_te, r.dstar_te
 r.x_cp, r.theta, r.dstar                         # Cp abscissae; BL thicknesses [upper, lower] at x/c = vortfoil.BL_X
 
 vf.sweep(cst16, np.linspace(-4, 12, 33))         # one shape, many incidences, one batch
+vf.predict(coords=xy, alpha=np.linspace(-4, 12, 33), Re=1e6)   # the same from coordinates (one fit)
 vf.gradients(cst=cst16, alpha=4.0, of="cl")      # reverse-mode d/dCST16 through the whole chain
 vortfoil.about()                                 # weights, recipe, populations, scores, limits
 ```
@@ -197,7 +198,8 @@ Give dense coordinates (at least 441 points) when the near-wall field matters.
 `code/view_airfoil.py` asks for an airfoil (a NACA 4- or 5-digit designation or a `.dat` file), an incidence and a
 Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame; on
 the right are the sheet's surface pressure, both surfaces' boundary-layer thicknesses, and the coefficients with every
-range warning. It needs matplotlib. Arguments skip the questions, and `--save` also writes the figure:
+range warning. It needs matplotlib. Resizing the window zooms the whole figure; the layout stays as drawn. Arguments
+skip the questions, and `--save` also writes the figure:
 
 ```bash
 python code/view_airfoil.py

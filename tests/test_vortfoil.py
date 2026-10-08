@@ -48,6 +48,14 @@ def test_cst_fit_roundtrip():
     assert np.allclose(fit, NACA2412_CST, atol=1e-5)
 
 
+def test_fit_of_a_closed_loop_with_a_coarse_trailing_edge_panel():
+    """The trailing edge of a closed loop is its first node, not the midpoint with the last lower node."""
+    x, yu, yl = vortfoil.geometry.surface(NACA2412_CST, 121)
+    loop = np.r_[np.c_[x[::-1], yu[::-1]], np.c_[x[1:], yl[1:]]][::8]          # closed, last panel 1.1% chord
+    _, info = vortfoil.geometry.fit_cst16(loop)
+    assert abs(info["rotation_deg"]) < 1e-9 and abs(info["chord"] - 1.0) < 1e-12 and info["te_gap"] == 0.0
+
+
 def test_fit_rejects_bad_shapes():
     with pytest.raises(ValueError):
         vortfoil.geometry.fit_cst16(np.zeros((5, 2)))
@@ -100,6 +108,21 @@ def test_coords_route_and_frame_normalization(model):
     turned = model.predict(coords=(loop @ rot.T) * 1.5, alpha=11.0)
     assert abs(turned.info["fit"][0]["rotation_deg"] - 7.0) < 1e-3
     assert abs(turned.cl[0] - base.cl[0]) < 1e-4
+
+
+def test_one_section_over_many_conditions(model):
+    """One section with arrays of incidence or Reynolds number is a polar: the same as sweep() on its fit."""
+    x, yu, yl = vortfoil.geometry.surface(NACA2412_CST, 121)
+    loop = np.r_[np.c_[x[::-1], yu[::-1]], np.c_[x[1:], yl[1:]]]
+    al = np.linspace(-2.0, 8.0, 6)
+    r = model.predict(coords=loop, alpha=al, Re=3e6)
+    cst, _ = vortfoil.geometry.fit_cst16(loop)
+    s = model.sweep(cst, al, Re=3e6)
+    assert r.cl.shape == (6,) and len(r.info["fit"]) == 1
+    assert np.abs(r.cl - s.cl).max() < ATOL_CL and np.abs(r.cd - s.cd).max() < ATOL_CD
+    assert model.predict(coords=loop, alpha=4.0, Re=[1e6, 3e6]).cl.shape == (2,)
+    with pytest.raises(ValueError, match="values for 2 shapes"):
+        model.predict(cst=np.stack([cst, cst]), alpha=[1.0, 2.0, 3.0])
 
 
 def test_range_warnings(model):

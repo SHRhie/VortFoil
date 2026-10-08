@@ -70,6 +70,37 @@ def test_closed_loop_with_a_coarse_trailing_edge_panel_stays_in_frame(PF):
     assert meta["te_gap"] == 0.0 and not any("gap" in str(w.message) for w in ws)
 
 
+def test_pool_workers_follow_the_callers_errstate(PF):
+    """The fast kernels' worker threads use the caller's np.errstate, which numpy keeps per thread."""
+    import vf_field_fast as F
+
+    def bad(lo, hi):
+        np.ones(1) / np.zeros(1)
+    with np.errstate(divide="raise"), pytest.raises(FloatingPointError):
+        F._parallel(4 * F.CHUNK, bad)
+    with np.errstate(divide="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("error")
+        F._parallel(4 * F.CHUNK, bad)
+
+
+def test_viewer_window_resize_zooms_the_figure():
+    """Resizing the window scales the frozen design layout (letterboxed) instead of re-flowing it."""
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    import view_airfoil as V
+    loop, name = V.section("2412")
+    r, sw, out, meta = V.compute(loop, 4.0, 3e6, 0.05)
+    fig = V.figure(name, 4.0, 3e6, r, sw, out, meta)
+    on_resize = V.scale_with_window(fig)
+    W0, H0 = fig.get_size_inches()
+    pos0 = np.array([ax.get_position().bounds for ax in fig.axes]); f0 = fig.axes[0].title.get_fontsize()
+    fig.set_size_inches(W0 / 2, H0 / 2); on_resize()
+    assert np.allclose([ax.get_position().bounds for ax in fig.axes], pos0) and abs(fig.axes[0].title.get_fontsize() - f0 / 2) < 1e-9
+    fig.set_size_inches(W0, 2 * H0); on_resize()
+    pos = np.array([ax.get_position().bounds for ax in fig.axes])
+    assert abs(fig.axes[0].title.get_fontsize() - f0) < 1e-9 and np.allclose(pos[:, 3], pos0[:, 3] / 2)
+
+
 def test_viewer_writes_one_figure(tmp_path):
     matplotlib = pytest.importorskip("matplotlib")                      # the viewer's one extra dependency
     matplotlib.use("Agg")

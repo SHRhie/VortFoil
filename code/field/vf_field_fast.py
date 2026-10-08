@@ -33,7 +33,8 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 _2PI = 2.0 * np.pi
-CHUNK = 16384          # rows per pass; large enough to amortize the matmuls, small enough to stay in cache
+CHUNK = 2048           # rows per pass and per task: THREADS tasks in flight hold about THREADS x CHUNK x panels x 56 bytes
+                       # of temporaries (0.4 GB at 8 threads and 440 panels) whatever the number of points
 THREADS = int(os.environ.get("VORTFOIL_FIELD_THREADS", min(8, os.cpu_count() or 1)))
 _POOL = None
 
@@ -45,6 +46,18 @@ def _pool():
     return _POOL
 
 
+def _map(fn, items):
+    """pool.map under the caller's floating-point error handling. np.errstate is thread-local, so the workers would
+    otherwise run with numpy's defaults: a caller that silences the spurious flags some BLAS builds raise in matmul
+    (macOS Accelerate) would still get the workers' RuntimeWarnings, and a caller asking for errors would not."""
+    err = np.geterr()
+
+    def run(x):
+        with np.errstate(**err):
+            return fn(x)
+    return list(_pool().map(run, items))
+
+
 def _parallel(n, fn):
     """Run fn(start, stop) over contiguous row blocks.
 
@@ -54,8 +67,7 @@ def _parallel(n, fn):
     if THREADS <= 1 or n < 4 * CHUNK:
         fn(0, n)
         return
-    step = -(-n // THREADS)
-    list(_pool().map(lambda i: fn(i, min(i + step, n)), range(0, n, step)))
+    _map(lambda i: fn(i, min(i + CHUNK, n)), range(0, n, CHUNK))
 
 
 # --------------------------------------------------------------------------- nearest panel
@@ -197,9 +209,7 @@ def fwd_parallel(X, s_row, PA, z, W, threads=None):
     t = int(threads or THREADS)
     if t <= 1 or n < 4 * CHUNK:
         return np.asarray(fwd_np(X, s_row, PA, z, W))
-    step = -(-n // t)
-    parts = list(_pool().map(lambda i: np.asarray(fwd_np(X[i:i + step], s_row[i:i + step], PA[i:i + step], z, W)),
-                             range(0, n, step)))
+    parts = _map(lambda i: np.asarray(fwd_np(X[i:i + CHUNK], s_row[i:i + CHUNK], PA[i:i + CHUNK], z, W)), range(0, n, CHUNK))
     return np.concatenate(parts, axis=0)
 
 
