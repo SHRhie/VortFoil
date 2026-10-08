@@ -369,7 +369,24 @@ def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", deco
 
 # ------------------------------------------------------------------------------------------- output
 STYLE = {"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"], "mathtext.fontset": "stix",
-         "font.size": 10, "xtick.direction": "in", "ytick.direction": "in"}
+         "font.size": 10, "xtick.direction": "in", "ytick.direction": "in", "savefig.dpi": 400}
+
+
+def _fill_inside(f):
+    """Grid values inside the section (NaN) take the mean of their valid neighbours, layer by layer inwards, so that
+    Gouraud shading blends the wall cells with nearby fluid values instead of a hole; the section is drawn over them."""
+    f = np.array(f, np.float64)
+    bad = ~np.isfinite(f)
+    while bad.any():
+        G = np.pad(~bad, 1); V = np.pad(np.where(bad, 0.0, f), 1)
+        acc = V[:-2, 1:-1] + V[2:, 1:-1] + V[1:-1, :-2] + V[1:-1, 2:]
+        cnt = G[:-2, 1:-1].astype(int) + G[2:, 1:-1] + G[1:-1, :-2] + G[1:-1, 2:]
+        new = bad & (cnt > 0)
+        if not new.any():
+            break
+        f[new] = acc[new] / cnt[new]
+        bad &= ~new
+    return f
 
 
 def draw_fields(fig, axes, out, meta):
@@ -382,16 +399,16 @@ def draw_fields(fig, axes, out, meta):
               ("v_over_U", r"$u_\perp/U_\infty$" if wind else r"$v/U_\infty$", "coolwarm", "sym"),
               ("cp", r"$C_p$", "coolwarm", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]
     for ax, (k, lab, cmap, kind) in zip(axes, panels):
-        cm = plt.get_cmap(cmap).copy(); cm.set_bad("0.25")                  # cells inside the section take its colour
-        f = np.ma.masked_invalid(out[k])
+        cm = plt.get_cmap(cmap)
+        kw = dict(cmap=cm, shading="gouraud", rasterized=True)          # values interpolated between the grid points
         if kind == "log":
-            f = np.ma.masked_invalid(np.clip(out[k], 1e-9, None))
-            cf = ax.pcolormesh(out["x"], out["y"], f, cmap=cm, norm=LogNorm(1e-7, max(float(f.max()), 1e-6)), shading="auto", rasterized=True)
+            f = np.clip(out[k], 1e-9, None)
+            cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(f), norm=LogNorm(1e-7, max(float(np.nanmax(f)), 1e-6)), **kw)
         elif kind == "sym":
             m = float(np.nanpercentile(np.abs(out[k]), 99.5))
-            cf = ax.pcolormesh(out["x"], out["y"], f, cmap=cm, vmin=-m, vmax=m, shading="auto", rasterized=True)
+            cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=-m, vmax=m, **kw)
         else:
-            cf = ax.pcolormesh(out["x"], out["y"], f, cmap=cm, shading="auto", rasterized=True)
+            cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=np.nanmin(out[k]), vmax=np.nanmax(out[k]), **kw)
         ax.fill(sec[:, 0], sec[:, 1], color="0.25", lw=0)
         ax.set_aspect("equal"); ax.set_title(lab)
         ax.set_xlim(out["x"].min(), out["x"].max()); ax.set_ylim(out["y"].min(), out["y"].max())
@@ -407,7 +424,7 @@ def plot(out, meta, path):
     fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharex=True, sharey=True, constrained_layout=True)
     draw_fields(fig, axes.ravel(), out, meta)
     fig.suptitle(rf"$\alpha$ = {meta['alpha_used']:.2f}$^\circ$, Re = {meta['Re']:.3g}   ($C_l^\gamma$ = {meta['cl_gamma']:.3f}, $s_{{sep}}$ = {meta['s_sep']:.2f})", fontsize=10)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path, dpi=400)
     plt.close(fig)
 
 

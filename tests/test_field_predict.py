@@ -101,6 +101,18 @@ def test_viewer_window_resize_zooms_the_figure():
     assert abs(fig.axes[0].title.get_fontsize() - f0) < 1e-9 and np.allclose(pos[:, 3], pos0[:, 3] / 2)
 
 
+def test_application_helpers():
+    """The application's database list parser and the field panels' fill of the section interior (no window needed)."""
+    import vortfoil_app as A
+    html = ('<a href="coord/2032c.dat">2032c.dat</a> \\ Dillner 20-32-C low Reynolds number airfoil \\ <br>'
+            '<a href="coord/clarky.dat">clarky.dat</a> \\ Clark Y \\ <br><a href="other.html">x</a>')
+    assert A.uiuc_index(html) == [("2032c", "Dillner 20-32-C low Reynolds number airfoil"), ("clarky", "Clark Y")]
+    import predict_field as PF
+    f = np.arange(30.0).reshape(5, 6); g = f.copy(); g[1:4, 2:4] = np.nan
+    h = PF._fill_inside(g)
+    assert np.isfinite(h).all() and np.array_equal(h[~np.isnan(g)], f[~np.isnan(g)])
+
+
 def test_viewer_writes_one_figure(tmp_path):
     matplotlib = pytest.importorskip("matplotlib")                      # the viewer's one extra dependency
     matplotlib.use("Agg")
