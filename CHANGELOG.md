@@ -36,6 +36,12 @@ generation; it does not follow a prior 1.x package.
   launcher for the environment it runs in: a desktop shortcut on Windows, a menu entry on Linux, the terminal command
   on macOS), with installation steps in the README. Three layouts (side by side, fields over a row of surface
   panels, stacked); the application uses the one that shows the figure largest.
+- `vortfoil` with no arguments opens the application window; `vortfoil app` and `vortfoil view` take the options of
+  the two scripts. The wheel carries the application, the field route and its four weight files under
+  `vortfoil/_release/` (the repository's layout), and matplotlib is a dependency, so `uv tool install vortfoil` gives
+  the whole tool on Windows, macOS and Linux; CI installs the built wheel that way on all three.
+- Export data (CSV) in the application and `vortfoil view --csv DIR`: the coefficients, the surface C_p, both boundary
+  layers, the field at every grid point and the section as CSV files, with a text file that explains the columns.
   `SurfacePrediction` gains `x_cp`, `theta` and `dstar` (with `vortfoil.BL_X`).
   The NACA generator of the AirfRANS sections is vendored (`code/field/naca_generator.py`, MIT).
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and

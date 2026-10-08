@@ -152,6 +152,66 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
     return fig
 
 
+def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
+    """Every number of one result as CSV files in `folder` (created if needed), with a text file that explains their
+    columns. Returns the paths written."""
+    import csv
+    import vortfoil
+    import predict_field as PF
+    os.makedirs(folder, exist_ok=True)
+    a = meta["alpha_used"]
+    base = os.path.join(folder, re.sub(r"[^A-Za-z0-9.+-]+", "_", f"vortfoil_{name}_a{a:g}_Re{Re:.3g}"))
+    paths = []
+
+    def table(suffix, header, cols):
+        p = f"{base}_{suffix}.csv"
+        np.savetxt(p, np.column_stack(cols), delimiter=",", header=",".join(header), comments="", fmt="%.8g")
+        paths.append(p)
+
+    p = f"{base}_coefficients.csv"
+    with open(p, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["airfoil", "alpha_given_deg", "alpha_used_deg", "Re", "Cl", "Cl_circulation", "Cd", "Cm_quarter_chord",
+                    "stagnation_arc_fraction", "ue_TE_over_U", "theta_TE_over_c", "dstar_TE_over_c", "field_Cl_gamma",
+                    "field_s_sep", "warnings"])
+        w.writerow([name, alpha, a, Re] + [f"{float(v):.8g}" for v in (r.cl[0], r.cl_gamma[0], r.cd[0], r.cm[0], r.stagnation[0],
+                                                                       r.ue_te[0], r.theta_te[0], r.dstar_te[0], meta["cl_gamma"], meta["s_sep"])]
+                   + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]])])
+    paths.append(p)
+    side = np.where(np.arange(r.cp.shape[1]) < r.cp.shape[1] // 2, 0, 1)
+    table("surface", ["panel", "lower_surface", "x_over_c", "Cp"], [np.arange(r.cp.shape[1]), side, r.x_cp[0], r.cp[0]])
+    table("boundary_layer", ["x_over_c", "theta_upper_over_c", "theta_lower_over_c", "dstar_upper_over_c", "dstar_lower_over_c"],
+          [vortfoil.BL_X, r.theta[0, 0], r.theta[0, 1], r.dstar[0, 0], r.dstar[0, 1]])
+    g = {k: np.asarray(out[k]).ravel() for k in ("x", "y", "x_body", "y_body", "inside", "u_over_U", "v_over_U", "cp", "nut_over_Uc", "u", "v", "p", "nut")}
+    table("field", ["x_wind", "y_wind", "x_body", "y_body", "inside_section", "u_over_U", "v_over_U", "Cp", "nut_over_Uc",
+                    "u_m_s", "v_m_s", "p_kinematic_m2_s2", "nut_m2_s"],
+          [g["x"], g["y"], g["x_body"], g["y_body"], g["inside"].astype(int), g["u_over_U"], g["v_over_U"], g["cp"], g["nut_over_Uc"],
+           g["u"], g["v"], g["p"], g["nut"]])
+    sec = np.asarray(meta["section"])
+    xb, yb = PF.wind_to_body(sec[:, 0], sec[:, 1], a) if meta.get("frame", "wind") == "wind" else (sec[:, 0], sec[:, 1])
+    table("section", ["x_body", "y_body"], [xb, yb])
+    p = f"{base}_about.txt"
+    with open(p, "w") as f:
+        f.write(f"""VortFoil result: {name}, incidence {a:g} deg, Reynolds number {Re:.6g}
+Chord 1 m, kinematic viscosity {meta.get('nu', 1.56e-5):g} m2/s, freestream speed U = Re nu = {meta.get('U', Re * 1.56e-5):.6g} m/s.
+
+_coefficients.csv    the surface model (vortex sheet + boundary-layer operator + closures, trained on XFOIL): C_l (with the
+                     lift closure) and the circulation lift alone, C_d, C_m about the quarter chord, the stagnation point
+                     as a fraction of the arc length, the trailing-edge state, and the field decoder's inputs
+                     (circulation lift C_l^gamma and separation measure s_sep); every range warning in the last column.
+_surface.csv         C_p of the vortex sheet at the 240 panel midpoints: panels 0-119 run from the trailing edge to the
+                     leading edge on the upper surface (lower_surface 0), 120-239 back on the lower surface (1).
+_boundary_layer.csv  momentum (theta) and displacement (dstar) thickness of both surfaces at x/c = 0..1 (121 stations).
+_field.csv           the RANS field of the decoder trained on AirfRANS k-omega SST at every grid point: x_wind, y_wind
+                     (freestream along +x, section at its incidence), the same point in the chord frame (x_body, y_body),
+                     inside_section (1: inside the section, values nan), velocity along and across the freestream, C_p and
+                     nu_t/(U c), then the same in SI units (u, v in m/s, kinematic pressure p/rho in m2/s2, nu_t in m2/s).
+_section.csv         the section the field was computed for, in the chord frame.
+""")
+    paths.append(p)
+    return paths
+
+
 def scale_with_window(fig):
     """Make a window resize zoom the figure as a whole instead of re-flowing it. The layout is computed once at the
     design size and frozen; on every resize the axes keep their design places scaled by s = min(width, height ratio)
@@ -221,6 +281,7 @@ def main(argv=None):
     ap.add_argument("--h", type=float, default=0.005, help="field grid spacing in chords (default %(default)s)")
     ap.add_argument("--save", help="also write the figure to this file (png, pdf, ...)")
     ap.add_argument("--no-show", action="store_true", help="do not open a window")
+    ap.add_argument("--csv", metavar="DIR", help="also write every number of the result as CSV files in DIR")
     ap.add_argument("--layout", choices=("auto", "landscape", "square", "portrait"), default="auto",
                     help="auto: portrait on an upright screen, else landscape")
     a = ap.parse_args(argv)
@@ -240,6 +301,9 @@ def main(argv=None):
     if a.save:
         fig.savefig(a.save, dpi=400)
         print("wrote", a.save)
+    if a.csv:
+        for p in export_csv(a.csv, name, alpha, Re, r, surf_w, out, meta):
+            print("wrote", p)
     import matplotlib.pyplot as plt
     if not a.no_show:
         if matplotlib.get_backend().lower() in ("agg", "pdf", "svg", "ps", "cairo", "template"):

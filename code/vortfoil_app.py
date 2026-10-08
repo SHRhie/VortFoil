@@ -2,7 +2,8 @@
 """VortFoil as a desktop application: choose an airfoil, set the incidence and the Reynolds number, press Run, and
 read the flow field and the surface results in the same window.
 
-    python code/vortfoil_app.py
+    vortfoil                       (installed with `uv tool install vortfoil`)
+    python code/vortfoil_app.py    (from a checkout)
 
 The airfoil comes from one of three places:
   NACA     a 4- or 5-digit designation, generated exactly as the AirfRANS sections were;
@@ -11,7 +12,9 @@ The airfoil comes from one of three places:
            from the site when needed and cached on this computer; VortFoil does not redistribute them
            (DATA_LICENSES.md);
   file     any coordinate file (Selig or Lednicer .dat), for a section that is in no public database.
-The result is the figure of code/view_airfoil.py: the field of the decoder trained on AirfRANS (wind frame) and the
+Export data (CSV) writes every number of the result (coefficients, surface C_p, boundary layer, the field at every grid
+point, the section) as CSV files with a text file that explains their columns. The result is the figure of
+code/view_airfoil.py: the field of the decoder trained on AirfRANS (wind frame) and the
 surface results of the vortfoil package, with every range warning, side by side in a wide window and stacked in a
 tall one. Resizing the window zooms the figure, and Save figure writes it at 400 dpi (png, pdf or svg). It needs
 matplotlib and Tk (part of most Python installs).
@@ -80,7 +83,7 @@ def run_case(loop, alpha, Re, h, name):
 
 
 class App:
-    TASKS = {"index": load_index, "section": load_section, "run": run_case}
+    TASKS = {"index": load_index, "section": load_section, "run": run_case, "export": V.export_csv}
 
     def __init__(self, root, selftest=None):
         import tkinter as tk
@@ -144,6 +147,7 @@ class App:
         act = ttk.Frame(panel)
         self.run_btn = ttk.Button(act, text="Run", command=self.run); self.run_btn.pack(side="left")
         self.save_btn = ttk.Button(act, text="Save figure ...", command=self.save, state="disabled"); self.save_btn.pack(side="left", padx=6)
+        self.csv_btn = ttk.Button(act, text="Export data (CSV) ...", command=self.export, state="disabled"); self.csv_btn.pack(side="left")
         self.bar = ttk.Progressbar(panel, mode="indeterminate")
         self.status = ttk.Label(panel, text="Choose an airfoil and press Run.", wraplength=wrap, justify="left")
         cred = ttk.Label(panel, text="UIUC coordinates: M. S. Selig, UIUC Applied Aerodynamics Group, downloaded from its site.",
@@ -269,7 +273,7 @@ class App:
         self.args = (name, alpha, Re)
         self.last = (name, alpha, Re, r, surf_w, out, meta)
         self.draw(self.orientation())
-        self.save_btn.configure(state="normal")
+        self.save_btn.configure(state="normal"); self.csv_btn.configure(state="normal")
         n = len(surf_w) + len(meta["warnings"])
         self.status.configure(text=f"{name}, {alpha:g} deg, Re {Re:.3g}: done in {dt:.1f} s"
                               + (f"; {n} warning(s), listed in the figure." if n else "; inside both training domains."))
@@ -313,6 +317,20 @@ class App:
         if path:
             self.save_to(path)
 
+    def export(self):
+        """Every number of the result as CSV files in a chosen folder (written in the background)."""
+        from tkinter import filedialog
+        folder = filedialog.askdirectory(title="Folder for the CSV files", mustexist=False)
+        if folder:
+            self.status.configure(text=f"Writing the CSV files to {folder} ...")
+            self.csv_btn.configure(state="disabled")
+            self.submit("export", folder, *self.last)
+
+    def done_export(self, args, res, err):
+        self.csv_btn.configure(state="normal")
+        self.status.configure(text=f"Could not write the CSV files: {err}" if err else
+                              f"Wrote {len(res)} files to {args[0]}: coefficients, surface C_p, boundary layer, field, section, about")
+
     def save_to(self, path):
         """The figure at its design size and 400 dpi, whatever the window size."""
         w, h = self.fig.get_size_inches()
@@ -331,6 +349,7 @@ class App:
         cw, ch = self.can.get_tk_widget().winfo_width(), self.can.get_tk_widget().winfo_height()
         print(f"window {self.root.winfo_width()}x{self.root.winfo_height()}, canvas {cw}x{ch}, {self.fig.dpi:.0f} dpi, layout {self.layout}", flush=True)
         self.save_to(os.path.join(out, "app_figure.png"))
+        V.export_csv(os.path.join(out, "csv"), *self.last)
         try:
             from PIL import ImageGrab
             self.root.update()
@@ -359,6 +378,9 @@ def make_shortcut():
               "$s.Description = 'VortFoil: airfoil field and surface results'; $s.Save(); $s.FullName")
         return subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, check=True).stdout.strip()
     if sys.platform == "darwin":                              # the terminal is the launcher: print, write nothing
+        import shutil
+        if shutil.which("vortfoil"):
+            return "no file written on macOS; the vortfoil command is installed: type vortfoil in a terminal"
         cmd = f'"{sys.executable}" "{app}"'
         return (f"no file written on macOS; start it from the terminal with\n  {cmd}\n"
                 f"or add this line to ~/.zshrc and type vortfoil:\n  alias vortfoil='{cmd}'")

@@ -74,12 +74,47 @@ jobs:
           name: distributions
           path: dist/*
 
+  app:
+    # What users are told to run: uv installs the built wheel as a tool (its own Python 3.12 and the newest
+    # TensorFlow, numpy and matplotlib), then `vortfoil view` draws a case without a window and
+    # `vortfoil app --selftest` opens the application window, runs one case and closes it (Linux under Xvfb).
+    name: uv tool install (${{ matrix.os }})
+    needs: wheel
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: distributions
+          path: dist
+      - uses: astral-sh/setup-uv@v10
+      - name: Install the tool from the wheel
+        run: |
+          uv tool install --python 3.12 dist/*.whl
+          uv tool dir --bin >> "$GITHUB_PATH"
+      - name: Viewer without a window
+        run: |
+          vortfoil view --airfoil 2412 --alpha 4 --Re 3e6 --h 0.05 --no-show --save view.png
+          test -s view.png
+      - name: Application window (self-test)
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get install -y -q xvfb > /dev/null; run="xvfb-run -a"; else run=""; fi
+          $run vortfoil app --selftest app_out --airfoil naca:2412
+          test -s app_out/app_figure.png
+
   publish:
     # Uploads to PyPI only when a GitHub release is published; pushes and pull requests never do. PyPI trusted publisher:
-    # repository SHRhie/VortFoil, workflow ci.yml, environment pypi. The tests and the clean-wheel check must pass first.
+    # repository SHRhie/VortFoil, workflow ci.yml, environment pypi. The tests, the clean-wheel check and the uv
+    # installation on Windows, macOS and Linux must pass first.
     name: publish to PyPI
     if: github.event_name == 'release' && github.event.action == 'published'
-    needs: [test, wheel]
+    needs: [test, wheel, app]
     runs-on: ubuntu-24.04
     environment:
       name: pypi

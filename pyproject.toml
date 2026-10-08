@@ -28,6 +28,7 @@ classifiers = [
 dependencies = [
   "numpy>=1.21",
   "tensorflow>=2.10",
+  "matplotlib>=3.6",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,24 @@ Source = "https://github.com/SHRhie/VortFoil"
 [tool.hatch.build.targets.wheel]
 packages = ["src/vortfoil"]
 
+# The application and the field route run on repository modules and weights; the wheel carries copies of them in the
+# repository's layout under vortfoil/_release/ (see src/vortfoil/app.py), so `vortfoil` opens the window after
+# `uv tool install vortfoil` without a checkout.
+[tool.hatch.build.targets.wheel.force-include]
+"code/vortfoil_paths.py" = "vortfoil/_release/code/vortfoil_paths.py"
+"code/view_airfoil.py" = "vortfoil/_release/code/view_airfoil.py"
+"code/vortfoil_app.py" = "vortfoil/_release/code/vortfoil_app.py"
+"code/field" = "vortfoil/_release/code/field"
+"code/model/staged" = "vortfoil/_release/code/model/staged"
+"weights/field_decoder_f0cm_s1.npz" = "vortfoil/_release/weights/field_decoder_f0cm_s1.npz"
+"weights/airfrans_surface_tokens.npz" = "vortfoil/_release/weights/airfrans_surface_tokens.npz"
+"weights/op1_supervised_eps0.50.scr_bd128.npz" = "vortfoil/_release/weights/op1_supervised_eps0.50.scr_bd128.npz"
+"weights/op2_m325_BT.npz" = "vortfoil/_release/weights/op2_m325_BT.npz"
+
 
 [tool.hatch.build.targets.sdist]
-include = ["src/vortfoil", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "DATA_LICENSES.md"]
+include = ["src/vortfoil", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "DATA_LICENSES.md",
+           "code/vortfoil_paths.py", "code/view_airfoil.py", "code/vortfoil_app.py", "code/field", "code/model/staged",
+           "weights/field_decoder_f0cm_s1.npz", "weights/airfrans_surface_tokens.npz",
+           "weights/op1_supervised_eps0.50.scr_bd128.npz", "weights/op2_m325_BT.npz"]
+exclude = ["**/__pycache__"]

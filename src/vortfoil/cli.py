@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Command line: ``vortfoil predict | sweep | about | selfcheck``."""
+"""Command line: ``vortfoil`` (the application window), ``vortfoil app | view | predict | sweep | about | selfcheck``."""
 import argparse
 import json
 import sys
@@ -20,10 +20,18 @@ def _load_cst(args):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(prog="vortfoil", description="Deployed VortFoil surface model")
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if not argv or argv[0] in ("app", "view"):          # the windows: their own options, passed through
+        from . import app
+        return (app.view if argv and argv[0] == "view" else app.app)(argv[1:])
+    p = argparse.ArgumentParser(prog="vortfoil", description="Deployed VortFoil surface model",
+                                epilog="vortfoil alone opens the application window (vortfoil app --help for its options); "
+                                       "vortfoil view --help: the one-window viewer.")
     p.add_argument("--mode", default="graph", choices=["graph", "eager"])
     p.add_argument("--device", default="cpu", choices=["cpu", "gpu", "auto"])
     sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("app", help="the application window (also: vortfoil with no arguments)")
+    sub.add_parser("view", help="one airfoil in one window, from the command line")
     for name in ("predict", "sweep"):
         q = sub.add_parser(name)
         q.add_argument("--cst", help="16 comma-separated CST coefficients")
