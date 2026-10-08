@@ -93,7 +93,7 @@ jobs:
         with:
           name: distributions
           path: dist
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0          # this action publishes full version tags only
       - name: Install the tool from the wheel
         run: |
           uv tool install --python 3.12 dist/*.whl
