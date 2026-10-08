@@ -121,7 +121,7 @@ with `(cd weights && shasum -a 256 -c SHA256SUMS)`.
    - Windows: `winget install --id=astral-sh.uv -e`
    - macOS: `brew install uv`
    - Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. Install VortFoil: `uv tool install --python 3.12 vortfoil`. Until the PyPI release, install from a copy of this repository instead: `uv tool install --python 3.12 ./VortFoil`.
+2. Install VortFoil: `uv tool install --python 3.12 --managed-python vortfoil`. Until the PyPI release, install from a copy of this repository instead: `uv tool install --python 3.12 --managed-python ./VortFoil`. `--managed-python` makes uv use its own Python, which includes Tk for the window; a system Python, such as Ubuntu's, may lack it.
 3. Type `vortfoil` in a terminal. The application window opens (see [Desktop application](#desktop-application)).
 
 The same command has these subcommands; each takes `--help`:
@@ -130,7 +130,21 @@ The same command has these subcommands; each takes `--help`:
 - `vortfoil predict` and `vortfoil sweep`;
 - `vortfoil about` and `vortfoil selfcheck`.
 
-`uv tool upgrade vortfoil` updates it and `uv tool uninstall vortfoil` removes it. On Linux the window needs a desktop session (a display).
+`uv tool upgrade vortfoil` updates it. On Linux the window needs a desktop session (a display).
+
+### Uninstall
+
+1. Remove the program.
+   - A uv install: `uv tool uninstall vortfoil`.
+   - A pip install: `pip uninstall vortfoil`.
+   - An environment made for a checkout: `conda env remove -n vortfoil`, or delete its venv folder; then delete the repository folder.
+2. Delete what the application keeps: the UIUC list, the sections you opened and its log. They are in `%LOCALAPPDATA%\vortfoil` on Windows and in `~/.cache/vortfoil` on macOS and Linux.
+3. Delete a launcher made with `--shortcut`: **VortFoil** on the Windows desktop, or `~/.local/share/applications/vortfoil.desktop` on Linux. macOS has none.
+4. If no other uv tool uses them, remove uv's Python and its download cache: `uv python uninstall 3.12`, then `uv cache clean`.
+5. If you installed uv only for VortFoil, remove it last, after step 4 (which needs uv):
+   - Windows: `winget uninstall --id=astral-sh.uv -e`
+   - macOS: `brew uninstall uv`
+   - Linux: `rm ~/.local/bin/uv ~/.local/bin/uvx`
 
 **As a Python library**, in your own environment:
 
@@ -264,7 +278,7 @@ python code/vortfoil_app.py
 - The UIUC list needs an internet connection the first time.
 - The list and the sections you open are cached in `%LOCALAPPDATA%\vortfoil\uiuc` on Windows and in `~/.cache/vortfoil/uiuc` elsewhere.
 - When the application is started without a console, as from the Windows shortcut, its messages go to `app.log` next to that folder.
-- To uninstall, delete the environment, the shortcut and that folder.
+- To uninstall, see [Uninstall](#uninstall).
 - `python code/vortfoil_app.py --selftest DIR` runs one case without a person and saves the figure and a capture of the window in DIR, as a quick check of an installation.
 
 ## Execution conditions

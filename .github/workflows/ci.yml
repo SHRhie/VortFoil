@@ -75,7 +75,8 @@ jobs:
           path: dist/*
 
   app:
-    # What users are told to run: uv installs the built wheel as a tool (its own Python 3.12 and the newest
+    # What users are told to run: uv installs the built wheel as a tool (its own Python 3.12, which has Tk; a system
+    # Python, such as Ubuntu's, may lack it) with the newest
     # TensorFlow, numpy and matplotlib), then `vortfoil view` draws a case without a window and
     # `vortfoil app --selftest` opens the application window, runs one case and closes it (Linux under Xvfb).
     name: uv tool install (${{ matrix.os }})
@@ -96,7 +97,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0          # this action publishes full version tags only
       - name: Install the tool from the wheel
         run: |
-          uv tool install --python 3.12 dist/*.whl
+          uv tool install --python 3.12 --managed-python dist/*.whl     # uv's own Python: it has Tk everywhere
           uv tool dir --bin >> "$GITHUB_PATH"
       - name: Viewer without a window
         run: |

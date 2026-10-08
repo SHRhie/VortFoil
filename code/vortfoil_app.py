@@ -2,7 +2,7 @@
 """VortFoil as a desktop application: choose an airfoil, set the incidence and the Reynolds number, press Run, and
 read the flow field and the surface results in the same window.
 
-    vortfoil                       (installed with `uv tool install vortfoil`)
+    vortfoil                       (installed with `uv tool install --python 3.12 --managed-python vortfoil`)
     python code/vortfoil_app.py    (from a checkout)
 
 The airfoil comes from one of three places:
