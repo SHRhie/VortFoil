@@ -115,6 +115,25 @@ with `(cd weights && shasum -a 256 -c SHA256SUMS)`.
 
 ## Install
 
+**The application and the `vortfoil` command (Windows, macOS, Linux).** Install with [uv](https://docs.astral.sh/uv/), which also provides the Python:
+
+1. Install uv, once:
+   - Windows: `winget install --id=astral-sh.uv -e`
+   - macOS: `brew install uv`
+   - Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+2. Install VortFoil: `uv tool install --python 3.12 vortfoil`. Until the PyPI release, install from a copy of this repository instead: `uv tool install --python 3.12 ./VortFoil`.
+3. Type `vortfoil` in a terminal. The application window opens (see [Desktop application](#desktop-application)).
+
+The same command has these subcommands; each takes `--help`:
+
+- `vortfoil view`: one airfoil in one window, from the command line;
+- `vortfoil predict` and `vortfoil sweep`;
+- `vortfoil about` and `vortfoil selfcheck`.
+
+`uv tool upgrade vortfoil` updates it and `uv tool uninstall vortfoil` removes it. On Linux the window needs a desktop session (a display).
+
+**As a Python library**, in your own environment:
+
 ```bash
 pip install vortfoil            # once published
 pip install -e .                # from this repository (a fresh environment: it installs TensorFlow)
@@ -216,7 +235,7 @@ python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 - a search of the UIUC Airfoil Coordinates Database. Its list and the section you choose are downloaded from the UIUC site and cached; VortFoil does not redistribute them;
 - your own coordinate file, for a section that is in no database.
 
-Then set the incidence, the Reynolds number and the field detail, press **Run**, and **Save figure** at 400 dpi (png, pdf or svg). The application picks whichever of three layouts shows the figure largest:
+Then set the incidence, the Reynolds number and the field detail, press **Run**, **Save figure** at 400 dpi (png, pdf or svg), and **Export data (CSV)**: every number of the result, as CSV files with a text file explaining the columns. The files hold the coefficients, the surface C_p at 240 panels, both boundary layers at 121 stations, the field at every grid point (in units of U and c and in SI) and the section; `vortfoil view ... --csv DIR` writes the same. The application picks whichever of three layouts shows the figure largest:
 
 - side by side, for a wide window;
 - fields over a row of surface panels, for a window of ordinary proportions;
@@ -224,36 +243,21 @@ Then set the incidence, the Reynolds number and the field detail, press **Run**,
 
 Resizing the window zooms the figure.
 
-**Install (once).** The application runs from this repository: it uses `code/` and `weights/` next to the installed `vortfoil` package. It needs Python 3.10–3.12 with matplotlib and Tk. Tk ships with the python.org installers and with Anaconda.
+**Install.** With uv, as in [Install](#install): `vortfoil` opens it.
 
-1. Get the repository: `git clone https://github.com/SHRhie/VortFoil.git`, or download the ZIP from GitHub and unpack it.
-2. Make an environment and install into it, from the repository folder.
-   - With conda (on Windows, in the Anaconda Prompt):
+From a checkout instead (for development), the application needs Python 3.10–3.12 with matplotlib and Tk. Tk ships with the python.org installers, Anaconda and uv's Python; on Debian or Ubuntu run `sudo apt install python3-tk`. Install and start it from the repository folder:
 
-     ```bash
-     conda create -n vortfoil python=3.11 -y
-     conda activate vortfoil
-     cd VortFoil
-     pip install . matplotlib
-     ```
+```bash
+conda create -n vortfoil python=3.11 -y && conda activate vortfoil      # or: python3 -m venv ~/vortfoil-env && source ~/vortfoil-env/bin/activate
+pip install .
+python code/vortfoil_app.py
+```
 
-   - With venv (macOS, Linux; on Debian or Ubuntu run `sudo apt install python3-tk` first):
+`vortfoil app --shortcut` (or `python code/vortfoil_app.py --shortcut`) adds a launcher for the environment it runs in:
 
-     ```bash
-     python3 -m venv ~/vortfoil-env
-     source ~/vortfoil-env/bin/activate
-     cd VortFoil
-     pip install . matplotlib
-     ```
-
-   pip installs TensorFlow with the package. The application runs on the CPU; native-Windows TensorFlow 2.11 and later has no GPU support, and none is needed.
-3. Start it, with that environment active, from the repository folder: `python code/vortfoil_app.py`.
-4. Optionally, a launcher for this environment: `python code/vortfoil_app.py --shortcut`.
-   - On Windows this puts **VortFoil** on the desktop.
-   - On Linux it adds an entry to the applications menu.
-   - On macOS it writes nothing. The application is started from the terminal, and the option prints the command and an alias for `~/.zshrc`, after which typing `vortfoil` opens it.
-
-   Re-run it after moving the repository or the environment.
+- on Windows, **VortFoil** on the desktop;
+- on Linux, an entry in the applications menu;
+- on macOS nothing is written, since the terminal is the launcher (`vortfoil`).
 
 **Notes.**
 - The first run loads the models, which takes a few seconds; later runs take about 1–5 s at the normal field detail. A run needs about 1.5 GB of memory.

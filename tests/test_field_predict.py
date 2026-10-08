@@ -114,6 +114,19 @@ def test_viewer_layouts():
         matplotlib.pyplot.close(fig)
 
 
+def test_csv_export(tmp_path):
+    """Every number of a result as CSV files: one row of coefficients, 240 panels, 121 stations, every grid point."""
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    import view_airfoil as V
+    loop, name = V.section("2412")
+    r, sw, out, meta = V.compute(loop, 4.0, 3e6, 0.05)
+    paths = V.export_csv(tmp_path, name, 4.0, 3e6, r, sw, out, meta)
+    rows = {p.rsplit("_", 1)[1]: sum(1 for _ in open(p)) - 1 for p in paths if p.endswith(".csv")}
+    assert rows == {"coefficients.csv": 1, "surface.csv": 240, "layer.csv": 121, "field.csv": out["x"].size,
+                    "section.csv": len(meta["section"])} and any(p.endswith("_about.txt") for p in paths)
+
+
 def test_application_helpers():
     """The application's database list parser and the field panels' fill of the section interior (no window needed)."""
     import vortfoil_app as A
@@ -124,6 +137,16 @@ def test_application_helpers():
     f = np.arange(30.0).reshape(5, 6); g = f.copy(); g[1:4, 2:4] = np.nan
     h = PF._fill_inside(g)
     assert np.isfinite(h).all() and np.array_equal(h[~np.isnan(g)], f[~np.isnan(g)])
+
+
+def test_vortfoil_command_runs_the_viewer(tmp_path):
+    """The installed command's routing: `vortfoil view ...` draws one case without a window."""
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    from vortfoil import cli
+    out = tmp_path / "view.png"
+    cli.main(["view", "--airfoil", "2412", "--alpha", "4", "--Re", "3e6", "--h", "0.05", "--no-show", "--save", str(out)])
+    assert out.exists() and out.stat().st_size > 20000
 
 
 def test_viewer_writes_one_figure(tmp_path):
