@@ -5,6 +5,8 @@ on:
     branches: ["main"]
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   test:
@@ -71,3 +73,26 @@ jobs:
         with:
           name: distributions
           path: dist/*
+
+  publish:
+    # Uploads to PyPI only when a GitHub release is published; pushes and pull requests never do. PyPI trusted publisher:
+    # repository SHRhie/VortFoil, workflow ci.yml, environment pypi. The tests and the clean-wheel check must pass first.
+    name: publish to PyPI
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [test, wheel]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/vortfoil
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: distributions
+          path: dist
+      - name: Release tag matches the package version
+        run: |
+          v=$(ls dist/*.whl | sed -E 's/.*vortfoil-([^-]+)-.*/\1/')
+          test "${{ github.event.release.tag_name }}" = "v$v" || { echo "tag ${{ github.event.release.tag_name }} is not v$v"; exit 1; }
+      - uses: pypa/gh-action-pypi-publish@release/v1
