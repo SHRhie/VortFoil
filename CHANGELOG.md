@@ -30,7 +30,9 @@ generation; it does not follow a prior 1.x package.
   number from coordinates alone, with warnings outside its AirfRANS training domain, and its validation
   (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`).
 - `code/view_airfoil.py`: one window per airfoil with the field panels, the surface pressure, the boundary-layer
-  thicknesses and the coefficients; resizing the window zooms the figure instead of re-flowing its layout.
+  thicknesses and the coefficients; resizing the window zooms the figure instead of re-flowing its layout, and an
+  upright screen gets the panels stacked. `code/vortfoil_app.py`: the same as a desktop application (NACA sections,
+  the UIUC database downloaded on demand, or your own coordinate file; figures saved at 400 dpi).
   `SurfacePrediction` gains `x_cp`, `theta` and `dstar` (with `vortfoil.BL_X`).
   The NACA generator of the AirfRANS sections is vendored (`code/field/naca_generator.py`, MIT).
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and

@@ -208,6 +208,18 @@ python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 
 ![Viewer: NACA 2412 at 6 degrees, Re 3e6](docs/viewer_example.png)
 
+### Desktop application
+
+`code/vortfoil_app.py` is the same in one application window: pick a NACA 4- or 5-digit section, search the UIUC
+Airfoil Coordinates Database (its list and the chosen section are downloaded from the UIUC site and cached; VortFoil
+does not redistribute them), or open your own coordinate file for a section that is in no database; set the incidence,
+the Reynolds number and the field detail, press Run, and save the figure at 400 dpi. Wide windows show the panels side
+by side, tall ones stacked. It needs matplotlib and Tk.
+
+```bash
+python code/vortfoil_app.py
+```
+
 ## Execution conditions
 
 The timed unit below is the manuscript's **coefficient chain**: the sheet operator, its panel

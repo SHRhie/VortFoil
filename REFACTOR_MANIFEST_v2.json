@@ -98,10 +98,10 @@
     "NOTICE": "the MIT notice of the vendored NACA generator",
     "src/vortfoil/api.py (later)": "_prep repeats a single shape over arrays of alpha and Re (predict(coords=xy, alpha=[...]) is a polar; the fit info stays per shape) and names the mismatch when the counts differ",
     "code/field/vf_field_fast.py": "the thread-pool workers run under the caller's np.errstate (it is thread-local; the spurious matmul flags of macOS Accelerate reached the user as RuntimeWarnings); the work is split into tasks of CHUNK = 2048 rows (was one block of n/THREADS rows per thread in 16384-row passes), so the temporaries stay near THREADS x CHUNK rows whatever the number of points: a default 80,601-point field peaks at 1.4 GB instead of 3.5 GB; outputs bitwise unchanged on that grid and on three AirfRANS validation cases (routes E, U and C equal to results/predict_field_validation_per_case.npz)",
-    "code/field/predict_field.py (later)": "decode() runs the decoder through vf_field_fast.fwd_parallel (row blocks, threaded; bitwise equal to one fwd_np call)",
+    "code/field/predict_field.py (later)": "decode() runs the decoder through vf_field_fast.fwd_parallel (row blocks, threaded; bitwise equal to one fwd_np call); draw_fields() shades the fields with Gouraud interpolation (section interior filled from its neighbours, drawn over); STYLE and plot() save at 400 dpi",
     "src/vortfoil/geometry.py": "fit_cst16 takes a closed loop's trailing edge at its first node (it took the midpoint with the last lower node) and reports no gap for it; code/field/state_provider.py keeps its training-time rule, since its inputs are 441-node polygons whose last panel is about 5e-5 chord",
     "code/vortfoil_paths.py": "add_paths() also puts <release>/src first, so the scripts use this checkout's vortfoil package rather than another installed copy",
-    "code/view_airfoil.py": "imports through vortfoil_paths.add_paths() (this checkout's package and code/field); scale_with_window(): a window resize zooms the frozen design layout (letterboxed) instead of re-flowing it"
+    "code/view_airfoil.py": "imports through vortfoil_paths.add_paths() (this checkout's package and code/field); scale_with_window(): a window resize zooms the frozen design layout (letterboxed) instead of re-flowing it; figure(fig=, layout=) redraws into a given figure, side by side or stacked; --layout auto stacks on an upright screen; figures saved at 400 dpi; the surface model is loaded once per process"
   },
   "created_2026-10-08": {
     "code/field/predict_field.py": "the operator-conditioned decoder for any section, incidence and Reynolds number from coordinates alone",
@@ -110,7 +110,8 @@
     "tests/test_field_predict.py": "the field route runs from the repository's files (no AirfRANS, no XFOIL) and warns outside its domain; the viewer writes a figure headless",
     "code/view_airfoil.py": "one window per airfoil: field panels, surface C_p, boundary-layer thicknesses, coefficients, warnings",
     "code/field/naca_generator.py": "airfrans 0.1.5.1 naca_generator.py, verbatim, MIT License (Copyright (c) 2023 Extrality)",
-    "docs/viewer_example.png": "the README's viewer example (NACA 2412, 6 deg, Re 3e6)"
+    "docs/viewer_example.png": "the README's viewer example (NACA 2412, 6 deg, Re 3e6)",
+    "code/vortfoil_app.py": "the desktop application: NACA, UIUC database (downloaded on demand, cached, not redistributed) or a user file; run; figure stacked or side by side; save at 400 dpi; --selftest"
   },
   "create": {
     "code/vortfoil_paths.py": "add_paths(): insert <release>/code/model and <release>/code/field into sys.path (so `import staged...`, `import supervised_field...`, `import sdf2d...`, `import state_provider` work); export RELEASE_ROOT, WEIGHTS, DATA_EVAL, RESULTS; honour a VORTFOIL_ROOT env override.",
