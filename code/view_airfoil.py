@@ -63,7 +63,8 @@ def compute(loop, alpha, Re, h):
     return r, surf_w, out, meta
 
 
-DESIGNS = {"landscape": (16.0, 7.6), "portrait": (9.5, 12.0)}   # sizes (in) the layouts are drawn at; windows zoom them
+DESIGNS = {"landscape": (16.0, 7.6), "square": (13.0, 10.5), "portrait": (9.5, 12.0)}   # drawn at these sizes (in); windows zoom
+WRAP = {"landscape": 78, "square": 58, "portrait": 100}   # characters per line of the coefficients box
 DESIGN = DESIGNS["landscape"]
 
 
@@ -80,9 +81,9 @@ def screen_is_portrait():
 
 
 def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
-    """The result figure, side by side ('landscape': fields left, surface right) or stacked ('portrait': fields on
-    top, then the surface, then the coefficients). With `fig`, it is cleared and redrawn (the application reuses its
-    embedded figure)."""
+    """The result figure in one of three layouts: 'landscape' (fields left, surface right), 'square' (fields on top,
+    surface pressure, boundary layer and coefficients in a row below) or 'portrait' (fields, then the two surface
+    panels, then the coefficients). With `fig`, it is cleared and redrawn (the application reuses its figure)."""
     import matplotlib.pyplot as plt
     import vortfoil
     import predict_field as PF
@@ -97,6 +98,10 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
         gs = fig.add_gridspec(1, 2, width_ratios=[2.25, 1])
         gl = gs[0].subgridspec(2, 2); gr = gs[1].subgridspec(3, 1, height_ratios=[1.15, 1.0, 1.05])
         cell = dict(cp=gr[0], bl=gr[1], text=gr[2])
+    elif layout == "square":
+        gs = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
+        gl = gs[0].subgridspec(2, 2); gm = gs[1].subgridspec(1, 3, width_ratios=[1.0, 1.0, 0.9])
+        cell = dict(cp=gm[0], bl=gm[1], text=gm[2])
     else:
         gs = fig.add_gridspec(3, 1, height_ratios=[2.0, 1.0, 0.6])
         gl = gs[0].subgridspec(2, 2); gm = gs[1].subgridspec(1, 2)
@@ -137,10 +142,11 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
     warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]
     lines += ["warnings:"] + ([f"- {m}" for m in warn] if warn else ["- none: inside both training domains"])
     import textwrap
-    txt = "\n".join(textwrap.fill(l, 78, subsequent_indent="  ") if l.startswith("- ") else l for l in lines)
+    txt = "\n".join(textwrap.fill(l, WRAP[layout], subsequent_indent="  ") if l.startswith("- ") else l for l in lines)
     ax.text(0.0, 1.0, txt, va="top", ha="left", family="monospace", fontsize=8.5, transform=ax.transAxes)
-    where = ("left: RANS field decoder, wind frame; right: surface model" if layout == "landscape"
-             else "top: RANS field decoder, wind frame; below: surface model")
+    where = {"landscape": "left: RANS field decoder, wind frame; right: surface model",
+             "square": "top: RANS field decoder, wind frame; bottom row: surface model",
+             "portrait": "top: RANS field decoder, wind frame; below: surface model"}[layout]
     fig.suptitle(rf"VortFoil — {name},  $\alpha$ = {meta['alpha_used']:.2f}$^\circ$,  Re = {Re:.3g}"
                  + ("   " if layout == "landscape" else "\n") + f"({where})", fontsize=12)
     return fig
@@ -215,8 +221,8 @@ def main(argv=None):
     ap.add_argument("--h", type=float, default=0.005, help="field grid spacing in chords (default %(default)s)")
     ap.add_argument("--save", help="also write the figure to this file (png, pdf, ...)")
     ap.add_argument("--no-show", action="store_true", help="do not open a window")
-    ap.add_argument("--layout", choices=("auto", "landscape", "portrait"), default="auto",
-                    help="side by side or stacked; auto: stacked on an upright screen, else side by side")
+    ap.add_argument("--layout", choices=("auto", "landscape", "square", "portrait"), default="auto",
+                    help="auto: portrait on an upright screen, else landscape")
     a = ap.parse_args(argv)
     if a.airfoil is None or a.alpha is None or a.Re is None:
         print("VortFoil viewer: an airfoil, an incidence and a Reynolds number (empty answer keeps the default).")

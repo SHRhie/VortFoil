@@ -210,15 +210,58 @@ python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 
 ### Desktop application
 
-`code/vortfoil_app.py` is the same in one application window: pick a NACA 4- or 5-digit section, search the UIUC
-Airfoil Coordinates Database (its list and the chosen section are downloaded from the UIUC site and cached; VortFoil
-does not redistribute them), or open your own coordinate file for a section that is in no database; set the incidence,
-the Reynolds number and the field detail, press Run, and save the figure at 400 dpi. Wide windows show the panels side
-by side, tall ones stacked. It needs matplotlib and Tk.
+`code/vortfoil_app.py` is VortFoil in an application window. Pick a section in one of three ways:
 
-```bash
-python code/vortfoil_app.py
-```
+- a NACA 4- or 5-digit designation;
+- a search of the UIUC Airfoil Coordinates Database. Its list and the section you choose are downloaded from the UIUC site and cached; VortFoil does not redistribute them;
+- your own coordinate file, for a section that is in no database.
+
+Then set the incidence, the Reynolds number and the field detail, press **Run**, and **Save figure** at 400 dpi (png, pdf or svg). The application picks whichever of three layouts shows the figure largest:
+
+- side by side, for a wide window;
+- fields over a row of surface panels, for a window of ordinary proportions;
+- everything stacked, for a tall window. On an upright screen the controls also go above the figure.
+
+Resizing the window zooms the figure.
+
+**Install (once).** The application runs from this repository: it uses `code/` and `weights/` next to the installed `vortfoil` package. It needs Python 3.10–3.12 with matplotlib and Tk. Tk ships with the python.org installers and with Anaconda.
+
+1. Get the repository: `git clone https://github.com/SHRhie/VortFoil.git`, or download the ZIP from GitHub and unpack it.
+2. Make an environment and install into it, from the repository folder.
+   - With conda (on Windows, in the Anaconda Prompt):
+
+     ```bash
+     conda create -n vortfoil python=3.11 -y
+     conda activate vortfoil
+     cd VortFoil
+     pip install . matplotlib
+     ```
+
+   - With venv (macOS, Linux; on Debian or Ubuntu run `sudo apt install python3-tk` first):
+
+     ```bash
+     python3 -m venv ~/vortfoil-env
+     source ~/vortfoil-env/bin/activate
+     cd VortFoil
+     pip install . matplotlib
+     ```
+
+   pip installs TensorFlow with the package. The application runs on the CPU; native-Windows TensorFlow 2.11 and later has no GPU support, and none is needed.
+3. Start it, with that environment active, from the repository folder: `python code/vortfoil_app.py`.
+4. Optionally, a launcher for this environment: `python code/vortfoil_app.py --shortcut`.
+   - On Windows this puts **VortFoil** on the desktop.
+   - On Linux it adds an entry to the applications menu.
+   - On macOS it writes nothing. The application is started from the terminal, and the option prints the command and an alias for `~/.zshrc`, after which typing `vortfoil` opens it.
+
+   Re-run it after moving the repository or the environment.
+
+**Notes.**
+- The first run loads the models, which takes a few seconds; later runs take about 1–5 s at the normal field detail. A run needs about 1.5 GB of memory.
+- The UIUC list needs an internet connection the first time.
+- The list and the sections you open are cached in `%LOCALAPPDATA%\vortfoil\uiuc` on Windows and in `~/.cache/vortfoil/uiuc` elsewhere.
+- When the application is started without a console, as from the Windows shortcut, its messages go to `app.log` next to that folder.
+- To uninstall, delete the environment, the shortcut and that folder.
+- `python code/vortfoil_app.py --selftest DIR` runs one case without a person and saves the figure and a capture of the window in DIR, as a quick check of an installation.
 
 ## Execution conditions
 

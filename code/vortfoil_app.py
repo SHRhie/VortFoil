@@ -16,10 +16,12 @@ surface results of the vortfoil package, with every range warning, side by side 
 tall one. Resizing the window zooms the figure, and Save figure writes it at 400 dpi (png, pdf or svg). It needs
 matplotlib and Tk (part of most Python installs).
 
+  --shortcut       Windows: a desktop shortcut that starts the application with this Python environment; Linux: an
+                   entry in the applications menu; macOS: print the terminal command (and an alias), write nothing
   --selftest DIR   run one case without a person (--airfoil naca:2412 | uiuc:<name> | file:<path>), save the figure
                    and a capture of the window in DIR, and exit
 """
-import os, re, sys, time, queue, threading, argparse, traceback, urllib.request
+import os, re, sys, time, queue, threading, argparse, traceback, subprocess, urllib.request
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -250,12 +252,12 @@ class App:
             self.status.configure(text="The incidence and the Reynolds number must be numbers (e.g. 4 and 3e6).")
             return
         loop, name = self.section
-        self.run_btn.configure(state="disabled"); self.bar.start(12)
+        self.run_btn.configure(state="disabled"); self.bar.configure(mode="indeterminate"); self.bar.start(12)
         self.status.configure(text=f"Computing {name} at {alpha:g} deg, Re {Re:.3g} ... (the first run also loads the models)")
         self.submit("run", loop, alpha, Re, DETAIL[self.detail.get()], name)
 
     def done_run(self, args, res, err):
-        self.bar.stop(); self.bar["value"] = 0; self.run_btn.configure(state="normal")
+        self.bar.stop(); self.bar.configure(mode="determinate", value=0); self.run_btn.configure(state="normal")
         if err:
             self.status.configure(text=f"The computation failed: {err}")
             traceback.print_exception(err)
@@ -275,8 +277,10 @@ class App:
             self.root.after(500, self.finish_selftest)
 
     def orientation(self):
-        w, h = self.can.get_tk_widget().winfo_width(), self.can.get_tk_widget().winfo_height()
-        return "portrait" if h > 1.2 * w else "landscape"
+        """The layout that shows the figure largest on the canvas as it is now."""
+        w = self.can.get_tk_widget().winfo_width() / self.fig.dpi; h = self.can.get_tk_widget().winfo_height() / self.fig.dpi
+        zoom = {k: min(w / W, h / H) for k, (W, H) in V.DESIGNS.items()}
+        return max(zoom, key=zoom.get)
 
     def draw(self, layout):
         """The last result in a side-by-side or stacked layout, frozen and zoomed to the canvas."""
@@ -286,7 +290,7 @@ class App:
         self.fit()
 
     def on_configure(self, event):
-        """A window turned from wide to tall (or back) gets the other layout; other resizes only zoom."""
+        """A resize that makes the other layout the larger one redraws in it; other resizes only zoom."""
         if self.last is None or self.orientation() == self.layout:
             return
         if self.relayout is not None:
@@ -323,6 +327,9 @@ class App:
     def finish_selftest(self):
         out = self.selftest[0]
         os.makedirs(out, exist_ok=True)
+        self.fig.savefig(os.path.join(out, "app_canvas.png"), dpi=self.fig.dpi)   # the canvas as shown, at its size
+        cw, ch = self.can.get_tk_widget().winfo_width(), self.can.get_tk_widget().winfo_height()
+        print(f"window {self.root.winfo_width()}x{self.root.winfo_height()}, canvas {cw}x{ch}, {self.fig.dpi:.0f} dpi, layout {self.layout}", flush=True)
         self.save_to(os.path.join(out, "app_figure.png"))
         try:
             from PIL import ImageGrab
@@ -339,13 +346,43 @@ class App:
         self.root.after(200, self.root.destroy)
 
 
+def make_shortcut():
+    """A launcher for this Python environment and this checkout; returns what was done. On macOS nothing is written:
+    the application is started from the terminal, and the command (and a shell alias for it) is returned."""
+    app = os.path.abspath(__file__)
+    root = os.path.dirname(HERE)
+    if sys.platform == "win32":                               # VortFoil.lnk on the desktop, through pythonw (no console)
+        pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+        pyw = pyw if os.path.exists(pyw) else sys.executable
+        ps = ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), 'VortFoil.lnk')); "
+              f"$s.TargetPath = '{pyw}'; $s.Arguments = '\"{app}\"'; $s.WorkingDirectory = '{root}'; $s.IconLocation = '{pyw},0'; "
+              "$s.Description = 'VortFoil: airfoil field and surface results'; $s.Save(); $s.FullName")
+        return subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, check=True).stdout.strip()
+    if sys.platform == "darwin":                              # the terminal is the launcher: print, write nothing
+        cmd = f'"{sys.executable}" "{app}"'
+        return (f"no file written on macOS; start it from the terminal with\n  {cmd}\n"
+                f"or add this line to ~/.zshrc and type vortfoil:\n  alias vortfoil='{cmd}'")
+    else:                                                     # an entry in the applications menu
+        path = os.path.expanduser("~/.local/share/applications/vortfoil.desktop")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(f'[Desktop Entry]\nType=Application\nName=VortFoil\nComment=Airfoil field and surface results\n'
+                    f'Exec="{sys.executable}" "{app}"\nPath={root}\nTerminal=false\nCategories=Science;Education;\n')
+    os.chmod(path, 0o755)
+    return path
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--shortcut", action="store_true", help="a launcher for this Python environment (macOS: print the terminal command) and exit")
     ap.add_argument("--selftest", metavar="DIR", help="run one case unattended, save the figure and a window capture in DIR")
     ap.add_argument("--airfoil", default="naca:2412", help="for --selftest: naca:<digits>, uiuc:<name> or file:<path>")
     ap.add_argument("--alpha", type=float, default=4.0)
     ap.add_argument("--Re", type=float, default=3e6)
     a = ap.parse_args(argv)
+    if a.shortcut:
+        print("shortcut:", make_shortcut())
+        return 0
     if sys.stdout is None or sys.stderr is None:              # pythonw (no console): keep messages in a log file
         os.makedirs(os.path.dirname(CACHE), exist_ok=True)
         log = open(os.path.join(os.path.dirname(CACHE), "app.log"), "a", encoding="utf-8")
