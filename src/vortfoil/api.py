@@ -20,6 +20,7 @@ costs and for the sealed scores this build reproduces.
 """
 import json
 import os
+import warnings
 from dataclasses import dataclass, field as _field
 
 import numpy as np
@@ -27,6 +28,42 @@ import numpy as np
 from . import geometry
 
 _DEFAULT_MAX_BATCH = {"cpu": 4096, "gpu": 512}   # the panel kernel materializes (B, 240, 241)
+
+# Input domain of the training data: the XFOIL decks of both operators span these incidences and Reynolds
+# numbers (449,732 sheet rows, 325,370 boundary-layer rows). The evaluation populations cover -4..12 deg and
+# 2e5..3e6. Outside the training range every output is an extrapolation.
+TRAIN_ALPHA_DEG = (-10.0, 18.0)
+TRAIN_RE = (5e4, 1e7)
+FIT_ERROR_WARN = 5e-3      # chord fraction, CST16 fit away from the TE node (about the 96th percentile of 1,664 UIUC sections)
+TE_GAP_WARN = 1e-2         # chord fraction (about the 95th percentile of the same sections)
+
+
+class RangeWarning(UserWarning):
+    """An input lies outside the range the model was trained on, or the 16-parameter shape form misrepresents it."""
+
+
+def _range_check(alpha, Re, fit_infos):
+    """Warn (RangeWarning) about inputs outside the training domain; return the per-row flag."""
+    a, r = np.asarray(alpha, np.float64).ravel(), np.asarray(Re, np.float64).ravel()
+    bad_a = (a < TRAIN_ALPHA_DEG[0]) | (a > TRAIN_ALPHA_DEG[1])
+    bad_r = (r < TRAIN_RE[0]) | (r > TRAIN_RE[1])
+    if bad_a.any():
+        warnings.warn(f"{int(bad_a.sum())} of {a.size} incidences lie outside the training range "
+                      f"{TRAIN_ALPHA_DEG[0]:g} to {TRAIN_ALPHA_DEG[1]:g} deg (first: {a[bad_a][0]:g} deg); "
+                      "the outputs there are extrapolations", RangeWarning, stacklevel=4)
+    if bad_r.any():
+        warnings.warn(f"{int(bad_r.sum())} of {r.size} Reynolds numbers lie outside the training range "
+                      f"{TRAIN_RE[0]:.0e} to {TRAIN_RE[1]:.0e} (first: {r[bad_r][0]:.3g}); "
+                      "the outputs there are extrapolations", RangeWarning, stacklevel=4)
+    for i, f in enumerate(fit_infos or ()):
+        if f["max_abs_error_excluding_te"] > FIT_ERROR_WARN:
+            warnings.warn(f"shape {i}: the 16-parameter form deviates from the given coordinates by "
+                          f"{100 * f['max_abs_error_excluding_te']:.2f}% chord; the outputs are for the fitted shape",
+                          RangeWarning, stacklevel=4)
+        if f["te_gap"] > TE_GAP_WARN:
+            warnings.warn(f"shape {i}: trailing-edge gap {100 * f['te_gap']:.2f}% chord; the 16-parameter form "
+                          "closes it (blunt trailing edges are out of scope)", RangeWarning, stacklevel=4)
+    return bad_a | bad_r
 
 
 def _weights_dir():
@@ -187,6 +224,7 @@ class VortFoil:
         if "chord_rotation_deg" in info:
             alpha = alpha - info["chord_rotation_deg"].reshape(-1, 1).astype(np.float32)
             info["alpha_used"] = alpha.ravel().copy()
+        info["outside_training_range"] = _range_check(alpha, Re, info.get("fit"))
         return cst, alpha, Re, info
 
     def _chunks(self, n):

@@ -25,6 +25,9 @@ outputs are.
 This is an XFOIL-state model for the surface branch. It predicts what XFOIL would
 return, not what a RANS solver or an experiment would return.
 
+Inputs are expected inside the training range: incidence −10° to 18° and Reynolds number 5×10⁴ to 10⁷ (the evaluation
+sets cover −4° to 12° and 2×10⁵ to 3×10⁶). Outside it the package issues `vortfoil.RangeWarning`.
+
 ## Out of scope
 
 - Compressible flow.
@@ -134,7 +137,7 @@ statement.
 ## Field decoder
 
 The repository also ships a separately trained RANS field decoder, which is not part of the pip
-package: `weights/field_decoder_f0cm_s1.npz`, conditioned on the sheet's uncorrected circulation
+package (`code/field/predict_field.py` runs it for any section from its coordinates): `weights/field_decoder_f0cm_s1.npz`, conditioned on the sheet's uncorrected circulation
 lift and on a boundary-layer-derived separation scalar, s_sep = clip((max(H_TE^u, H_TE^l) − 2)/8,
 0, 1). It is trained and tested on k–ω SST AirfRANS fields only (780 training cases, 200 test
 cases), a different reference state from the XFOIL surface branch; the two are never compared in
@@ -148,6 +151,10 @@ absolute terms.
 - Its deployed weight is one of three training runs, selected by validation score; the
   case-bootstrap intervals do not measure variation across training seeds.
 - Its fixed spatial-feature and point-cloud budgets leave discretization independence untested.
+- Run for a new section by `code/field/predict_field.py`: from dense coordinates alone it matches the deployed evaluation
+  (mean errors 0.99, 0.99, 1.07, 1.03 times on the 200 test cases); a sparse 161-point section raises near-wall errors
+  on a RANS mesh (u_y 3.8 times) but changes a 0.01-chord grid by under 6% of the decoder's error. Outside AirfRANS's
+  NACA 4/5-digit sections, −5° to 15° and Re 2×10⁶ to 6×10⁶ it warns, and such fields are unvalidated.
 
 The numbers are in the README's results summary.
 

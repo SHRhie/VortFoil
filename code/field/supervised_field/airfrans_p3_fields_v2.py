@@ -47,9 +47,8 @@ os.environ.setdefault("XFOIL_EXE", os.path.expanduser("~/src/xfoil/bin/xfoil"))
 import numpy as np
 from multiprocessing import Pool
 
-import airfrans as af
-import pyvista as pv
-from airfrans.naca_generator import naca_generator
+# airfrans / pyvista are imported inside the functions that read AirfRANS files (2026-10-08), so the paint and the
+# decoder forward run without them (code/field/predict_field.py).
 from sdf2d.panel_inviscid import panel_solve, _induced_at
 from sdf2d.geometry import sdf_np
 from supervised_field.airfrans_p1_labels import run_one          # resumable XTR cache
@@ -76,6 +75,7 @@ def case_params(name):
 
 
 def analytic_polyline(prm):
+    from airfrans.naca_generator import naca_generator
     s = np.asarray(naca_generator(np.array(prm), nb_samples=220, cosine_spacing=True,
                                   verbose=False, CTE=True), np.float64)
     if not np.allclose(s[0], s[-1]):
@@ -282,6 +282,7 @@ def rel_l2(pred, truth, mask):
 
 
 def train_stats():
+    import pyvista as pv
     """Per-field mean/std over a deterministic 50-sim strided sample of scarce_train
     (every 4th of the 200 sorted names — spans the full U range; approximation to
     the official full-train-set normalization, stated in the JSON)."""
@@ -311,6 +312,7 @@ def train_stats():
 
 
 def main():
+    import airfrans as af
     with open(os.path.join(ROOT, "manifest.json")) as f:
         names = sorted(json.load(f)["full_test"])[:N_CASES]
 

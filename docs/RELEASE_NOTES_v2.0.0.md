@@ -63,6 +63,10 @@ aggregate errors than MARIO's published values on u_x, p and ν_t, but not on u_
 errors above 8° incidence exceed MARIO's published aggregate. The README gives the numbers and the
 scripts that reproduce them.
 
+For a new section, `code/field/predict_field.py` runs the decoder from the coordinates alone (no AirfRANS files, no
+XFOIL) and warns outside its AirfRANS training domain; its validation against the deployed evaluation is
+`results/predict_field_validation.json` (README, "Flow field for any section").
+
 ## Recorded scores
 
 Eighty held-out UIUC sections against XFOIL at Ncrit 7. The attached set is the rows whose XFOIL
@@ -114,6 +118,7 @@ Absolute times are host dependent; the ordering between conditions is the stable
 - Both closures are empirical fits over their training range.
 - A blunt trailing edge cannot be represented by the 16-parameter shape form.
 - Incompressible, steady, two-dimensional flow only.
+- Training range: incidence −10° to 18°, Reynolds number 5×10⁴ to 10⁷; outside it the package issues `vortfoil.RangeWarning`.
 
 ## Relation to the earlier package
 

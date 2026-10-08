@@ -21,7 +21,8 @@ import os, sys, json, time, hashlib, datetime
 os.environ.setdefault("MPLBACKEND", "Agg")
 os.environ.setdefault("XFOIL_EXE", os.path.expanduser("~/src/xfoil/bin/xfoil"))
 import numpy as np
-import airfrans as af
+# airfrans / pyvista are imported inside the functions that read AirfRANS files (2026-10-08), so the paint and the
+# decoder forward run without them (code/field/predict_field.py).
 from sdf2d.geometry import sdf_np
 from supervised_field.nf_eval200 import ROOT, FIELDS, MARIO_PUBLISHED, HERE
 from supervised_field.nf_hybrid_field import _case_inputs, _load
@@ -67,6 +68,7 @@ def fwd_np(X, s_row, PA, z, w):
 
 
 def main():
+    import airfrans as af
     from supervised_field import WEIGHTS as _W
     wf = os.path.join(HERE, sys.argv[sys.argv.index("--weights") + 1]) if "--weights" in sys.argv \
         else os.path.join(_W, "field_decoder_f0cm_s1.npz")   # release name of the deployed operator-conditioned decoder

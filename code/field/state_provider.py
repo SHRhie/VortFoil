@@ -84,8 +84,11 @@ class ConfirmedStateProvider:
 
     def __init__(self, h_sep=H_SEP, s_rule=S_RULE):
         import tensorflow as tf
-        tf.config.set_visible_devices([], "GPU")
-        tf.config.threading.set_intra_op_parallelism_threads(1); tf.config.threading.set_inter_op_parallelism_threads(1)
+        try:          # possible only before TensorFlow initializes (e.g. not after vortfoil.load_model); then its settings stay
+            tf.config.set_visible_devices([], "GPU")
+            tf.config.threading.set_intra_op_parallelism_threads(1); tf.config.threading.set_inter_op_parallelism_threads(1)
+        except RuntimeError:
+            pass
         from staged.op1_inviscid import build_op1
         from staged.op2_bl_surrogate import build_op2_surrogate
         from staged.common.geometry import build_single_loop_contour_cst_tf
@@ -124,8 +127,11 @@ class ConfirmedStateProvider:
         return np.r_[au, al].astype(np.float32), float(np.degrees(ang)), err
 
     def state_for(self, prm, alpha_deg, Re):
+        return self.state_for_polygon(self.polyline(np.asarray(prm, np.float64)), alpha_deg, Re, source="NACA polyline")
+
+    def state_for_polygon(self, poly, alpha_deg, Re, source="polygon"):
+        """The same state for any closed section polygon (code/field/predict_field.py); state_for passes the NACA one."""
         tf = self.tf
-        poly = self.polyline(np.asarray(prm, np.float64))
         cst, rot, err = self._cst(poly)
         a_eff = float(alpha_deg) - rot
         C = tf.constant(cst[None]); A = tf.constant(np.array([[a_eff]], np.float32)); R = tf.constant(np.array([[float(Re)]], np.float32))
@@ -158,7 +164,7 @@ class ConfirmedStateProvider:
                                "external_solver_calls": 0,
                                "detail": f"cl = 2*sum(gamma_panels*ds) of OP1 {os.path.basename(OP1_W)}; "
                                          f"s rule {self.s_rule} (tail: clip(tail(H>{self.h_sep})/0.10,0,1); teH_mean: clip((H_TE,mean-{TEH_H0})/{TEH_W},0,1); teH: clip((H_TE,max-{TEH_H0})/{TEH_W},0,1)) of OP2 {os.path.basename(OP2_W)}; "
-                                         f"CST16 fit of the NACA polyline (max err {err:.2e}), alpha_eff = alpha - frame rot"}}
+                                         f"CST16 fit of the {source} (max err {err:.2e}), alpha_eff = alpha - frame rot"}}
 
 
 # ----------------------------------------------------------------------------- worker

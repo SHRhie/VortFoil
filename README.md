@@ -153,6 +153,44 @@ vortfoil selfcheck --data data/eval/holdout_targets.npz     # reproduces the rec
 
 Tests: `VORTFOIL_EVAL_DATA=data/eval/holdout_targets.npz pytest -q tests/`.
 
+### Input range
+
+The surface model was trained on XFOIL solutions at incidences of −10° to 18° and Reynolds numbers of 5×10⁴ to 10⁷
+(incompressible, Ncrit 7, closed trailing edges) and evaluated at −4° to 12° and 2×10⁵ to 3×10⁶. Outside the training
+range, `predict()`, `sweep()` and `gradients()` issue a `vortfoil.RangeWarning` and flag the rows in
+`result.info["outside_training_range"]`. They also warn when coordinates deviate from their 16-parameter fit by more
+than 0.5% chord or have a trailing-edge gap above 1% chord.
+
+### Flow field for any section
+
+The RANS field decoder is not part of the pip package. `code/field/predict_field.py` runs it from this repository for
+any section, incidence and Reynolds number, from the coordinates alone, with no AirfRANS files and no XFOIL:
+
+```bash
+python code/field/predict_field.py --coords section.dat --alpha 4 --Re 3e6 --out field.npz --png field.png
+python code/field/predict_field.py --naca 23012 --alpha 8 --Re 4e6 --out field.npz    # needs the airfrans package
+```
+
+It writes u, v, p and ν_t on a grid in AirfRANS units (chord 1 m, air, U∞ = Re·ν) and normalized (u/U∞, v/U∞, C_p,
+ν_t/(U∞c)), together with the operator state it used (C_l^γ, s_sep). The default grid spans −0.5 to 1.5 by −0.5 to 0.5
+chords at 0.005 chord in the wind frame (freestream along +x). `--points` takes your own points, and `--frame body` uses
+the chord frame.
+
+The decoder was trained on AirfRANS k–ω SST fields of NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶.
+It issues a `FieldRangeWarning` outside that range, and for a section whose shape code lies farther from every training
+section than the training sections lie from each other. Fields of sections unlike the training set are unvalidated.
+
+Validation on the 200 AirfRANS test cases (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
+
+- **The deployed evaluation's inputs:** the script reproduces the recorded per-case errors.
+- **The case's 441-node section coordinates alone:** its mean errors are 0.99, 0.99, 1.07 and 1.03 times the deployed
+  decoder's (u_x, u_y, p, ν_t).
+- **A sparse 161-node section, which it resamples:** errors on the RANS mesh rise near the wall (u_y 3.8 times) because
+  most mesh nodes lie inside the first cells of the boundary layer. On a 0.01-chord grid, the sparse- and dense-input
+  predictions differ by 0.3% to 6% of the decoder's own test error.
+
+Give dense coordinates (at least 441 points) when the near-wall field matters.
+
 ## Execution conditions
 
 The timed unit below is the manuscript's **coefficient chain**: the sheet operator, its panel
@@ -302,6 +340,7 @@ export AIRFRANS_ROOT=/path/to/AirfRANS/Dataset
 python code/field/f0cm_final_rescore.py --workers 8    # Tables 11-12, paired ratios, drop-in, C_l substitution, s-rule sensitivity
 python code/field/f0cm_final_rescore.py --limit 2      # quick check: rows 0-1 of the shipped record, nothing written
 python code/field/step2_eval_f0c.py                    # the three operator-conditioned runs (results/step2_eval_f0cm_*)
+python code/field/validate_predict_field.py            # predict_field.py against the deployed evaluation (results/predict_field_validation.json)
 
 # Fig. 6
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
