@@ -173,10 +173,11 @@ absolute terms.
   (mean errors 0.99, 0.99, 1.07, 1.03 times on the 200 test cases); a sparse 161-point section raises near-wall errors
   on a RANS mesh (u_y 3.8 times) but changes a 0.01-chord grid by under 6% of the decoder's error. Outside AirfRANS's
   NACA 4/5-digit sections, −5° to 15° and Re 2×10⁶ to 6×10⁶ it warns.
-- **Wall values in the RANS state:** `predict_field.surface()` reads the decoder's wall pressure. On the 200 test cases, from
-  coordinates alone, the wall C_p has a mean RMSE of 0.035 (0.014 over 5–95% of the chord) and its lift R² 0.9993 against
-  the RANS lift (mean relative error 0.029); its pressure drag ranks with Spearman 0.80. Friction is not resolved (2.3 times
-  the RANS friction from the predicted wall gradient), so no RANS-state total drag is given.
+- **Wall values in the RANS state:** `predict_field.surface()` reads the decoder's wall pressure and takes friction from a
+  wall function (the decoder's velocity 2×10⁻⁴ chord off the wall, Spalding's law), because the decoder does not resolve the
+  wall gradient (friction from that gradient is 2.3 times the RANS friction). On the 200 test cases, from coordinates alone,
+  the wall C_p has a mean RMSE of 0.035 (0.014 over 5–95% of the chord), the lift R² 0.9993 against the RANS lift (mean
+  relative error 0.029), and the drag a mean relative error of 0.14 (Spearman 0.81; friction part 0.045).
 - **Other airfoil families:** on ten UIUC sections computed with the AirfRANS protocol inside those ranges, its errors were
   1.5 to 80 times its NACA test level (26 times on average for u_x), largest near the wall. Only near-NACA shapes (RAE 2822,
   NACA 64₂-415, DU 84-132V) stayed within the test tail. The shape-code distance did not flag them, so every non-NACA input

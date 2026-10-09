@@ -382,6 +382,21 @@ def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", deco
 
 
 
+WALL_D = 2e-4                  # chords from the wall where the wall function reads the decoder's velocity (log layer)
+KAPPA, B_LOG = 0.41, 5.0       # Spalding's law of the wall
+
+
+def spalding_utau(ut, d, nu):
+    """Friction velocity from Spalding's law, y+ = u+ + exp(-kB)(exp(k u+) - 1 - k u+ - (k u+)^2/2 - (k u+)^3/6), for the
+    speed ut (> 0) at wall distance d; bisection, vectorized."""
+    ut = np.abs(np.asarray(ut, np.float64)); lo, hi = np.full_like(ut, 1e-9), np.maximum(ut, 1e-6)
+    for _ in range(80):
+        mid = 0.5 * (lo + hi); up = ut / mid; ku = KAPPA * up
+        f = d * mid / nu - (up + np.exp(-KAPPA * B_LOG) * (np.exp(np.minimum(ku, 50.0)) - 1 - ku - ku ** 2 / 2 - ku ** 3 / 6))
+        lo, hi = np.where(f < 0, mid, lo), np.where(f < 0, hi, mid)
+    return 0.5 * (lo + hi)
+
+
 def _wall(c, Re):
     """Wall values from a prepared state (see surface()); JSON-safe."""
     poly, a = np.asarray(c["poly"], np.float64), c["alpha"]
@@ -389,19 +404,35 @@ def _wall(c, Re):
     with np.errstate(invalid="ignore", over="ignore", divide="ignore"):   # Accelerate BLAS raises spurious flags in matmul
         inp = field_inputs(P, poly, a, Re, c["cl"], c["s"], surf=np.ones(len(P), bool))
         pred = decode(inp, c["z"], c["w"])
-    cp = pred[:, 2] / (0.5 * inp["U"] ** 2)
+    U = inp["U"]; cp = pred[:, 2] / (0.5 * U ** 2)
     Q, cq = np.r_[P, P[:1]], np.r_[cp, cp[:1]]
     t = np.diff(Q, axis=0)
     ccw = np.sum(Q[:-1, 0] * Q[1:, 1] - Q[1:, 0] * Q[:-1, 1]) > 0
     n_out = np.c_[t[:, 1], -t[:, 0]] * (1.0 if ccw else -1.0)               # outward normal times segment length
     F = -np.sum(0.5 * (cq[1:] + cq[:-1])[:, None] * n_out, axis=0)          # pressure force / (q c)
+    # friction by a wall function: the decoder's tangential velocity WALL_D off the wall (log layer), Spalding's law for
+    # u_tau, tau_w = u_tau^2 along the near-wall flow; the field's own wall gradient is not resolved (first nodes at y+ ~ 1)
+    from supervised_field.airfrans_p3_fields_v2 import NU_AIR
+    L = np.linalg.norm(t, axis=1); tu = t / L[:, None]
+    tn = tu + np.roll(tu, 1, axis=0); tn /= np.linalg.norm(tn, axis=1, keepdims=True)              # node tangent, loop direction
+    nn = np.c_[tn[:, 1], -tn[:, 0]] * (1.0 if ccw else -1.0)                                     # node outward normal
+    dsn = 0.5 * (L + np.roll(L, 1))
+    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
+        pv = decode(field_inputs(P + WALL_D * nn, poly, a, Re, c["cl"], c["s"]), c["z"], c["w"])
+    ut = np.sum(pv[:, :2] * tn, axis=1)
+    utau = spalding_utau(ut, WALL_D, NU_AIR)
+    Ff = np.sum((np.sign(ut) * utau ** 2 * dsn)[:, None] * tn, axis=0) / (0.5 * U ** 2)        # friction force / (q c)
+    cf = np.sign(np.sign(tn[:, 0]) * ut) * utau ** 2 / (0.5 * U ** 2)                          # > 0: near-wall flow toward the TE
     ca, sa = np.cos(np.radians(a)), np.sin(np.radians(a))
     le = int(np.argmin(P[:, 0]))
     upper = np.arange(len(P)) <= le
     if P[upper, 1].mean() < P[~upper, 1].mean():
         upper = ~upper
-    return dict(x=P[:, 0].tolist(), y=P[:, 1].tolist(), cp=cp.tolist(), upper=upper.tolist(),
-                cl=float(-F[0] * sa + F[1] * ca), cd_pressure=float(F[0] * ca + F[1] * sa),
+    cl_p, cd_p = float(-F[0] * sa + F[1] * ca), float(F[0] * ca + F[1] * sa)
+    cl_f, cd_f = float(-Ff[0] * sa + Ff[1] * ca), float(Ff[0] * ca + Ff[1] * sa)
+    return dict(x=P[:, 0].tolist(), y=P[:, 1].tolist(), cp=cp.tolist(), cf=cf.tolist(), upper=upper.tolist(),
+                cl=cl_p + cl_f, cd=cd_p + cd_f, cl_pressure=cl_p, cd_pressure=cd_p, cd_friction=cd_f,
+                yplus_median=float(np.median(WALL_D * utau / NU_AIR)), wall_function_distance=WALL_D,
                 reference_state="k-omega SST (the decoder's training fields)")
 
 
@@ -409,11 +440,14 @@ def surface(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
     """Wall values of the decoder, in its own reference state (k-omega SST, as its training fields).
 
     The pressure the decoder predicts on the section's nodes, flagged as wall nodes as in training (velocity and eddy
-    viscosity are zero there), as C_p = p / (U^2/2); and the lift and pressure drag of that pressure, integrated around the
-    closed section and resolved normal and parallel to the freestream (chord 1). Friction is not included: the decoder does
-    not resolve the wall-normal velocity gradient (MODEL_CARD.md, Field decoder). On the 200 AirfRANS test cases these values
-    are compared with the RANS wall pressure and forces by code/field/validate_field_surface.py.
-    Returns x, y (chord frame), cp, upper (bool per node) as arrays, cl, cd_pressure and the meta of predict()."""
+    viscosity are zero there), as C_p = p / (U^2/2), integrated around the closed section. Friction comes from a wall
+    function, because the decoder does not resolve the wall-normal velocity gradient (MODEL_CARD.md, Field decoder): its
+    tangential velocity WALL_D chords off the wall (log layer) gives the friction velocity by Spalding's law, and
+    C_f = u_tau^2 / (U^2/2), positive where the near-wall flow runs toward the trailing edge. Forces are resolved normal and
+    parallel to the freestream (chord 1). On the 200 AirfRANS test cases these values are compared with the RANS wall
+    pressure and forces by code/field/validate_field_surface.py.
+    Returns x, y (chord frame), cp, cf, upper (bool per node) as arrays; cl, cd (pressure + friction), cl_pressure,
+    cd_pressure, cd_friction; and the meta of predict()."""
     if fast:
         import vf_field_fast as F
         F.install()
@@ -421,7 +455,8 @@ def surface(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
     for m in c["meta"]["warnings"]:
         warnings.warn(m, FieldRangeWarning, stacklevel=2)
     w = _wall(c, Re)
-    return dict({k: np.asarray(w[k]) for k in ("x", "y", "cp", "upper")}, cl=w["cl"], cd_pressure=w["cd_pressure"],
+    return dict({k: np.asarray(w[k]) for k in ("x", "y", "cp", "cf", "upper")},
+                **{k: w[k] for k in ("cl", "cd", "cl_pressure", "cd_pressure", "cd_friction", "yplus_median")},
                 meta=dict(c["meta"], frame="body", reference_state=w["reference_state"]))
 
 # ------------------------------------------------------------------------------------------- output
@@ -507,10 +542,11 @@ def main(argv=None):
                         family="naca" if a.naca else None, wall=True)
     wl = meta["wall"]
     np.savez_compressed(a.out, meta=json.dumps(meta), wall_x=np.asarray(wl["x"]), wall_y=np.asarray(wl["y"]), wall_cp=np.asarray(wl["cp"]),
-                        wall_upper=np.asarray(wl["upper"]), **out)
+                        wall_cf=np.asarray(wl["cf"]), wall_upper=np.asarray(wl["upper"]), **out)
     print(f"wrote {a.out}: {np.size(out['u'])} points; C_l^gamma {meta['cl_gamma']:.4f}, s {meta['s_sep']:.3f}, "
           f"alpha used {meta['alpha_used']:.3f} deg, U {meta['U']:.2f} m/s; warnings: {len(meta['warnings'])}")
-    print(f"wall values (RANS state, pressure only): C_l {wl['cl']:.4f}, pressure drag {wl['cd_pressure']:.5f}")
+    print(f"wall values (RANS state): C_l {wl['cl']:.4f}, C_d {wl['cd']:.5f} (pressure {wl['cd_pressure']:.5f}, friction "
+          f"{wl['cd_friction']:.5f} by the wall function)")
     if a.png and np.ndim(out["x"]) == 2:
         plot(out, meta, a.png)
         print(f"wrote {a.png}")

@@ -95,8 +95,9 @@ def test_pool_workers_follow_the_callers_errstate(PF):
 
 
 def test_wall_values_in_the_rans_state(PF):
-    """The decoder's wall pressure (surface()): no lift on a symmetric section at zero incidence, a stagnation C_p near 1,
-    and NACA 2412 at 4 deg near its RANS lift. Its accuracy against RANS is checked by code/field/validate_field_surface.py."""
+    """The decoder's wall values (surface()): no lift on a symmetric section at zero incidence, a stagnation C_p near 1,
+    NACA 2412 at 4 deg near its RANS lift, and a drag of pressure plus wall-function friction near the fully turbulent
+    level. Their accuracy against RANS is checked by code/field/validate_field_surface.py."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PF.FieldRangeWarning)
         sym = PF.surface(PF.naca_coords("0012"), 0.0, 3e6, family="naca")
@@ -105,6 +106,10 @@ def test_wall_values_in_the_rans_state(PF):
     assert np.isfinite(r["cp"]).all() and 0.95 < r["cp"].max() < 1.05
     assert 0.60 < r["cl"] < 0.70 and 0.0 < r["cd_pressure"] < 0.01
     assert r["upper"].sum() > 100 and (~r["upper"]).sum() > 100
+    # drag = pressure + wall-function friction: fully turbulent friction of a 12% section near 2 x 0.0037 at Re 3e6
+    assert 0.007 < sym["cd"] < 0.015 and 0.4 < sym["cd_friction"] / sym["cd"] < 0.9
+    assert 0.007 < r["cd"] < 0.02 and abs(r["cd"] - r["cd_pressure"] - r["cd_friction"]) < 1e-12
+    assert np.isfinite(r["cf"]).all() and np.mean(r["cf"] > 0) > 0.9 and 10 < r["yplus_median"] < 80
 
 def test_viewer_window_resize_zooms_the_figure():
     """Resizing the window scales the frozen design layout (letterboxed) instead of re-flowing it."""

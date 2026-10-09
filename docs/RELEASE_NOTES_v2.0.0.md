@@ -92,8 +92,8 @@ command line; from a checkout, `code/field/predict_field.py` runs the field rout
 coordinates alone (no AirfRANS files, no XFOIL), its mean errors on the 200 AirfRANS test cases are
 0.99 to 1.07 times the deployed evaluation's (`results/predict_field_validation.json`; README, "Flow
 field for any section"). The field also gives wall values in its own RANS state: `predict_field.surface()`, the
-viewer's dashed C_p and `_wall.csv`. Against the RANS wall values of the 200 test cases its lift has R² 0.9993; friction is
-not resolved, so no RANS-state drag is given (README, "Wall pressure and lift in the RANS state").
+viewer's dashed C_p and `_wall.csv`. Against the RANS values of the 200 test cases its lift has R² 0.9993 and its drag, with
+friction from a wall function, a mean relative error of 0.14 (README, "Wall pressure, lift and drag in the RANS state").
 
 The decoder was trained on NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶, and it
 warns outside those ranges. On ten UIUC sections of other families, computed with the AirfRANS
