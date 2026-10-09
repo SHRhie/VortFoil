@@ -337,10 +337,11 @@ def prepare(loop, alpha, Re, decoder=DECODER, family=None):
                           decoder_sha256=_sha256(decoder)))
 
 
-def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", decoder=DECODER, fast=True, family=None):
+def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", decoder=DECODER, fast=True, family=None, wall=False):
     """Field for a section given as a coordinate loop, at `points` (n,2) or on a grid over `window`, both in `frame`:
     'wind' (freestream along +x, the section at its incidence; default) or 'body' (the chord frame: LE at the origin,
-    chord along +x). Velocity components are returned in the same frame; x_body, y_body give the points in the chord frame."""
+    chord along +x). Velocity components are returned in the same frame; x_body, y_body give the points in the chord frame.
+    wall=True adds meta["wall"]: the decoder's wall values in its RANS state (see surface())."""
     if frame not in ("wind", "body"):
         raise ValueError("frame is 'wind' or 'body'")
     if fast:
@@ -374,8 +375,54 @@ def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", deco
         out = {k: val.reshape(GX.shape) for k, val in out.items()}
     sec = np.c_[body_to_wind(poly[:, 0], poly[:, 1], a)] if frame == "wind" else poly
     meta = dict(c["meta"], frame=frame, U=U, chord=1.0, nu=1.56e-5, section=sec.tolist())
+    if wall:
+        meta["wall"] = _wall(c, Re)
     return out, meta
 
+
+
+
+def _wall(c, Re):
+    """Wall values from a prepared state (see surface()); JSON-safe."""
+    poly, a = np.asarray(c["poly"], np.float64), c["alpha"]
+    P = poly[:-1] if np.allclose(poly[0], poly[-1]) else poly
+    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):   # Accelerate BLAS raises spurious flags in matmul
+        inp = field_inputs(P, poly, a, Re, c["cl"], c["s"], surf=np.ones(len(P), bool))
+        pred = decode(inp, c["z"], c["w"])
+    cp = pred[:, 2] / (0.5 * inp["U"] ** 2)
+    Q, cq = np.r_[P, P[:1]], np.r_[cp, cp[:1]]
+    t = np.diff(Q, axis=0)
+    ccw = np.sum(Q[:-1, 0] * Q[1:, 1] - Q[1:, 0] * Q[:-1, 1]) > 0
+    n_out = np.c_[t[:, 1], -t[:, 0]] * (1.0 if ccw else -1.0)               # outward normal times segment length
+    F = -np.sum(0.5 * (cq[1:] + cq[:-1])[:, None] * n_out, axis=0)          # pressure force / (q c)
+    ca, sa = np.cos(np.radians(a)), np.sin(np.radians(a))
+    le = int(np.argmin(P[:, 0]))
+    upper = np.arange(len(P)) <= le
+    if P[upper, 1].mean() < P[~upper, 1].mean():
+        upper = ~upper
+    return dict(x=P[:, 0].tolist(), y=P[:, 1].tolist(), cp=cp.tolist(), upper=upper.tolist(),
+                cl=float(-F[0] * sa + F[1] * ca), cd_pressure=float(F[0] * ca + F[1] * sa),
+                reference_state="k-omega SST (the decoder's training fields)")
+
+
+def surface(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
+    """Wall values of the decoder, in its own reference state (k-omega SST, as its training fields).
+
+    The pressure the decoder predicts on the section's nodes, flagged as wall nodes as in training (velocity and eddy
+    viscosity are zero there), as C_p = p / (U^2/2); and the lift and pressure drag of that pressure, integrated around the
+    closed section and resolved normal and parallel to the freestream (chord 1). Friction is not included: the decoder does
+    not resolve the wall-normal velocity gradient (MODEL_CARD.md, Field decoder). On the 200 AirfRANS test cases these values
+    are compared with the RANS wall pressure and forces by code/field/validate_field_surface.py.
+    Returns x, y (chord frame), cp, upper (bool per node) as arrays, cl, cd_pressure and the meta of predict()."""
+    if fast:
+        import vf_field_fast as F
+        F.install()
+    c = prepare(loop, alpha, Re, decoder, family)
+    for m in c["meta"]["warnings"]:
+        warnings.warn(m, FieldRangeWarning, stacklevel=2)
+    w = _wall(c, Re)
+    return dict({k: np.asarray(w[k]) for k in ("x", "y", "cp", "upper")}, cl=w["cl"], cd_pressure=w["cd_pressure"],
+                meta=dict(c["meta"], frame="body", reference_state=w["reference_state"]))
 
 # ------------------------------------------------------------------------------------------- output
 STYLE = {"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"], "mathtext.fontset": "stix",
@@ -457,10 +504,13 @@ def main(argv=None):
     loop = read_coords(a.coords) if a.coords else naca_coords(a.naca)
     pts = np.load(a.points) if a.points else None
     out, meta = predict(loop, a.alpha, a.Re, points=pts, window=tuple(float(v) for v in a.window.split(",")), h=a.h, frame=a.frame,
-                        family="naca" if a.naca else None)
-    np.savez_compressed(a.out, meta=json.dumps(meta), **out)
+                        family="naca" if a.naca else None, wall=True)
+    wl = meta["wall"]
+    np.savez_compressed(a.out, meta=json.dumps(meta), wall_x=np.asarray(wl["x"]), wall_y=np.asarray(wl["y"]), wall_cp=np.asarray(wl["cp"]),
+                        wall_upper=np.asarray(wl["upper"]), **out)
     print(f"wrote {a.out}: {np.size(out['u'])} points; C_l^gamma {meta['cl_gamma']:.4f}, s {meta['s_sep']:.3f}, "
           f"alpha used {meta['alpha_used']:.3f} deg, U {meta['U']:.2f} m/s; warnings: {len(meta['warnings'])}")
+    print(f"wall values (RANS state, pressure only): C_l {wl['cl']:.4f}, pressure drag {wl['cd_pressure']:.5f}")
     if a.png and np.ndim(out["x"]) == 2:
         plot(out, meta, a.png)
         print(f"wrote {a.png}")

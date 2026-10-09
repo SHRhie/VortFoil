@@ -93,6 +93,19 @@ def test_pool_workers_follow_the_callers_errstate(PF):
         F._parallel(4 * F.CHUNK, bad)
 
 
+
+def test_wall_values_in_the_rans_state(PF):
+    """The decoder's wall pressure (surface()): no lift on a symmetric section at zero incidence, a stagnation C_p near 1,
+    and NACA 2412 at 4 deg near its RANS lift. Its accuracy against RANS is checked by code/field/validate_field_surface.py."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PF.FieldRangeWarning)
+        sym = PF.surface(PF.naca_coords("0012"), 0.0, 3e6, family="naca")
+        r = PF.surface(PF.naca_coords("2412"), 4.0, 3e6, family="naca")
+    assert abs(sym["cl"]) < 0.01
+    assert np.isfinite(r["cp"]).all() and 0.95 < r["cp"].max() < 1.05
+    assert 0.60 < r["cl"] < 0.70 and 0.0 < r["cd_pressure"] < 0.01
+    assert r["upper"].sum() > 100 and (~r["upper"]).sum() > 100
+
 def test_viewer_window_resize_zooms_the_figure():
     """Resizing the window scales the frozen design layout (letterboxed) instead of re-flowing it."""
     matplotlib = pytest.importorskip("matplotlib")
@@ -134,7 +147,7 @@ def test_csv_export(tmp_path):
     paths = V.export_csv(tmp_path, name, 4.0, 3e6, r, sw, out, meta)
     rows = {p.rsplit("_", 1)[1]: sum(1 for _ in open(p)) - 1 for p in paths if p.endswith(".csv")}
     assert rows == {"coefficients.csv": 1, "surface.csv": 240, "layer.csv": 121, "field.csv": out["x"].size,
-                    "section.csv": len(meta["section"])} and any(p.endswith("_about.txt") for p in paths)
+                    "wall.csv": len(meta["wall"]["x"]), "section.csv": len(meta["section"])} and any(p.endswith("_about.txt") for p in paths)
 
 
 def test_application_helpers():

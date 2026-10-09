@@ -59,7 +59,7 @@ def compute(loop, alpha, Re, h, family=None):
     surf_w = [str(w.message) for w in ws if issubclass(w.category, vortfoil.RangeWarning)]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PF.FieldRangeWarning)          # kept in meta["warnings"]
-        out, meta = PF.predict(loop, alpha, Re, h=h, family=family)
+        out, meta = PF.predict(loop, alpha, Re, h=h, family=family, wall=True)
     return r, surf_w, out, meta
 
 
@@ -118,8 +118,14 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
     x, cp = r.x_cp[0], r.cp[0]
     ax.plot(x[:120], cp[:120], color="#b2182b", lw=1.2, label="upper")
     ax.plot(x[120:], cp[120:], color="#2166ac", lw=1.2, label="lower")
+    wl = meta.get("wall")
+    if wl:                                                    # the field decoder's wall pressure, in its RANS state
+        xw, cw, up = np.asarray(wl["x"]), np.asarray(wl["cp"]), np.asarray(wl["upper"], bool)
+        for m, col in ((up, "#b2182b"), (~up, "#2166ac")):
+            o = np.argsort(xw[m])
+            ax.plot(xw[m][o], cw[m][o], "--", color=col, lw=0.9, alpha=0.8, label="RANS state (field)" if col == "#b2182b" else None)
     ax.invert_yaxis(); ax.set_xlim(0, 1); ax.set_xlabel("x / c"); ax.set_ylabel(r"$C_p$")
-    ax.set_title("surface pressure (vortex sheet)"); ax.legend(frameon=False)
+    ax.set_title("surface pressure: vortex sheet (XFOIL state); field decoder (RANS state)"); ax.legend(frameon=False)
 
     # boundary-layer thicknesses of both surfaces
     ax = fig.add_subplot(cell["bl"])
@@ -138,7 +144,10 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
              f"C_d  {r.cd[0]: .5f}",
              f"C_m  {r.cm[0]: .4f}    (quarter chord)",
              f"stagnation at {r.stagnation[0]:.4f} of the arc length",
-             f"field inputs: C_l^gamma {meta['cl_gamma']:.4f}, s_sep {meta['s_sep']:.3f}", ""]
+             f"field inputs: C_l^gamma {meta['cl_gamma']:.4f}, s_sep {meta['s_sep']:.3f}"]
+    if meta.get("wall"):
+        lines.append(f"field, RANS state (wall pressure only): C_l {meta['wall']['cl']: .4f}, pressure drag {meta['wall']['cd_pressure']: .5f}")
+    lines.append("")
     warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]
     lines += ["warnings:"] + ([f"- {m}" for m in warn] if warn else ["- none: inside both training domains"])
     import textwrap
@@ -173,9 +182,11 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
         w = csv.writer(f)
         w.writerow(["airfoil", "alpha_given_deg", "alpha_used_deg", "Re", "Cl", "Cl_circulation", "Cd", "Cm_quarter_chord",
                     "stagnation_arc_fraction", "ue_TE_over_U", "theta_TE_over_c", "dstar_TE_over_c", "field_Cl_gamma",
-                    "field_s_sep", "warnings"])
+                    "field_s_sep", "field_Cl_RANS_pressure", "field_Cd_RANS_pressure", "warnings"])
+        wl = meta.get("wall") or dict(cl=np.nan, cd_pressure=np.nan)
         w.writerow([name, alpha, a, Re] + [f"{float(v):.8g}" for v in (r.cl[0], r.cl_gamma[0], r.cd[0], r.cm[0], r.stagnation[0],
-                                                                       r.ue_te[0], r.theta_te[0], r.dstar_te[0], meta["cl_gamma"], meta["s_sep"])]
+                                                                       r.ue_te[0], r.theta_te[0], r.dstar_te[0], meta["cl_gamma"], meta["s_sep"],
+                                                                       wl["cl"], wl["cd_pressure"])]
                    + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]])])
     paths.append(p)
     side = np.where(np.arange(r.cp.shape[1]) < r.cp.shape[1] // 2, 0, 1)
@@ -187,6 +198,9 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
                     "u_m_s", "v_m_s", "p_kinematic_m2_s2", "nut_m2_s"],
           [g["x"], g["y"], g["x_body"], g["y_body"], g["inside"].astype(int), g["u_over_U"], g["v_over_U"], g["cp"], g["nut_over_Uc"],
            g["u"], g["v"], g["p"], g["nut"]])
+    if meta.get("wall"):
+        wl = meta["wall"]
+        table("wall", ["x_body", "y_body", "upper_surface", "Cp_RANS"], [wl["x"], wl["y"], np.asarray(wl["upper"], int), wl["cp"]])
     sec = np.asarray(meta["section"])
     xb, yb = PF.wind_to_body(sec[:, 0], sec[:, 1], a) if meta.get("frame", "wind") == "wind" else (sec[:, 0], sec[:, 1])
     table("section", ["x_body", "y_body"], [xb, yb])
@@ -198,7 +212,8 @@ Chord 1 m, kinematic viscosity {meta.get('nu', 1.56e-5):g} m2/s, freestream spee
 _coefficients.csv    the surface model (vortex sheet + boundary-layer operator + closures, trained on XFOIL): C_l (with the
                      lift closure) and the circulation lift alone, C_d, C_m about the quarter chord, the stagnation point
                      as a fraction of the arc length, the trailing-edge state, and the field decoder's inputs
-                     (circulation lift C_l^gamma and separation measure s_sep); every range warning in the last column.
+                     (circulation lift C_l^gamma and separation measure s_sep), the lift and pressure drag of the field
+                     decoder's wall pressure (RANS state, no friction); every range warning in the last column.
 _surface.csv         C_p of the vortex sheet at the 240 panel midpoints: panels 0-119 run from the trailing edge to the
                      leading edge on the upper surface (lower_surface 0), 120-239 back on the lower surface (1).
 _boundary_layer.csv  momentum (theta) and displacement (dstar) thickness of both surfaces at x/c = 0..1 (121 stations).
@@ -206,6 +221,8 @@ _field.csv           the RANS field of the decoder trained on AirfRANS k-omega S
                      (freestream along +x, section at its incidence), the same point in the chord frame (x_body, y_body),
                      inside_section (1: inside the section, values nan), velocity along and across the freestream, C_p and
                      nu_t/(U c), then the same in SI units (u, v in m/s, kinematic pressure p/rho in m2/s2, nu_t in m2/s).
+_wall.csv            the field decoder's wall pressure at the section's nodes, in its RANS state (k-omega SST): x_body,
+                     y_body, upper_surface (1) or lower (0), C_p. Friction is not resolved by the field.
 _section.csv         the section the field was computed for, in the chord frame.
 """)
     paths.append(p)
