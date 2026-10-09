@@ -53,6 +53,24 @@ boundary-layer operator, and then frozen. No evaluation row enters either fit.
 XFOIL was run at Ncrit 7, incompressible, with 200 panels. Shapes are drawn from
 UIUC sections, NACA four-digit sections, and perturbed Kulfan shapes.
 
+**Convergence of the training labels.** The training sets' validity flag did not require XFOIL's
+global Newton convergence: a case that reached its iteration limit kept its last iterate when the
+outputs were finite. A retrospective audit re-solved 3,500 sheet rows and 3,150 boundary-layer rows
+with the generating XFOIL binary, at 100 and at 600 iterations.
+
+- Last-iterate values that further iterations change:
+  - 1.3% of the sheet's rows (95% CI 1.0–1.7%);
+  - 2.0% of the boundary-layer rows (1.5–2.5%).
+- Size of the change in those rows: a median 0.08–0.09 in C_l and 17% in C_d.
+- Where they occur: at the extreme incidences, 2.8–5.8% below −6° and above 14°, and at most 0.5% within ±2°.
+- A further 2.1% and 2.2% stopped at a state that further iterations leave unchanged.
+
+These are rates for the training population, not flags on stored rows. A change of the coordinate
+file's last digit (1e-7 chord) alone moves C_l or C_d in 71% of re-solved rows (median 3e-4).
+
+The paper's evaluation populations below ("Converged", "Separated") require global convergence.
+The self-check's all-validity-filtered population does not.
+
 ## Evaluation
 
 | Population | n | Cl R² | Cl^γ R² (circulation only) | Cd R² | Cm R² |
