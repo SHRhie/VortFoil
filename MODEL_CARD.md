@@ -136,8 +136,8 @@ statement.
 
 ## Field decoder
 
-The repository also ships a separately trained RANS field decoder, which is not part of the pip
-package (`code/field/predict_field.py` runs it for any section from its coordinates): `weights/field_decoder_f0cm_s1.npz`, conditioned on the sheet's uncorrected circulation
+A separately trained RANS field decoder also ships, in the package and in the repository (the installed `vortfoil`
+command and `code/field/predict_field.py` run it for any section from its coordinates): `weights/field_decoder_f0cm_s1.npz`, conditioned on the sheet's uncorrected circulation
 lift and on a boundary-layer-derived separation scalar, s_sep = clip((max(H_TE^u, H_TE^l) − 2)/8,
 0, 1). It is trained and tested on k–ω SST AirfRANS fields only (780 training cases, 200 test
 cases), a different reference state from the XFOIL surface branch; the two are never compared in

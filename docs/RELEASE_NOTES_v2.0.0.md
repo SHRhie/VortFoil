@@ -8,6 +8,15 @@ the CST shape coefficients.
 
 ## Install
 
+The application and the `vortfoil` command, on Windows, macOS and Linux, with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install --python 3.12 --managed-python vortfoil
+vortfoil                       # opens the application window
+```
+
+As a library, in your own environment:
+
 ```bash
 pip install vortfoil
 ```
@@ -18,7 +27,9 @@ Inside an environment with a pinned TensorFlow, install without touching it:
 pip install --no-deps vortfoil
 ```
 
-Python 3.10 or newer. TensorFlow 2.10 through 2.18 are tested, on CPU and on an NVIDIA GPU.
+Python 3.10 or newer. The tests and the self-check run on TensorFlow 2.10, 2.15 and 2.18 on CPU, and the model was
+timed on an NVIDIA GPU; the uv installation is tested on Windows, macOS and Linux with the TensorFlow it resolves
+(2.21 when this release was prepared). The README lists the steps to uninstall.
 
 ## Use
 
@@ -33,6 +44,15 @@ vf.sweep(cst16, np.linspace(-4, 12, 33))         # one shape, many incidences, o
 vf.gradients(cst=cst16, alpha=4.0, of="cl")      # reverse-mode d/dshape through the whole chain
 vortfoil.about()                                 # weights, recipe, populations, scores, limits
 ```
+
+From the command line:
+
+```bash
+vortfoil view --airfoil 2412 --alpha 4 --Re 3e6                        # field, C_p, boundary layer, coefficients
+vortfoil view --airfoil section.dat --alpha 4 --Re 3e6 --csv results/   # and every number as CSV files
+```
+
+`vortfoil predict`, `vortfoil sweep`, `vortfoil about` and `vortfoil selfcheck` each take `--help`.
 
 A shape given as coordinates is fitted to the 16-parameter form first, and the incidence is
 measured from the fitted chord line, so a rotated or scaled section is handled correctly. The fit
@@ -52,20 +72,33 @@ correction read from that same state.
 No XFOIL or CFD process is launched at inference. That is a statement about external solver calls,
 not about fitting: both force closures are empirical fits frozen at deployment.
 
-## Field decoder (repository only)
+## Flow field and the application
 
-The repository, not the pip package, also ships the separately trained RANS field decoder of the
-manuscript: `weights/field_decoder_f0cm_s1.npz`, conditioned on the sheet's circulation lift and a
+The package also carries the separately trained RANS field decoder of the manuscript, its deployed
+run `field_decoder_f0cm_s1.npz`, conditioned on the sheet's circulation lift and a
 boundary-layer-derived separation scalar, and trained and tested on k–ω SST AirfRANS fields only.
 Against an XFOIL-conditioned decoder trained on the same 780 cases, its paired error-ratio 95%
 confidence intervals lie below unity on u_x, u_y and p and include unity on ν_t. It has lower
 aggregate errors than MARIO's published values on u_x, p and ν_t, but not on u_y, and its velocity
-errors above 8° incidence exceed MARIO's published aggregate. The README gives the numbers and the
-scripts that reproduce them.
+errors above 8° incidence exceed MARIO's published aggregate. The repository adds the decoder's other
+two runs, the XFOIL-conditioned decoder it is compared with, and the records and scripts behind the
+numbers, which the README gives.
 
-For a new section, `code/field/predict_field.py` runs the decoder from the coordinates alone (no AirfRANS files, no
-XFOIL) and warns outside its AirfRANS training domain; its validation against the deployed evaluation is
-`results/predict_field_validation.json` (README, "Flow field for any section").
+`vortfoil` opens a desktop application: pick a NACA section, a section of the UIUC database
+(downloaded on demand) or your own coordinate file, set the incidence and the Reynolds number, and one
+window shows the flow field, the surface pressure, the boundary layer and the coefficients. The
+figure saves at 400 dpi and every number exports as CSV. `vortfoil view` does the same from the
+command line; from a checkout, `code/field/predict_field.py` runs the field route directly. From dense
+coordinates alone (no AirfRANS files, no XFOIL), its mean errors on the 200 AirfRANS test cases are
+0.99 to 1.07 times the deployed evaluation's (`results/predict_field_validation.json`; README, "Flow
+field for any section").
+
+The decoder was trained on NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶, and it
+warns outside those ranges. On ten UIUC sections of other families, computed with the AirfRANS
+protocol inside those ranges, its errors were 1.5 to 80 times its NACA test level (26 times on
+average for u_x). Every section not given as a NACA designation therefore carries a warning, and its
+field should be read as indicative. The surface results come from the separate surface model and are
+not affected.
 
 ## Recorded scores
 
@@ -118,7 +151,9 @@ Absolute times are host dependent; the ordering between conditions is the stable
 - Both closures are empirical fits over their training range.
 - A blunt trailing edge cannot be represented by the 16-parameter shape form.
 - Incompressible, steady, two-dimensional flow only.
-- Training range: incidence −10° to 18°, Reynolds number 5×10⁴ to 10⁷; outside it the package issues `vortfoil.RangeWarning`.
+- Surface model training range: incidence −10° to 18°, Reynolds number 5×10⁴ to 10⁷; outside it the package issues `vortfoil.RangeWarning`.
+- Flow field: NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶ (k–ω SST AirfRANS fields); much less
+  accurate for other airfoil families (see above).
 
 ## Relation to the earlier package
 
