@@ -198,8 +198,9 @@ than 0.5% chord or have a trailing-edge gap above 1% chord.
 
 ### Flow field for any section
 
-The RANS field decoder is not part of the pip package. `code/field/predict_field.py` runs it from this repository for
-any section, incidence and Reynolds number, from the coordinates alone, with no AirfRANS files and no XFOIL:
+The installed package carries the RANS field decoder (its deployed run) and runs it through `vortfoil view` and the
+application. From a checkout, `code/field/predict_field.py` runs it for any section, incidence and Reynolds number, from
+the coordinates alone, with no AirfRANS files and no XFOIL:
 
 ```bash
 python code/field/predict_field.py --coords section.dat --alpha 4 --Re 3e6 --out field.npz --png field.png
