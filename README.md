@@ -234,6 +234,34 @@ Validation on the 200 AirfRANS test cases (`code/field/validate_predict_field.py
 
 Give dense coordinates (at least 441 points) when the near-wall field matters.
 
+### Wall pressure and lift in the RANS state
+
+The decoder also predicts the pressure on the wall itself (velocity and ν_t are zero there), so the field gives surface
+values in its own reference state, k–ω SST, beside the surface model's XFOIL-state ones. `predict_field.surface()` returns
+the wall C_p at the section's nodes and the lift and pressure drag of that pressure:
+
+```python
+import predict_field as PF          # code/field
+w = PF.surface(PF.naca_coords("2412"), 4.0, 3e6, family="naca")
+print(w["cl"], w["cd_pressure"])    # w["x"], w["y"], w["cp"], w["upper"]: the wall C_p at the section's nodes
+```
+
+`predict_field.py` prints them and stores them in its output (`wall_x`, `wall_y`, `wall_cp`, `wall_upper`). The viewer and
+the application draw this C_p dashed over the surface model's and list its lift, and the CSV export adds `_wall.csv`.
+
+Against the RANS wall values of the 200 AirfRANS test cases, from the section coordinates alone
+(`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
+
+- **Wall C_p:** mean RMSE 0.035, and 0.014 over 5–95% of the chord; the error sits at the leading-edge suction peak and the
+  stagnation point. By incidence band (−6–0°, 0–8°, 8–12°, 12–16°): 0.020, 0.018, 0.042 and 0.120.
+- **Lift:** R² 0.9993 against the RANS lift, mean relative error 0.029, Spearman 0.9997.
+- **Pressure drag:** Spearman 0.80, mean relative error 0.38.
+- **Friction is not included.** The decoder does not resolve the wall-normal velocity gradient: friction computed from the
+  predicted field's wall gradient is 2.3 times the RANS friction (median), so no total drag is given in the RANS state.
+
+These are SST-state values. The surface model's coefficients are XFOIL-state values, and the two are not compared in
+absolute terms.
+
 ### One window for one airfoil
 
 `code/view_airfoil.py` asks for an airfoil (a NACA 4- or 5-digit designation or a `.dat` file), an incidence and a
@@ -439,6 +467,7 @@ python code/field/f0cm_final_rescore.py --workers 8    # Tables 11-12, paired ra
 python code/field/f0cm_final_rescore.py --limit 2      # quick check: rows 0-1 of the shipped record, nothing written
 python code/field/step2_eval_f0c.py                    # the three operator-conditioned runs (results/step2_eval_f0cm_*)
 python code/field/validate_predict_field.py            # predict_field.py against the deployed evaluation (results/predict_field_validation.json)
+python code/field/validate_field_surface.py            # predict_field.surface() against the RANS wall values (results/field_surface_validation.json)
 
 # Fig. 6
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
