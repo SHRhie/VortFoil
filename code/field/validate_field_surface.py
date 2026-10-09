@@ -5,7 +5,7 @@ For every case, surface() runs from the section's coordinates alone (the case's 
 the incidence and the Reynolds number), as a user would call it. Its wall C_p is compared with the RANS wall pressure at the
 mesh's wall nodes (each wall node projected on the nearest segment of the section, C_p interpolated along it), and its pressure lift and pressure drag with
 the AirfRANS force routine on the RANS fields (Simulation.force_coefficient(reference=True): total lift and its pressure
-part, pressure drag). The decoder's training standard deviation of p normalizes the surface-pressure MSE, as for the field
+part, drag and its pressure and friction parts; surface() takes its friction from a wall function). The decoder's training standard deviation of p normalizes the surface-pressure MSE, as for the field
 errors in the manuscript.
 Writes results/field_surface_validation.json.
 
@@ -50,11 +50,11 @@ def _work(nm):
     k = np.argmin(np.sum((Pw[:, None] - (A[None] + tt[..., None] * AB[None])) ** 2, axis=2), axis=1)
     tk = tt[np.arange(len(Pw)), k]
     cp = ca[k] + tk * (cb[k] - ca[k])                                                # projected on the nearest segment
-    (cd, cdp, _), (cl, clp, _) = sim.force_coefficient(reference=True)
+    (cd, cdp, cdv), (cl, clp, _) = sim.force_coefficient(reference=True)
     mid = (Pw[:, 0] >= 0.05) & (Pw[:, 0] <= 0.95)
     std_p = float(_PF.load_decoder()["std"][2])
-    return dict(case=nm, alpha=a, Re=Re, cl=r["cl"], cd_pressure=r["cd_pressure"], cl_rans=float(cl), clp_rans=float(clp), cdp_rans=float(cdp),
-                cd_rans=float(cd), cp_rmse=float(np.sqrt(np.mean((cp - cp_true) ** 2))), cp_rmse_mid=float(np.sqrt(np.mean((cp[mid] - cp_true[mid]) ** 2))),
+    return dict(case=nm, alpha=a, Re=Re, cl=r["cl"], cd=r["cd"], cd_pressure=r["cd_pressure"], cd_friction=r["cd_friction"],
+                yplus=r["yplus_median"], cl_rans=float(cl), clp_rans=float(clp), cdp_rans=float(cdp), cdv_rans=float(cdv), cd_rans=float(cd), cp_rmse=float(np.sqrt(np.mean((cp - cp_true) ** 2))), cp_rmse_mid=float(np.sqrt(np.mean((cp[mid] - cp_true[mid]) ** 2))),
                 p_std_mse=float(np.mean(((cp - cp_true) * 0.5 * U ** 2 / std_p) ** 2)), secs=time.time() - t0)
 
 
@@ -87,6 +87,8 @@ def main():
                             rmse_by_band={f"[{lo},{hi})": float(T("cp_rmse")[(alpha >= lo) & (alpha < hi)].mean()) for lo, hi in BANDS}),
                lift_vs_rans_total=_stats(T("cl"), T("cl_rans")), lift_vs_rans_pressure_part=_stats(T("cl"), T("clp_rans")),
                pressure_drag_vs_rans=_stats(T("cd_pressure"), T("cdp_rans")),
+               friction_drag_vs_rans=_stats(T("cd_friction"), T("cdv_rans")), drag_vs_rans=_stats(T("cd"), T("cd_rans")),
+               wall_function_yplus_median=float(np.median(T("yplus"))),
                rows=rows)
     os.makedirs(VP.RESULTS, exist_ok=True)
     json.dump(res, open(os.path.join(VP.RESULTS, "field_surface_validation.json"), "w"), indent=1)

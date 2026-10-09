@@ -234,20 +234,25 @@ Validation on the 200 AirfRANS test cases (`code/field/validate_predict_field.py
 
 Give dense coordinates (at least 441 points) when the near-wall field matters.
 
-### Wall pressure and lift in the RANS state
+### Wall pressure, lift and drag in the RANS state
 
 The decoder also predicts the pressure on the wall itself (velocity and ν_t are zero there), so the field gives surface
-values in its own reference state, k–ω SST, beside the surface model's XFOIL-state ones. `predict_field.surface()` returns
-the wall C_p at the section's nodes and the lift and pressure drag of that pressure:
+values in its own reference state, k–ω SST, beside the surface model's XFOIL-state ones. The decoder does not resolve the
+wall-normal velocity gradient (its first mesh nodes sit at y+ ≈ 1, and friction computed from that gradient is 2.3 times the
+RANS friction), so friction comes from a wall function: the decoder's tangential velocity 2×10⁻⁴ chord off the wall, in the
+log layer (median y+ 31 on the test cases), gives the friction velocity by Spalding's law. `predict_field.surface()`
+returns the wall C_p and C_f at the section's nodes and the lift and drag:
 
 ```python
 import predict_field as PF          # code/field
 w = PF.surface(PF.naca_coords("2412"), 4.0, 3e6, family="naca")
-print(w["cl"], w["cd_pressure"])    # w["x"], w["y"], w["cp"], w["upper"]: the wall C_p at the section's nodes
+print(w["cl"], w["cd"], w["cd_pressure"], w["cd_friction"])
+# w["x"], w["y"], w["cp"], w["cf"], w["upper"]: wall values at the section's nodes (C_f > 0 where the flow runs toward the TE)
 ```
 
-`predict_field.py` prints them and stores them in its output (`wall_x`, `wall_y`, `wall_cp`, `wall_upper`). The viewer and
-the application draw this C_p dashed over the surface model's and list its lift, and the CSV export adds `_wall.csv`.
+`predict_field.py` prints them and stores them in its output (`wall_x`, `wall_y`, `wall_cp`, `wall_cf`, `wall_upper`). The
+viewer and the application draw this C_p dashed over the surface model's and list its lift and drag, and the CSV export adds
+`_wall.csv`.
 
 Against the RANS wall values of the 200 AirfRANS test cases, from the section coordinates alone
 (`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
@@ -255,9 +260,8 @@ Against the RANS wall values of the 200 AirfRANS test cases, from the section co
 - **Wall C_p:** mean RMSE 0.035, and 0.014 over 5–95% of the chord; the error sits at the leading-edge suction peak and the
   stagnation point. By incidence band (−6–0°, 0–8°, 8–12°, 12–16°): 0.020, 0.018, 0.042 and 0.120.
 - **Lift:** R² 0.9993 against the RANS lift, mean relative error 0.029, Spearman 0.9997.
-- **Pressure drag:** Spearman 0.80, mean relative error 0.38.
-- **Friction is not included.** The decoder does not resolve the wall-normal velocity gradient: friction computed from the
-  predicted field's wall gradient is 2.3 times the RANS friction (median), so no total drag is given in the RANS state.
+- **Drag:** mean relative error 0.14 against the RANS drag, Spearman 0.81. Its friction part (the wall function) has a mean
+  relative error of 0.045 (Spearman 0.93); its pressure part is the weaker one (mean relative error 0.38, Spearman 0.80).
 
 These are SST-state values. The surface model's coefficients are XFOIL-state values, and the two are not compared in
 absolute terms.

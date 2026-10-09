@@ -146,7 +146,9 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
              f"stagnation at {r.stagnation[0]:.4f} of the arc length",
              f"field inputs: C_l^gamma {meta['cl_gamma']:.4f}, s_sep {meta['s_sep']:.3f}"]
     if meta.get("wall"):
-        lines.append(f"field, RANS state (wall pressure only): C_l {meta['wall']['cl']: .4f}, pressure drag {meta['wall']['cd_pressure']: .5f}")
+        wl = meta["wall"]
+        lines += [f"field, RANS state: C_l {wl['cl']: .4f}, C_d {wl['cd']: .5f}",
+                  f"  (pressure {wl['cd_pressure']:.5f}, friction {wl['cd_friction']:.5f}, wall function)"]
     lines.append("")
     warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]
     lines += ["warnings:"] + ([f"- {m}" for m in warn] if warn else ["- none: inside both training domains"])
@@ -182,11 +184,11 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
         w = csv.writer(f)
         w.writerow(["airfoil", "alpha_given_deg", "alpha_used_deg", "Re", "Cl", "Cl_circulation", "Cd", "Cm_quarter_chord",
                     "stagnation_arc_fraction", "ue_TE_over_U", "theta_TE_over_c", "dstar_TE_over_c", "field_Cl_gamma",
-                    "field_s_sep", "field_Cl_RANS_pressure", "field_Cd_RANS_pressure", "warnings"])
-        wl = meta.get("wall") or dict(cl=np.nan, cd_pressure=np.nan)
+                    "field_s_sep", "field_Cl_RANS", "field_Cd_RANS", "field_Cd_RANS_pressure", "field_Cd_RANS_friction", "warnings"])
+        wl = meta.get("wall") or dict(cl=np.nan, cd=np.nan, cd_pressure=np.nan, cd_friction=np.nan)
         w.writerow([name, alpha, a, Re] + [f"{float(v):.8g}" for v in (r.cl[0], r.cl_gamma[0], r.cd[0], r.cm[0], r.stagnation[0],
                                                                        r.ue_te[0], r.theta_te[0], r.dstar_te[0], meta["cl_gamma"], meta["s_sep"],
-                                                                       wl["cl"], wl["cd_pressure"])]
+                                                                       wl["cl"], wl["cd"], wl["cd_pressure"], wl["cd_friction"])]
                    + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]])])
     paths.append(p)
     side = np.where(np.arange(r.cp.shape[1]) < r.cp.shape[1] // 2, 0, 1)
@@ -200,7 +202,7 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
            g["u"], g["v"], g["p"], g["nut"]])
     if meta.get("wall"):
         wl = meta["wall"]
-        table("wall", ["x_body", "y_body", "upper_surface", "Cp_RANS"], [wl["x"], wl["y"], np.asarray(wl["upper"], int), wl["cp"]])
+        table("wall", ["x_body", "y_body", "upper_surface", "Cp_RANS", "Cf_RANS"], [wl["x"], wl["y"], np.asarray(wl["upper"], int), wl["cp"], wl["cf"]])
     sec = np.asarray(meta["section"])
     xb, yb = PF.wind_to_body(sec[:, 0], sec[:, 1], a) if meta.get("frame", "wind") == "wind" else (sec[:, 0], sec[:, 1])
     table("section", ["x_body", "y_body"], [xb, yb])
@@ -212,8 +214,8 @@ Chord 1 m, kinematic viscosity {meta.get('nu', 1.56e-5):g} m2/s, freestream spee
 _coefficients.csv    the surface model (vortex sheet + boundary-layer operator + closures, trained on XFOIL): C_l (with the
                      lift closure) and the circulation lift alone, C_d, C_m about the quarter chord, the stagnation point
                      as a fraction of the arc length, the trailing-edge state, and the field decoder's inputs
-                     (circulation lift C_l^gamma and separation measure s_sep), the lift and pressure drag of the field
-                     decoder's wall pressure (RANS state, no friction); every range warning in the last column.
+                     (circulation lift C_l^gamma and separation measure s_sep), the field decoder's lift and drag in its
+                     RANS state (drag = pressure + friction from a wall function); every range warning in the last column.
 _surface.csv         C_p of the vortex sheet at the 240 panel midpoints: panels 0-119 run from the trailing edge to the
                      leading edge on the upper surface (lower_surface 0), 120-239 back on the lower surface (1).
 _boundary_layer.csv  momentum (theta) and displacement (dstar) thickness of both surfaces at x/c = 0..1 (121 stations).
@@ -221,8 +223,9 @@ _field.csv           the RANS field of the decoder trained on AirfRANS k-omega S
                      (freestream along +x, section at its incidence), the same point in the chord frame (x_body, y_body),
                      inside_section (1: inside the section, values nan), velocity along and across the freestream, C_p and
                      nu_t/(U c), then the same in SI units (u, v in m/s, kinematic pressure p/rho in m2/s2, nu_t in m2/s).
-_wall.csv            the field decoder's wall pressure at the section's nodes, in its RANS state (k-omega SST): x_body,
-                     y_body, upper_surface (1) or lower (0), C_p. Friction is not resolved by the field.
+_wall.csv            the field decoder's wall values at the section's nodes, in its RANS state (k-omega SST): x_body,
+                     y_body, upper_surface (1) or lower (0), C_p, and C_f from a wall function (the decoder's velocity
+                     2e-4 chord off the wall, Spalding's law; > 0 where the near-wall flow runs toward the trailing edge).
 _section.csv         the section the field was computed for, in the chord frame.
 """)
     paths.append(p)
