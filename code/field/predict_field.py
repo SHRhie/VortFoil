@@ -40,6 +40,11 @@ VP.add_paths()
 sys.path.insert(0, HERE)
 
 DECODER = os.path.join(VP.WEIGHTS, "field_decoder_f0cm_s1.npz")    # the deployed operator-conditioned decoder (run 1)
+# Experimental, for personal checks (local branch exp/rext-decoder, not released): the same recipe retrained with 89 more
+# NACA cases at Re 1e6-2e6 and 6e6-1e7 (2026-10-10). It did not pass its pre-registered test: better than the deployed run
+# outside 2e6-6e6 on all four channels, but p and nu_t were not shown non-inferior inside. Used only when asked for.
+DECODER_REXT = os.path.join(VP.WEIGHTS, "field_decoder_rext_s2.npz")
+FIELD_RE_OF = {DECODER_REXT: (1e6, 1e7)}     # a decoder's training Reynolds range when it differs from FIELD_RE
 TOKENS = os.path.join(VP.WEIGHTS, "airfrans_surface_tokens.npz")   # shape tokens of its training cases (shape check)
 FIELD_ALPHA = (-5.0, 15.0)     # AirfRANS full_train incidences: -4.93 .. 14.93 deg
 FIELD_RE = (2e6, 6e6)          # AirfRANS full_train: U 31.3 .. 93.6 m/s, chord 1 m, nu 1.56e-5 m^2/s
@@ -221,21 +226,20 @@ def decode(inp, z, w):
     return pred
 
 
-_ZTRAIN = None
+_ZTRAIN = {}                       # per decoder: each encodes the training sections into its own code space
 
 
-def shape_distance(z, w):
+def shape_distance(z, w, key=DECODER):
     """Distance of a shape code to the nearest training shape code, and the 99th percentile of the training sections'
-    own nearest-neighbour distances (the scale of 'near')."""
-    global _ZTRAIN
-    if _ZTRAIN is None:
+    own nearest-neighbour distances (the scale of 'near'); key names the decoder w (its training codes are cached)."""
+    if key not in _ZTRAIN:
         from supervised_field.nf_eval_shape import encode_np
         with np.load(TOKENS, allow_pickle=True) as f:
             t = f["surf_tokens"].astype(np.float64)
         Z = np.stack([encode_np(k, w) for k in t])
         D = np.sqrt(((Z[:, None] - Z[None]) ** 2).sum(-1)); np.fill_diagonal(D, np.inf)
-        _ZTRAIN = (Z, float(np.percentile(D.min(1), 99)))
-    Z, ref = _ZTRAIN
+        _ZTRAIN[key] = (Z, float(np.percentile(D.min(1), 99)))
+    Z, ref = _ZTRAIN[key]
     return float(np.sqrt(((Z - z[None]) ** 2).sum(-1)).min()), ref
 
 
@@ -315,8 +319,12 @@ def prepare(loop, alpha, Re, decoder=DECODER, family=None):
         _, _, fit_err = prov._cst(poly)
     if not FIELD_ALPHA[0] <= a <= FIELD_ALPHA[1]:
         msgs.append(f"incidence {a:.2f} deg lies outside the decoder's training range {FIELD_ALPHA[0]:g} to {FIELD_ALPHA[1]:g} deg")
-    if not FIELD_RE[0] <= Re <= FIELD_RE[1]:
-        msgs.append(f"Reynolds number {Re:.3g} lies outside the decoder's training range {FIELD_RE[0]:.0e} to {FIELD_RE[1]:.0e}")
+    re_lo, re_hi = FIELD_RE_OF.get(decoder, FIELD_RE)
+    if not re_lo <= Re <= re_hi:
+        msgs.append(f"Reynolds number {Re:.3g} lies outside the decoder's training range {re_lo:.0e} to {re_hi:.0e}")
+    if decoder == DECODER_REXT:
+        msgs.append("experimental Re-extended decoder (trained to Re 1e6-1e7; not shown non-inferior in p and nu_t at Re "
+                    "2e6-6e6): for checks, not the released result")
     if fit_err > FIT_WARN:
         msgs.append(f"the 16-parameter form deviates from the section by {100 * fit_err:.2f}% chord; the operator state "
                     "(C_l^gamma, s) is that of the fitted shape")
@@ -325,7 +333,7 @@ def prepare(loop, alpha, Re, decoder=DECODER, family=None):
                     "closed trailing edge); the field is for the closed section")
     with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
         z = shape_code(poly, w)
-        dz, dref = shape_distance(z, w)
+        dz, dref = shape_distance(z, w, decoder)
     if dz > dref:
         msgs.append(f"the section's shape code lies {dz:.3g} from the nearest training section (training sections lie within "
                     f"{dref:.3g} of each other, 99th percentile): the section is unlike the NACA 4/5-digit training set")

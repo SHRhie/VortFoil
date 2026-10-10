@@ -77,9 +77,9 @@ def load_index():
         return uiuc_index(f.read())
 
 
-def run_case(loop, alpha, Re, h, name, family):
+def run_case(loop, alpha, Re, h, name, family, decoder=None):
     t0 = time.perf_counter()
-    res = V.compute(loop, alpha, Re, h, family)
+    res = V.compute(loop, alpha, Re, h, family, decoder)
     return res, time.perf_counter() - t0
 
 
@@ -98,6 +98,7 @@ class App:
         self.jobs, self.section, self.index, self.shown, self.args, self.on_resize = queue.Queue(), None, [], [], None, None
         self.last, self.layout, self.relayout = None, "landscape", None
         self.selftest, self.exit_code = selftest, 0
+        self.rext_path = PF.DECODER_REXT if os.path.exists(PF.DECODER_REXT) else None   # experimental (branch exp/rext-decoder)
         dpi = root.winfo_fpixels("1i")                       # the screen's real resolution: a sharp figure
         root.title("VortFoil")
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
@@ -144,6 +145,10 @@ class App:
         ttk.Combobox(fl, textvariable=self.detail, values=list(DETAIL), state="readonly", width=16).grid(row=2, column=1, sticky="w")
         ttk.Label(fl, text="Trained on: surface -10 to 18 deg, Re 5e4 to 1e7; field -5 to 15 deg, Re 2e6 to 6e6. "
                   "Outside, the figure lists warnings.", foreground="gray", wraplength=wrap).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self.rext = tk.BooleanVar(value=False)
+        if self.rext_path:
+            ttk.Checkbutton(fl, text="Re-extended field decoder (experimental; NACA sections; field Re 1e6 to 1e7)",
+                            variable=self.rext).grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
 
         act = ttk.Frame(panel)
         self.run_btn = ttk.Button(act, text="Run", command=self.run); self.run_btn.pack(side="left")
@@ -258,9 +263,12 @@ class App:
             self.status.configure(text="The incidence and the Reynolds number must be numbers (e.g. 4 and 3e6).")
             return
         loop, name, family = self.section
+        decoder = self.rext_path if self.rext.get() and family == "naca" else None
+        note = (" The Re-extended decoder is for NACA sections; this one uses the released decoder."
+                if self.rext.get() and family != "naca" else "")
         self.run_btn.configure(state="disabled"); self.bar.configure(mode="indeterminate"); self.bar.start(12)
-        self.status.configure(text=f"Computing {name} at {alpha:g} deg, Re {Re:.3g} ... (the first run also loads the models)")
-        self.submit("run", loop, alpha, Re, DETAIL[self.detail.get()], name, family)
+        self.status.configure(text=f"Computing {name} at {alpha:g} deg, Re {Re:.3g} ... (the first run also loads the models)" + note)
+        self.submit("run", loop, alpha, Re, DETAIL[self.detail.get()], name, family, decoder)
 
     def done_run(self, args, res, err):
         self.bar.stop(); self.bar.configure(mode="determinate", value=0); self.run_btn.configure(state="normal")
@@ -271,7 +279,7 @@ class App:
                 self.finish(1)
             return
         (r, surf_w, out, meta), dt = res
-        loop, alpha, Re, h, name, family = args
+        loop, alpha, Re, h, name, family, decoder = args
         self.args = (name, alpha, Re)
         self.last = (name, alpha, Re, r, surf_w, out, meta)
         self.draw(self.orientation())

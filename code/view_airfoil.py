@@ -46,7 +46,7 @@ def section(airfoil):
 _MODEL = None
 
 
-def compute(loop, alpha, Re, h, family=None):
+def compute(loop, alpha, Re, h, family=None, decoder=None):
     """Surface results (vortfoil package) and the field (predict_field), with their warnings."""
     global _MODEL
     import vortfoil
@@ -59,7 +59,7 @@ def compute(loop, alpha, Re, h, family=None):
     surf_w = [str(w.message) for w in ws if issubclass(w.category, vortfoil.RangeWarning)]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PF.FieldRangeWarning)          # kept in meta["warnings"]
-        out, meta = PF.predict(loop, alpha, Re, h=h, family=family, wall=True)
+        out, meta = PF.predict(loop, alpha, Re, h=h, family=family, wall=True, decoder=decoder or PF.DECODER)
     return r, surf_w, out, meta
 
 
@@ -158,6 +158,8 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
     where = {"landscape": "left: RANS field decoder, wind frame; right: surface model",
              "square": "top: RANS field decoder, wind frame; bottom row: surface model",
              "portrait": "top: RANS field decoder, wind frame; below: surface model"}[layout]
+    if meta.get("decoder") == "field_decoder_rext_s2.npz":                # experimental (branch exp/rext-decoder)
+        where = "field: Re-extended decoder, experimental; " + where
     fig.suptitle(rf"VortFoil — {name},  $\alpha$ = {meta['alpha_used']:.2f}$^\circ$,  Re = {Re:.3g}"
                  + ("   " if layout == "landscape" else "\n") + f"({where})", fontsize=12)
     return fig
