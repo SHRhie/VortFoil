@@ -9,6 +9,9 @@
 ``vortfoil.about()`` prints what this build is: the weights it carries, the recipe they were trained
 with, the populations they were evaluated on and the scores it reproduces.
 """
+import os
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")   # the vortfoil command (cli, app) enters here, before numpy: OpenBLAS
+# threads beside TensorFlow's made a field-route panel solve 0.35 s on Windows (1.5 ms single); no effect on macOS (Accelerate)
 from .api import VortFoil, SurfacePrediction, RangeWarning, BL_X, manifest
 from . import geometry
 

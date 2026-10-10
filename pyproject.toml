@@ -52,6 +52,8 @@ packages = ["src/vortfoil"]
 "code/vortfoil_paths.py" = "vortfoil/_release/code/vortfoil_paths.py"
 "code/view_airfoil.py" = "vortfoil/_release/code/view_airfoil.py"
 "code/vortfoil_app.py" = "vortfoil/_release/code/vortfoil_app.py"
+"code/wing_nll.py" = "vortfoil/_release/code/wing_nll.py"
+"code/view_wing.py" = "vortfoil/_release/code/view_wing.py"
 "code/field" = "vortfoil/_release/code/field"
 "code/model/staged" = "vortfoil/_release/code/model/staged"
 "weights/field_decoder_f0cm_s1.npz" = "vortfoil/_release/weights/field_decoder_f0cm_s1.npz"
@@ -62,7 +64,8 @@ packages = ["src/vortfoil"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/vortfoil", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "DATA_LICENSES.md",
-           "code/vortfoil_paths.py", "code/view_airfoil.py", "code/vortfoil_app.py", "code/field", "code/model/staged",
+           "code/vortfoil_paths.py", "code/view_airfoil.py", "code/vortfoil_app.py", "code/wing_nll.py", "code/view_wing.py",
+           "code/field", "code/model/staged",
            "weights/field_decoder_f0cm_s1.npz", "weights/airfrans_surface_tokens.npz",
            "weights/op1_supervised_eps0.50.scr_bd128.npz", "weights/op2_m325_BT.npz"]
 exclude = ["**/__pycache__"]
