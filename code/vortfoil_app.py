@@ -30,6 +30,13 @@ spanwise quantity with a section cut that you move by dragging, the section at t
 and every warning. Each mode keeps its last result: Run, Save figure and Export data (CSV) act on the mode that is on (the
 wing's export lets you tick the parts to write), and Open cut in 2D analyses the section at the cut as an airfoil.
 
+3D view (next to Open cut in 2D) opens the shown wing result in your web browser as a standalone page (code/wing_flow.py
+writes it from code/wing_view.html; WebGL, nothing is fetched): the wing coloured by C_p, streamlines of a flow field (the RANS
+field decoder's, or inviscid ones), the viscous wake and the trailing vortices (rolled up if you ask), turned and zoomed fast
+with the mouse. The page shows the incidence of the result; the pages are kept in <cache>/vortfoil/wing3d. The viscous flow
+field needs Reynolds numbers near the decoder's range (at least 1.5e6, 3/4 of its lower training Re) on every strip: a
+model-scale wing takes the inviscid one (the viscous choice is greyed out for it).
+
   --shortcut       Windows: a desktop shortcut that starts the application with this Python environment; Linux: an
                    entry in the applications menu; macOS: print the terminal command (and an alias), write nothing
   --selftest DIR   run one case without a person (--airfoil naca:2412 | uiuc:<name> | file:<path>), save the figure
@@ -224,6 +231,12 @@ def wing_case(defn, speed, alpha, state, current, progress=None, cancel=None):
 def wing_base(res):
     """the file name stem of a wing result's figure and CSV files"""
     return re.sub(r"(?:[^\w.+-]|_)+", "_", f"vortfoil_wing_{res['wing']['name']}_a{res['alpha']:g}_V{res['V']:g}_{res['state']}")   # \w: a name in any script stays one
+
+
+def reason(err, advice):
+    """why a case failed, for the status line: the error's message, or its name when it has none (a MemoryError often has none);
+    for a MemoryError, what to do about it"""
+    return f"not enough memory ({advice})" if isinstance(err, MemoryError) else (str(err) or type(err).__name__)
 
 
 def wing_summary(res, dt):
@@ -531,8 +544,15 @@ class App:
     def sync(self):
         """Save figure and Export data act on the mode's last result, so they are on only when it has one."""
         state = "normal" if self.result() is not None else "disabled"
+        # ponytail: this also switches Export data (CSV) on while an export is being written, when the mode is switched or a case ends
+        # meanwhile (a second or two, the same files); an `exporting` flag here if that ever matters. lock() leaves Export alone.
         self.save_btn.configure(state=state); self.csv_btn.configure(state=state)
         self.cut_btn.configure(state="normal" if self.wres is not None else "disabled")
+        self.sync3d()
+
+    def sync3d(self):
+        """The 3D view button is on with a wing result, and off while a wing or a page is made (Run reads Cancel then)."""
+        self.view3d_btn.configure(state="normal" if self.wres is not None and str(self.run_btn["text"]) != "Cancel" else "disabled")
 
     def show(self):
         """The 3D wing box (also Open cut in 2D and the self-test): the Flow box shows the mode's rows and the figure the mode's
@@ -540,6 +560,8 @@ class App:
         on = self.mode() == "wing"
         (self.f3 if on else self.f2).grid(); (self.f2 if on else self.f3).grid_remove()
         if not on:
+            if self.v3win is not None:                        # the options of the 3D view belong to the 3D mode
+                self.v3win.withdraw()
             self.stw.withdraw()
         else:
             self.status.configure(text=self.sections_note())
@@ -554,6 +576,7 @@ class App:
         self.chk.configure(state="disabled" if on else "normal")
         self.run_btn.configure(text="Cancel" if on and wing else "Run", command=self.cancel_run if on and wing else self.run,
                                state="disabled" if on and not wing else "normal")
+        self.sync3d()                                         # (not sync(): that would switch Export data (CSV) back on while an export is written)
 
     def cancel_run(self):
         """Run reads Cancel while a wing runs. Not in its first 0.6 s: the second click of a double click on Run lands on Cancel."""
@@ -666,6 +689,8 @@ class App:
         choice(r, "Spanwise", self.span, WV.SPAN_QUANTITIES, 11, "span")
         r = row(4); choice(r, "Polar", self.polar, WV.POLAR_PLOTS, 12, "polar")
         self.cut_btn = ttk.Button(r, text="Open cut in 2D", command=self.open_cut, state="disabled"); self.cut_btn.pack(side="left")
+        self.view3d_btn = ttk.Button(r, text="3D view", command=self.open_view3d, state="disabled"); self.view3d_btn.pack(side="left", padx=(6, 0))
+        self.v3win, self.pages, self.pages_of = None, {}, None   # its options window (built at the first click); the pages made for one result
 
     def stations_window(self):
         """The Wing geometry window: modeless, built once and only hidden, so its values survive. Its Text is the only store of the
@@ -831,7 +856,9 @@ class App:
             if self.cancel.is_set():
                 self.status.configure(text="Cancelled." + (" The last wing result is kept." if self.wres is not None else ""))
             else:
-                self.status.configure(text="The wing computation failed: " + ("the speed or the size is out of range." if isinstance(err, OverflowError) else str(err)))
+                why = ("the speed or the size is out of range." if isinstance(err, OverflowError)
+                       else reason(err, "close other programs and press Run again"))
+                self.status.configure(text="The wing computation failed: " + why)
                 if not isinstance(err, (ValueError, OverflowError)):      # those are numbers or a section the user can fix: no trace
                     traceback.print_exception(err)
             if self.selftest:
@@ -847,6 +874,8 @@ class App:
         self.wopts["surface"] = self.surface.get()
         self.draw(self.orientation())
         self.sync()
+        if self.v3win is not None:                            # the 3D view's options (a modeless window) follow the new result
+            self.view3d_floor()
         self.status.configure(text=wing_summary(out, dt))
         if self.selftest:
             self.root.after(500, self.finish_selftest)
@@ -910,6 +939,102 @@ class App:
         self.status.configure(text=f"Could not write the CSV files: {err}" if err else
                               f"Wrote {len(res)} files to {args[0]}: {', '.join(args[2])}, about")
 
+    # ------------------------------------------------------------------ 3D view in the browser
+    def open_view3d(self):
+        """3D view: what the page shows, in a small window (modeless, built at the first click and only hidden after, so the
+        last choice is kept); [Open] makes the page."""
+        if self.wres is None or str(self.run_btn["text"]) == "Cancel":
+            return
+        if self.v3win is None:
+            tk, ttk = self.tk, self.ttk
+            top = self.v3win = tk.Toplevel(self.root); top.withdraw(); top.title("3D view"); top.transient(self.root)
+            top.geometry("+40+40")
+            top.protocol("WM_DELETE_WINDOW", top.withdraw); top.bind("<Escape>", lambda ev: top.withdraw())
+            body = ttk.Frame(top, padding=10); body.pack(fill="both", expand=True)
+            ttk.Label(body, justify="left", text="Opens the wing in your web browser: drag to turn it, wheel to zoom.\n"
+                      "The flow field is computed at the wing's incidence only.").pack(anchor="w")
+            self.v3field, self.v3free = tk.StringVar(value="viscous"), tk.BooleanVar(value=False)
+            ttk.Label(body, text="Flow field:").pack(anchor="w", pady=(8, 0))
+            for value, text in VIEW3D_FIELDS:
+                rb = ttk.Radiobutton(body, text=text, value=value, variable=self.v3field); rb.pack(anchor="w", padx=(12, 0))
+                if value == "viscous":
+                    self.v3visc, self.v3note = rb, ttk.Label(body, text="", foreground="gray", wraplength=360)   # the note goes under it when it is off
+            ttk.Checkbutton(body, text="Rolled-up wake (free wake; slower)", variable=self.v3free).pack(anchor="w", pady=(8, 0))
+            bt = ttk.Frame(body); bt.pack(anchor="e", pady=(10, 0))
+            ttk.Button(bt, text="Open", command=self.run_view3d).pack(side="left")
+            ttk.Button(bt, text="Cancel", command=top.withdraw).pack(side="left", padx=(6, 0))
+        self.view3d_floor()
+        self.v3win.deiconify(); self.v3win.lift()
+
+    def view3d_floor(self):
+        """The options window follows the shown wing result (at each click, and when a result arrives while the window is up): for
+        a wing with a strip below the field decoder's Reynolds floor (wing_flow.re_floor) the viscous field is greyed out with the
+        reason, and the choice moves to the inviscid one."""
+        import wing_flow as WF
+        floor, low = WF.re_floor(self.wres), float(np.min(self.wres["strips"]["Re"]))
+        if low < floor:
+            e = lambda x: f"{x:.2g}".replace("e+0", "e").replace("e+", "e")
+            self.v3visc.configure(state="disabled")
+            self.v3note.configure(text=f"Not for this wing: the viscous field needs Re >= {e(floor)} on every strip (this one goes down to Re {e(low)}).")
+            self.v3note.pack(anchor="w", padx=(30, 0), after=self.v3visc)
+            if self.v3field.get() == "viscous":
+                self.v3field.set("inviscid")
+        else:
+            self.v3visc.configure(state="normal"); self.v3note.pack_forget()
+
+    def run_view3d(self):
+        """[Open]: the page of the shown wing result with the chosen options, made in the background (determinate progress and
+        Cancel, as for a wing) and opened in the default browser. A page already made for this result and these options is
+        opened again; a new wing result starts afresh."""
+        self.v3win.withdraw()
+        res = self.wres
+        if res is None:
+            return
+        if str(self.run_btn["text"]) == "Cancel":                         # a case started while the window was open
+            self.status.configure(text="A case is running: press 3D view again when it has finished.")
+            return
+        field, free = self.v3field.get(), self.v3free.get()
+        if self.pages_of is not res:
+            self.pages, self.pages_of = {}, res
+        path = self.pages.get((field, free))
+        if path and os.path.exists(path):
+            return self.show_page(path)
+        self.cancel.clear(); self.lock(True, wing=True); self.started = time.monotonic()    # (as in run_wing: Cancel ignores a double click's 2nd click)
+        self.determinate = True
+        self.bar.configure(mode="determinate", value=0)
+        what = "no flow field" if field == "none" else f"flow field {field}"
+        self.wbase = f"Preparing the 3D view of {res['wing']['name']}: {what}{', rolled-up wake' if free else ''} ..."
+        self.status.configure(text=self.wbase)
+        self.submit("wing3d", res, field, free, page_path(res, field, free), self.progress, self.cancel.is_set)
+
+    def done_wing3d(self, args, res, err):
+        self.idle()
+        if err:
+            if self.cancel.is_set():
+                self.status.configure(text="Cancelled. The 3D view was not made.")
+            else:
+                self.status.configure(text=f"The 3D view failed: {reason(err, 'close other programs, or choose Inviscid streamlines or None')}")
+                if not isinstance(err, ValueError):
+                    traceback.print_exception(err)
+            return
+        path, dt = res
+        self.pages[(args[1], args[2])] = path
+        self.show_page(path, dt)
+
+    def show_page(self, path, dt=None):
+        """The page in the default browser (started here, on the Tk thread), and where it is in the status line."""
+        import pathlib, webbrowser
+        try:
+            opened = webbrowser.open(pathlib.Path(path).as_uri())
+        except Exception:                                     # no browser launcher on this system
+            opened = False
+        if dt is None:                                        # a page made before
+            text = (f"3D view opened again in your browser: {path}" if opened else f"No browser could be started; open this file in one: {path}")
+        else:
+            text = (f"3D view ready in {dt:.1f} s and opened in your browser: {path}" if opened else
+                    f"3D view ready in {dt:.1f} s. No browser could be started; open this file in one: {path}")
+        self.status.configure(text=text)
+
     # ------------------------------------------------------------------ self-test
     def selftest_wing(self):
         """--selftest --wing: the 3D mode filled from the preset or file and run, as a person would."""
@@ -957,6 +1082,28 @@ class App:
     def finish(self, code):
         self.exit_code = code
         self.root.after(200, self.root.destroy)
+
+
+# ---------------------------------------------------------------------------------------------- the 3D view in the browser
+PAGES = os.path.join(os.path.dirname(CACHE), "wing3d")      # <cache>/vortfoil/wing3d: the pages of the 3D view
+VIEW3D_FIELDS = (("viscous", "Viscous (RANS field decoder)"), ("inviscid", "Inviscid streamlines"), ("none", "None"))
+
+
+def page_path(res, field, free_wake):
+    """where the page of a wing result with these options is written: <cache>/vortfoil/wing3d/<wing_base>_<field>[_fw].html"""
+    return os.path.join(PAGES, f"{wing_base(res)}_{field}{'_fw' if free_wake else ''}.html")
+
+
+def wing3d_page(res, field, free_wake, path, progress=None, cancel=None):
+    """the standalone page of a wing result (code/wing_flow.py: the flow field, the wake and the page's data; code/wing_view.html: the
+    page), written to `path`; (path, seconds). progress(fraction, text) and cancel() are wing_flow's, called from the worker thread."""
+    import wing_flow as WF
+    t0 = time.perf_counter()
+    WF.write_page(WF.view_data(res, field, free_wake, progress, cancel), path)
+    return path, time.perf_counter() - t0
+
+
+App.TASKS["wing3d"] = wing3d_page
 
 
 def make_shortcut():

@@ -3,8 +3,8 @@
 installed package.
 
 The wheel carries copies of the repository modules they run on - code/vortfoil_app.py, code/view_airfoil.py,
-code/wing_nll.py, code/view_wing.py, code/vortfoil_paths.py, code/field and code/model/staged - and the four weight
-files of the field route, under
+code/wing_nll.py, code/view_wing.py, code/wing_flow.py, code/wing_view.html, code/vortfoil_paths.py, code/field and
+code/model/staged - and the four weight files of the field route, under
 vortfoil/_release/ in the repository's own layout, so code/vortfoil_paths.py resolves them unchanged. Run from a source
 checkout, the checkout's code/ is used instead.
 """
