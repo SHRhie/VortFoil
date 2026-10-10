@@ -185,6 +185,10 @@ class Widget:
 
     def pack(self, **kw):
         assert set(kw) <= GEOMETRY["pack"], sorted(kw)
+        self.mapped = True
+
+    def pack_forget(self):
+        self.mapped = False
 
     def grid(self, **kw):
         assert set(kw) <= GEOMETRY["grid"], sorted(kw)
@@ -469,7 +473,7 @@ def test_window_builds_in_both_layouts(tk):
         app.wing.set(True); app.show()
         assert app.mode() == "wing" and app.f3.mapped and not app.f2.mapped and app.flow.cell == cells[app.flow]
         assert set(texts(app.f3)) == {"Planform", "Geometry ...", "Speed (m/s)", "Incidence (deg)", "Section model", "XFOIL state", "SST state",
-                                      "Surface", "Spanwise", "Polar", "Open cut in 2D"}
+                                      "Surface", "Spanwise", "Polar", "Open cut in 2D", "3D view"}
         assert set(texts(app.stw)) == {A.GEOMETRY_TEXT, "Scale x", "Strips", "Load ...", "Save ...", "Close"} and app.stw.name == "Wing geometry"
         assert A.GEOMETRY_TEXT.startswith("Each row is a spanwise station: the wing's shape at one position along the half-span, root (y = 0) first. "
                                           "Between rows the chord, twist, sweep, dihedral and section change linearly.")
@@ -752,6 +756,13 @@ def test_wing_errors_reach_the_status_line(tk, monkeypatch, capsys):
     app.run()
     settle(app, lambda: status().startswith("The wing computation failed"))
     assert status() == "The wing computation failed: division by zero" and "ZeroDivisionError" in capsys.readouterr().err and usable()
+    for err, message in ((MemoryError(), "The wing computation failed: not enough memory (close other programs and press Run again)"),
+                         (RuntimeError(), "The wing computation failed: RuntimeError")):     # an error with no message is named, not left blank
+        monkeypatch.setattr(A.WG, "compute", lambda *a, err=err, **k: (_ for _ in ()).throw(err))
+        app.run()
+        settle(app, lambda: status() == message)
+        assert usable()
+    capsys.readouterr()
     app.jobs.put(("wing", (), None, None))                                     # a result that cannot be shown does not stop the polling
     app.poll()
     assert status().startswith("The result could not be shown:") and root.after_calls[-1][1] == app.poll and usable()

@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  VortFoil 3D wing view: the template that code/wing_flow.py (write_page) fills in. Everything the page shows is in the two data blocks
+  at the end (their script elements hold one placeholder each, which write_page replaces), each a JSON text packed as gzip + base64
+  and unpacked by the browser (DecompressionStream). The field block may be empty: no flow field. The page keeps its working state in
+  `view` and `state`.
+
+  wing-data   {wing, cases, polar, focus, warnings, wake_model, [state], [coef], [field]}
+    wing      name, section, span (or b), S, AR, V, Re_root, Re_tip, stations [{y, chord, twist, x, z, section}], [MAC], [c_root, c_tip],
+              [state: 'xfoil' | 'sst'] (or sections_state: 'XFOIL ...' | 'SST ...')
+    cases[]   one per incidence; the page opens the one at `focus` and offers buttons when there are several:
+              alpha, CL, CDi, CD0, e, [CD, LD, CM, CD0_pressure, CD0_friction], y[n], chord[n], cl[n], alpha_eff[n],
+              surface {upper, lower}, each {x, y, z, cp} as n lists of NX points (wind frame: X along the wind, Y span, Z up),
+              trailing [{y, strength}] (n + 1 vortices), [wake: n + 1 polylines of [x, y, z], the relaxed free wake], [warnings]
+    polar     the lift curve: records [{alpha, CL, [CM]}] or columns {alpha: [], CL: []}
+    warnings  [str]: the wing's; every case and the field's decoder_warnings add theirs
+  field-data  {kind: 'viscous' | 'inviscid', decoder_warnings: [str], cases: [{alpha, lines, [planes], [sheet]}]}, at one incidence
+    lines     [{x[], y[], z[], cp[]}] (cp = q = 1 - |V|^2 / V_inf^2 along the line)
+    planes    [{kind: 'xz' | 'yz', at, u0, u1, v0, v1, nu, nv, q: base64 of nu * nv bytes}] (byte / 254 * 3 - 2 = q; 255 = no data)
+    sheet     {nj, ni, x, y, z, q}: flat lists of nj * ni values (the viscous wake sheet)
+  A coefficient is read from the case, else from the record's `coef`, else from the polar entry at that alpha; a missing one shows a dash.
+-->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VortFoil 3D wing view</title>
+<style>
+/* A working view. The stage (dark, WebGL) takes the left 70% of a landscape window, or the full width of a portrait one; the
+   coefficients, the warnings and two small charts stand beside or below it. Hue belongs to the C_p map and the chart series;
+   the rest is ink on a cool grey. */
+:root {
+  --bg: #eef1f4; --panel: #fafbfc; --ink: #16202a; --muted: #5a6775; --rule: #d3dae1; --on-ink: #fafbfc;
+  --accent: #2a64aa; --vf: #bf3a2a;
+  --warn-bg: #fff3d6; --warn-line: #d39a14; --warn-ink: #4d3500;
+  --stage: #222a33; --stage-ink: #d5dce3; --stage-muted: #8c98a4; --stage-grid: #313b46; --wake: #8b96a1; --cap: #66717d;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1217; --panel: #141b22; --ink: #e2e8ee; --muted: #94a2af; --rule: #28323c; --on-ink: #0d1217;
+    --accent: #72a6e6; --vf: #ef7f69; --warn-bg: #2f2410; --warn-line: #b8860b; --warn-ink: #f2d9a0;
+    --stage: #161c23; --stage-grid: #262f39;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-body); min-height: 100vh; display: flex; flex-direction: column; }
+header.top { padding: 12px 16px 6px; display: grid; gap: 4px; }
+.meta { font: 12px var(--font-num); color: var(--muted); }
+.titlerow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+h1 { margin: 0; font-size: clamp(1.2rem, 0.95rem + 0.9vw, 1.7rem); line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.readout { font: 14px var(--font-num); color: var(--muted); }
+.readout b { color: var(--ink); font-weight: 600; }
+.spec { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 0; padding: 0; list-style: none; }
+.spec li, .chip { font: 12px var(--font-num); padding: 2px 8px; border: 1px solid var(--rule); border-radius: 4px; color: var(--muted); }
+.spec b { color: var(--ink); font-weight: 500; }
+.chip.warnchip { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-ink); text-decoration: none; font-weight: 600; }
+.layout { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr); gap: 16px; padding: 6px 16px 16px; min-height: 460px; }
+.viewer { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; }
+.group { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.group > .label { font-size: 13px; color: var(--muted); }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+button { font: 500 13px/1 var(--font-body); color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; padding: 7px 11px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+label.tog { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+label.tog.off { opacity: 0.45; cursor: not-allowed; }
+input[type="checkbox"] { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+figure.view { margin: 0; flex: 1 1 auto; min-height: 340px; display: flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--stage); }
+.stage { position: relative; flex: 1 1 auto; min-width: 0; }
+#gl, #ov { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#gl { touch-action: none; cursor: grab; }
+#gl:active { cursor: grabbing; }
+#gl:focus-visible { outline-offset: -3px; }
+#ov { pointer-events: none; }
+.ov { position: absolute; pointer-events: none; color: var(--stage-ink); font-size: 12px; line-height: 1.3; text-shadow: 0 0 3px var(--stage), 0 0 6px var(--stage); }
+.ov-tl { top: 12px; left: 14px; display: grid; gap: 6px; }
+.ov-tr { top: 10px; right: 14px; font: 500 17px var(--font-num); text-align: right; }
+.ov-tr small { display: block; font: 12px var(--font-body); color: var(--stage-muted); margin-top: 2px; }
+.ov-br { bottom: 10px; right: 14px; color: var(--stage-muted); text-align: right; }
+.cbar { display: grid; gap: 4px; width: min(250px, 46vw); }
+.cbar-grad { height: 9px; border-radius: 2px; background: linear-gradient(90deg, #313695 0%, #4575b4 13.33%, #74add1 26.67%, #abd9e9 40%, #e0f3f8 53.33%, #ffffbf 66.67%, #fee090 73.33%, #fdae61 80%, #f46d43 86.67%, #d73027 93.33%, #a50026 100%); }
+.cbar-ticks { position: relative; height: 14px; font: 10.5px var(--font-num); color: var(--stage-muted); }
+.cbar-ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.cbar-ticks span:first-child { transform: none; }
+.cbar-ticks span:last-child { transform: translateX(-100%); }
+.tip { position: absolute; z-index: 2; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px; font: 12px/1.5 var(--font-num); white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28); }
+.err { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: var(--stage-ink); font-size: 14px; text-align: center; }
+.side { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.side h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.side h2 span { font-size: 12px; font-weight: 400; color: var(--muted); }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0 18px; }
+.kv > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 5px 2px; border-bottom: 1px solid var(--rule); }
+.kv .k { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.kv .v { font: 500 14px var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sub { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.warn { border-left: 3px solid var(--warn-line); background: var(--warn-bg); color: var(--warn-ink); padding: 8px 12px; border-radius: 0 6px 6px 0; }
+.warn.none { background: none; border-left-color: var(--rule); color: var(--muted); }
+.warn h2 { margin-bottom: 4px; }
+.warn ul { margin: 0; padding-left: 18px; font-size: 13px; }
+.warn li { margin: 2px 0; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg .grid { stroke: var(--rule); stroke-width: 1; }
+svg .tick, svg .frame { stroke: var(--muted); stroke-width: 1; fill: none; }
+svg .tl { fill: var(--muted); font: 10.5px var(--font-num); }
+svg .al { fill: var(--muted); font: 12px var(--font-body); }
+svg .s-vf { fill: none; stroke: var(--vf); stroke-width: 2; }
+svg .s-ref { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 5 4; }
+svg .vline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+svg .hl { fill: var(--panel); stroke: var(--vf); stroke-width: 2; }
+.notes { font-size: 12.5px; color: var(--muted); }
+.notes ul { margin: 0; padding-left: 18px; }
+.notes li { margin: 0 0 4px; }
+.notes b { color: var(--ink); font-weight: 500; }
+html[data-view="error"] .side, html[data-view="error"] .toolbar, html[data-view="error"] .ov, html[data-view="error"] .readout { display: none; }   /* nothing to show: only the message */
+html[data-view="error"] .layout { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 901px) and (orientation: landscape) {     /* landscape (wider than tall): the page is the window, the right column scrolls by itself */
+  body { height: 100vh; }
+  .layout { min-height: 0; }
+  .side { overflow-y: auto; max-height: 100%; padding-right: 4px; }
+  .warn ul { max-height: 30vh; overflow-y: auto; }
+}
+@media (max-width: 900px), (orientation: portrait) {         /* portrait (square too) or narrow: stack, the two charts side by side; exactly the complement of the rule above */
+  .layout { grid-template-columns: minmax(0, 1fr); min-height: 0; align-content: start; }
+  .viewer { height: clamp(420px, 84vw, 62vh); }
+  .side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .side > .wide { grid-column: 1 / -1; }
+  .kv { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) { .side { grid-template-columns: minmax(0, 1fr); } .kv { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); } }
+@media (max-width: 480px) { header.top { padding-inline: 12px; } .layout { padding-inline: 12px; } }
+</style>
+</head>
+<body>
+<noscript>This page needs JavaScript (and WebGL) to draw the wing.</noscript>
+<header class="top">
+  <div class="meta">VortFoil &middot; quasi-3D wing: nonlinear lifting line on VortFoil sections</div>
+  <div class="titlerow"><h1 id="title">VortFoil wing</h1><a class="chip warnchip" id="warn-chip" href="#warnings" hidden></a></div>
+  <div class="readout" id="readout"></div>
+  <ul class="spec" id="spec"></ul>
+</header>
+
+<div class="layout">
+  <section class="viewer" aria-label="3D view">
+    <div class="toolbar">
+      <div class="group" id="alpha-group" role="group" aria-label="Incidence" hidden>
+        <span class="label">Incidence</span><div class="seg" id="alpha-seg"></div>
+      </div>
+      <div class="group" role="group" aria-label="View">
+        <span class="label">View</span>
+        <div class="seg">
+          <button type="button" class="view-btn" data-cam="oblique" aria-pressed="true">Oblique</button>
+          <button type="button" class="view-btn" data-cam="top" aria-pressed="false">Top</button>
+          <button type="button" class="view-btn" data-cam="side" aria-pressed="false">Side</button>
+        </div>
+      </div>
+      <div class="group" role="group" aria-label="Show">
+        <label class="tog" id="tog-stream"><input type="checkbox" id="opt-stream" checked> Streamlines</label>
+        <label class="tog" id="tog-sheet"><input type="checkbox" id="opt-sheet" checked> Viscous wake</label>
+        <label class="tog" id="tog-planes"><input type="checkbox" id="opt-planes" checked> Section planes</label>
+        <label class="tog" id="tog-wake"><input type="checkbox" id="opt-wake" checked> <span id="wake-name">Trailing vortices</span></label>
+        <label class="tog"><input type="checkbox" id="opt-surf" checked> Surface colour</label>
+      </div>
+    </div>
+    <figure class="view">
+      <div class="stage" id="stage">
+        <canvas id="gl" tabindex="0" aria-label="3D view of the wing. Drag to rotate, wheel or plus and minus keys to zoom, double-click or 0 to reset the view."></canvas>
+        <canvas id="ov"></canvas>
+        <div class="ov ov-tl">
+          <div class="cbar">
+            <div>surface C<sub>p</sub></div>
+            <div class="cbar-grad"></div>
+            <div class="cbar-ticks"><span style="left:0%">&le; &minus;2</span><span style="left:33.33%">&minus;1</span><span style="left:66.67%">0</span><span style="left:100%">1</span></div>
+          </div>
+          <div id="q-note" hidden></div>
+        </div>
+        <div class="ov ov-tr"><span id="ov-alpha"></span><small id="ov-wing"></small></div>
+        <div class="ov ov-br">drag to rotate &middot; wheel or pinch to zoom<br>right-drag or Shift-drag to move &middot; double-click or 0 resets</div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+    </figure>
+  </section>
+
+  <aside class="side">
+    <section class="wide">
+      <h2>Coefficients <span id="coef-at"></span></h2>
+      <div class="kv" id="coef"></div>
+      <p class="sub" id="aeff"></p>
+    </section>
+    <section class="wide warn" id="warnings"></section>
+    <section>
+      <h2>Spanwise loading <span>c&middot;C<sub>l</sub> / c&#772;, c&#772; = S/b</span></h2>
+      <svg class="chart" id="ch-load" role="img" aria-label="Spanwise loading at the chosen incidence"></svg>
+    </section>
+    <section>
+      <h2>Lift curve <span>dotted line: this incidence</span></h2>
+      <svg class="chart" id="ch-cl" role="img" aria-label="Wing lift coefficient against incidence"></svg>
+    </section>
+    <section class="wide notes" id="notes"></section>
+  </aside>
+</div>
+
+<script type="application/gzip+base64" id="wing-data">__WING_DATA__</script>
+<script type="application/gzip+base64" id="field-data">__FIELD_DATA__</script>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const problem = html => stage.insertAdjacentHTML('beforeend', `<div class="err"><p>${html}</p></div>`);
+  const unpack = async t => {                                // the data are gzip + base64: the browser decompresses them
+    const bin = atob(t), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return JSON.parse(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+  };
+  const block = id => $(id).textContent.trim();
+  let REC, FLD;
+  try {
+    if (typeof DecompressionStream === 'undefined') throw new Error('no DecompressionStream');
+    [REC, FLD] = await Promise.all(['wing-data', 'field-data'].map(id => (block(id) ? unpack(block(id)) : null)));
+    FLD = FLD || REC.field || null;                           // an empty field block: no flow field was computed
+  } catch (e) {
+    document.documentElement.dataset.view = 'error';
+    problem(/DecompressionStream/.test(e.message)
+      ? 'This browser cannot unpack the data of this page (it needs DecompressionStream: Chrome or Edge 80 or later, Safari 16.4 or later, Firefox 113 or later). Please open the page in a current browser.'
+      : `Could not unpack the data of this page (${esc(e.message)}).`);
+    return;
+  }
+
+  /* ------------------------------------------------------------------ the record */
+  const DEG = Math.PI / 180, fin = Number.isFinite, first = (...v) => v.find(x => x != null && fin(x));
+  const f = (v, d) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(d), fv = (v, d) => (fin(v) ? f(v, d) : '—');
+  const fa = v => f(v, Number.isInteger(v) ? 0 : 2);
+  const sup = n => String(n).split('').map(ch => (ch === '-' ? '⁻' : '⁰¹²³⁴⁵⁶⁷⁸⁹'[+ch])).join('');
+  const sci = v => { const e = Math.floor(Math.log10(v)), m = v / 10 ** e; return `${Number.isInteger(+m.toFixed(2)) ? m.toFixed(1) : +m.toFixed(2)}×10${sup(e)}`; };
+  const WING = REC.wing, CASES = REC.cases, SPAN = first(WING.span, WING.b), LH = SPAN / 2, VINF = first(WING.V, REC.V), NX = CASES[0].surface.upper.x[0].length;
+  const rowsOf = o => (Array.isArray(o) ? o : o ? o.alpha.map((_, i) => Object.fromEntries(Object.keys(o).map(k => [k, o[k][i]]))) : []);
+  const POLAR = rowsOf(REC.polar);                           // the lift curve: records, or columns as the application's result has them
+  const FOCUS = first(REC.focus, CASES[0].alpha);            // the incidence the application computed (the field exists there only)
+  const SST = (REC.state || WING.state) === 'sst' || /^SST/i.test(WING.sections_state || '');
+  const nice = s => (/^\d{4,5}$/.test(s) ? `NACA ${s}` : s);
+  const names = (WING.stations || []).map(s => s.section).filter(s => s && s !== 'current').map(nice);
+  const SECTIONS = names.filter((s, i) => !i || s !== names[i - 1]).join(' → ') || WING.section || '—';
+  const NAME = WING.name || `VortFoil wing · ${SECTIONS}`;
+  const STATE = SST ? 'SST state · RANS field decoder, fully turbulent' : 'XFOIL state · VortFoil surface model, free transition';
+  const FC = FLD && FLD.cases ? FLD.cases : [];
+  const fieldAt = a => FC.find(s => Math.abs(s.alpha - a) < 1e-6) || (CASES.length === 1 && FC.length === 1 ? FC[0] : null) || {};
+  const planesOf = (a, kind) => (fieldAt(a).planes || []).filter(p => p.kind === kind);
+  const HAS = { lines: !!(fieldAt(FOCUS).lines || []).length, sheet: !!fieldAt(FOCUS).sheet, yz: !!planesOf(FOCUS, 'yz').length, xz: !!planesOf(FOCUS, 'xz').length };
+  const FREE = CASES.some(c => c.wake);                      // the relaxed (rolled-up) free wake was computed
+  const coef = c => {                                        // a coefficient: the case, the record's `coef`, or the polar's entry
+    const p = POLAR.find(r => Math.abs(r.alpha - c.alpha) < 1e-9) || {}, g = k => first(c[k], REC.coef && REC.coef[k], p[k]);
+    const CL = g('CL'), CDi = g('CDi'), CD0 = g('CD0'), CD = first(g('CD'), CDi + CD0);
+    return { CL, CDi, e: g('e'), CD0, CD, LD: first(g('LD'), CL / CD), CM: g('CM'), CD0p: g('CD0_pressure'), CD0f: g('CD0_friction') };
+  };
+  const warnings = c => [...new Set([...(REC.warnings || []), ...(c.warnings || []),
+    ...(Math.abs(c.alpha - FOCUS) < 1e-9 && FLD ? (FLD.decoder_warnings || []).map(m => `Flow field: ${m}`) : [])])];
+
+  /* ------------------------------------------------------------------ view and colours */
+  const PRESETS = { oblique: [225, 34], top: [0, 89.5], side: [270, 0.5] };       // azimuth, elevation (deg): the research viewer's presets
+  const hexRGB = h => { h = h.trim().replace('#', ''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255); };
+  const STOPS = [[-2, '#313695'], [-1.6, '#4575b4'], [-1.2, '#74add1'], [-0.8, '#abd9e9'], [-0.4, '#e0f3f8'], [0, '#ffffbf'],
+                 [0.2, '#fee090'], [0.4, '#fdae61'], [0.6, '#f46d43'], [0.8, '#d73027'], [1, '#a50026']];   // 0 sits on the pale yellow
+  const RGB = STOPS.map(([v, h]) => [v, ...hexRGB(h)]);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const norm = v => { const n = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / n, v[1] / n, v[2] / n]; };
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const LIGHT = norm([-0.35, -0.45, 0.82]);
+  function cpRGB(cp) {
+    const v = clamp(cp, -2, 1); let k = 1;
+    while (k < RGB.length - 1 && RGB[k][0] < v) k++;
+    const a = RGB[k - 1], b = RGB[k], t = (v - a[0]) / (b[0] - a[0] || 1);
+    return [a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2]), a[3] + t * (b[3] - a[3])];
+  }
+  const tok = () => {
+    const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+    return { stage: hexRGB(g('--stage')), grid: hexRGB(g('--stage-grid')), wake: hexRGB(g('--wake')), cap: hexRGB(g('--cap')),
+             ink: g('--stage-ink'), muted: g('--stage-muted'), body: g('--font-body'), key: [g('--stage'), g('--stage-grid'), g('--wake'), g('--cap')].join() };
+  };
+
+  // true scale: one length unit everywhere. fit, cx, cy: the scale and centre that frame the drawn objects; zoom and ox, oy (px): the user's
+  const view = { az: PRESETS.oblique[0] * DEG, el: PRESETS.oblique[1] * DEG, zoom: 1, fit: 1, cx: 0, cy: 0, ox: 0, oy: 0 };
+  const state = { k: Math.max(0, CASES.findIndex(c => Math.abs(c.alpha - FOCUS) < 1e-9)), stream: true, sheet: true, planes: true, surf: true, wake: true, preset: 'oblique' };
+  const CASE = () => CASES[state.k], FIELD = () => fieldAt(CASE().alpha);
+  const DIST = 6 * LH, TGT = [0.2 * LH, 0, 0];
+  let reach = 0;                                             // the clip planes lie DEPTH either side of the camera distance. 3 half-spans hold everything but the
+  for (const c of CASES) for (const pl of c.wake || []) for (const q of pl) reach = Math.max(reach, Math.hypot(q[0] - TGT[0], q[1] - TGT[1], q[2] - TGT[2]));
+  const DEPTH = Math.max(3 * LH, 1.1 * reach);               // rolled-up wake (~4 half-spans downstream), which would be cut off when the camera looks from there
+  const glc = $('gl'), ovc = $('ov'), ov = ovc.getContext('2d'), tip = $('tip');
+  let SW = 0, SH = 0, dpr = 1, queued = false, T = tok();
+
+  function basis() {
+    const ca = Math.cos(view.az), sa = Math.sin(view.az), ce = Math.cos(view.el), se = Math.sin(view.el);
+    return { b: [ce * ca, ce * sa, se], r: [-sa, ca, 0], u: [-se * ca, -se * sa, ce] };   // to-camera, screen right, screen up
+  }
+  function proj(p, B, s) {                                   // world point -> screen x, y (px), depth
+    const d = sub(p, TGT), zc = dot(d, B.b), k = DIST / (DIST - zc);
+    return [SW / 2 + view.ox + s * (dot(d, B.r) * k - view.cx), SH / 2 + view.oy - s * (dot(d, B.u) * k - view.cy), DIST - zc];
+  }
+
+  /* ------------------------------------------------------------------ geometry, shared by the GPU buffers, the fit and the hover */
+  const rowCache = {};
+  function rows(side) {                                      // section rows split spanwise to at most 1% of the half-span
+    const key = `${state.k}|${side}`;
+    if (rowCache[key]) return rowCache[key];
+    const S = CASE().surface[side], n = S.x.length, V = [], C = [], M = [], step = 0.01 * LH;
+    for (let i = 0; i < n; i++) {
+      const i2 = Math.min(i + 1, n - 1), K = i < n - 1 ? Math.max(1, Math.ceil(Math.abs(S.y[i2][0] - S.y[i][0]) / step)) : 1;
+      for (let k = 0; k < K; k++) {
+        const t = k / K;
+        V.push(S.x[i].map((x, j) => [x + t * (S.x[i2][j] - x), S.y[i][j] + t * (S.y[i2][j] - S.y[i][j]), S.z[i][j] + t * (S.z[i2][j] - S.z[i][j])]));
+        C.push(S.cp[i].map((v, j) => v + t * (S.cp[i2][j] - v)));
+        M.push(t < 0.5 ? i : i2);
+      }
+    }
+    return (rowCache[key] = { V, C, M });
+  }
+  function wakeRoots(c) {                                    // trailing-edge point under every trailing vortex (node between strips)
+    const U = c.surface.upper, n = U.x.length;
+    return c.trailing.map((t, k) => {
+      const a = Math.max(0, k - 1), b = Math.min(n - 1, k);
+      return [(U.x[a][NX - 1] + U.x[b][NX - 1]) / 2, t.y, (U.z[a][NX - 1] + U.z[b][NX - 1]) / 2];
+    });
+  }
+  const planeBytes = p => p._b || (p._b = Uint8Array.from(atob(p.q), ch => ch.charCodeAt(0)));
+
+  /* ------------------------------------------------------------------ WebGL */
+  const gl = glc.getContext('webgl2', { antialias: true }) || glc.getContext('webgl', { antialias: true });
+  const gl2 = !!gl && typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext;
+  let glOK = !!gl && (gl2 || !!gl.getExtension('OES_element_index_uint')), why = 'WebGL is not available in this browser';
+  const PROJ = `uniform vec3 u_t, u_r, u_u, u_b; uniform vec2 u_off; uniform float u_dist, u_sx, u_sy, u_near, u_far;
+    vec4 project(vec3 p) {
+      vec3 d = p - u_t;
+      float zc = dot(d, u_b), w = (u_dist - zc) / u_dist;
+      return vec4(dot(d, u_r) * u_sx + u_off.x * w, dot(d, u_u) * u_sy + u_off.y * w, (((u_dist - zc) - u_near) / (u_far - u_near) * 2.0 - 1.0) * w, w);
+    }`;
+  const VS_MESH = `attribute vec3 a_p; attribute vec4 a_c; varying vec4 v_c; ${PROJ}
+    void main() { gl_Position = project(a_p); v_c = a_c; }`;
+  const VS_LINE = `attribute vec3 a_a; attribute vec3 a_b; attribute vec3 a_s; attribute vec4 a_c; uniform vec2 u_vp; varying vec4 v_c; ${PROJ}
+    void main() {
+      vec4 ca = project(a_a), cb = project(a_b);
+      vec2 d = (cb.xy / cb.w - ca.xy / ca.w) * u_vp;
+      d = d / max(length(d), 1e-6);
+      vec4 c = mix(ca, cb, a_s.x);
+      c.xy += vec2(-d.y, d.x) * a_s.y * a_s.z * 0.5 / u_vp * c.w;
+      gl_Position = c; v_c = a_c;
+    }`;                                                      // a_s = (endpoint 0/1, side -1/+1, width in CSS px)
+  const FS = `precision mediump float; varying vec4 v_c; void main() { gl_FragColor = v_c; }`;
+  function program(vs, attrs) {
+    const p = gl.createProgram();
+    for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, FS]]) {
+      const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+      gl.attachShader(p, sh);
+    }
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const P = { p, a: {}, u: {} };
+    attrs.forEach(n => (P.a[n] = gl.getAttribLocation(p, n)));
+    ['u_t', 'u_r', 'u_u', 'u_b', 'u_off', 'u_dist', 'u_sx', 'u_sy', 'u_near', 'u_far', 'u_vp'].forEach(n => (P.u[n] = gl.getUniformLocation(p, n)));
+    return P;
+  }
+  let PM = null, PL = null;
+  try { if (glOK) { PM = program(VS_MESH, ['a_p', 'a_c']); PL = program(VS_LINE, ['a_a', 'a_b', 'a_s', 'a_c']); } } catch (e) { glOK = false; why = `The WebGL shaders did not compile (${e.message})`; }
+  if (!glOK) problem(`${esc(why)}, so the 3D view is not drawn. The numbers and charts beside it are complete.`);
+  function upload(v, idx, kind) {
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idx), gl.STATIC_DRAW);
+    return { vb, ib, n: idx.length, kind };
+  }
+  const free = o => { if (o) { gl.deleteBuffer(o.vb); gl.deleteBuffer(o.ib); } };
+  function lineObj(polys) {                                  // polys: {pts, cols (per segment) or col, w}
+    const v = [], idx = [];
+    for (const pl of polys) for (let m = 0; m < pl.pts.length - 1; m++) {
+      const A = pl.pts[m], B = pl.pts[m + 1], c = pl.cols ? pl.cols[m] : pl.col, base = v.length / 13;
+      for (const [t, sd] of [[0, -1], [0, 1], [1, -1], [1, 1]]) v.push(A[0], A[1], A[2], B[0], B[1], B[2], t, sd, pl.w, c[0], c[1], c[2], 1);
+      idx.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+    }
+    return upload(v, idx, 'line');
+  }
+  function surfaceObj() {
+    const v = [], idx = [], c = CASE();
+    for (const side of ['upper', 'lower']) {
+      const R = rows(side), V = R.V, n = V.length, sg = side === 'upper' ? 1 : -1, base = v.length / 7;
+      for (let i = 0; i < n; i++) for (let j = 0; j < NX; j++) {
+        const tc = sub(V[i][Math.min(j + 1, NX - 1)], V[i][Math.max(j - 1, 0)]), ts = sub(V[Math.min(i + 1, n - 1)][j], V[Math.max(i - 1, 0)][j]);
+        const sh = 0.8 + 0.2 * Math.max(0, dot(norm(cross(tc, ts)).map(x => x * sg), LIGHT));
+        const col = state.surf ? cpRGB(R.C[i][j]) : [0.6, 0.62, 0.65];
+        v.push(V[i][j][0], V[i][j][1], V[i][j][2], col[0] * sh, col[1] * sh, col[2] * sh, 1);
+      }
+      for (let i = 0; i < n - 1; i++) for (let j = 0; j < NX - 1; j++) {
+        const a = base + i * NX + j, b = a + 1, d = a + NX, e = d + 1;
+        idx.push(a, b, e, a, e, d);
+      }
+    }
+    for (const r of [0, c.surface.upper.x.length - 1]) {     // tip caps: a fan around the tip section's centroid
+      const U = c.surface.upper, L = c.surface.lower, ring = [];
+      for (let j = 0; j < NX; j++) ring.push([U.x[r][j], U.y[r][j], U.z[r][j]]);
+      for (let j = NX - 2; j > 0; j--) ring.push([L.x[r][j], L.y[r][j], L.z[r][j]]);
+      const cen = [0, 1, 2].map(q => ring.reduce((m, p) => m + p[q], 0) / ring.length), base = v.length / 7;
+      for (const p of [cen, ...ring]) v.push(p[0], p[1], p[2], T.cap[0], T.cap[1], T.cap[2], 1);
+      for (let m = 0; m < ring.length; m++) idx.push(base, base + 1 + m, base + 1 + (m + 1) % ring.length);
+    }
+    return upload(v, idx, 'mesh');
+  }
+  function planesObj(planes) {
+    const v = [], idx = [];
+    for (const p of planes) {
+      const b = planeBytes(p), base = v.length / 7;
+      for (let i = 0; i < p.nu; i++) for (let j = 0; j < p.nv; j++) {
+        const u = p.u0 + (p.u1 - p.u0) * i / (p.nu - 1), w = p.v0 + (p.v1 - p.v0) * j / (p.nv - 1), code = b[i * p.nv + j];
+        const P3 = p.kind === 'xz' ? [u, p.at, w] : [p.at, u, w];
+        if (code === 255) { v.push(P3[0], P3[1], P3[2], 0, 0, 0, 0); continue; }
+        const q = code / 254 * 3 - 2, c = cpRGB(q);
+        v.push(P3[0], P3[1], P3[2], c[0], c[1], c[2], clamp((Math.abs(q) - 0.03) / 0.25, 0, 1) * 0.88);
+      }
+      for (let i = 0; i < p.nu - 1; i++) for (let j = 0; j < p.nv - 1; j++) {
+        const a = base + i * p.nv + j, d = a + p.nv;
+        idx.push(a, d, d + 1, a, d + 1, a + 1);
+      }
+    }
+    return upload(v, idx, 'mesh');
+  }
+  function sheetObj(sh) {
+    const v = [], idx = [];
+    for (let k = 0; k < sh.nj * sh.ni; k++) {
+      const c = cpRGB(sh.q[k]);
+      v.push(sh.x[k], sh.y[k], sh.z[k], c[0], c[1], c[2], clamp((sh.q[k] - 0.05) / 0.5, 0, 1) * 0.75);
+    }
+    for (let j = 0; j < sh.nj - 1; j++) for (let i = 0; i < sh.ni - 1; i++) {
+      const a = j * sh.ni + i, d = a + sh.ni;
+      idx.push(a, d, d + 1, a, d + 1, a + 1);
+    }
+    return upload(v, idx, 'mesh');
+  }
+  const objCache = {};
+  function objs() {
+    const o = objCache[state.k] || (objCache[state.k] = {}), c = CASE(), fl = FIELD();
+    if (o.sk !== `${state.surf}|${T.key}`) { free(o.surface); o.surface = surfaceObj(); o.sk = `${state.surf}|${T.key}`; }
+    if (!o.lines) o.lines = (fl.lines || []).length ? lineObj(fl.lines.map(l => ({ pts: l.x.map((x, i) => [x, l.y[i], l.z[i]]),
+      cols: l.cp.slice(1).map((q, m) => cpRGB((q + l.cp[m]) / 2)), w: 1.2 }))) : null;
+    if (o.tk !== T.key) {
+      free(o.wake); free(o.grid);
+      const smax = Math.max(...c.trailing.map(t => Math.abs(t.strength)));
+      o.wake = lineObj(wakeRoots(c).map((p, k) => ({ pts: c.wake ? c.wake[k] : [p, [p[0] + 0.7 * LH, p[1], p[2]]],   // the relaxed free wake when present
+                                                     col: T.wake, w: 0.5 + 2.6 * Math.abs(c.trailing[k].strength) / (smax || 1) })));
+      const g = [], zg = -0.12 * LH;
+      for (let x = -0.75; x <= 1.2501; x += 0.25) g.push({ pts: [[x * LH, -1.25 * LH, zg], [x * LH, 1.25 * LH, zg]], col: T.grid, w: 1 });
+      for (let y = -1.25; y <= 1.2501; y += 0.25) g.push({ pts: [[-0.75 * LH, y * LH, zg], [1.25 * LH, y * LH, zg]], col: T.grid, w: 1 });
+      o.grid = lineObj(g); o.tk = T.key;
+    }
+    if (o.xz === undefined) { const p = planesOf(c.alpha, 'xz'); o.xz = p.length ? planesObj(p) : null; }
+    if (o.yz === undefined) { const p = planesOf(c.alpha, 'yz'); o.yz = p.length ? planesObj(p) : null; }
+    if (o.sheet === undefined) o.sheet = fl.sheet ? sheetObj(fl.sheet) : null;
+    return o;
+  }
+  function drawObj(o) {
+    if (!o || !o.n) return;
+    const P = o.kind === 'mesh' ? PM : PL, names = o.kind === 'mesh' ? [['a_p', 3, 0], ['a_c', 4, 3]] : [['a_a', 3, 0], ['a_b', 3, 3], ['a_s', 3, 6], ['a_c', 4, 9]];
+    const stride = o.kind === 'mesh' ? 28 : 52;
+    gl.useProgram(P.p); gl.bindBuffer(gl.ARRAY_BUFFER, o.vb); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.ib);
+    for (const [n, size, off] of names) { gl.enableVertexAttribArray(P.a[n]); gl.vertexAttribPointer(P.a[n], size, gl.FLOAT, false, stride, off * 4); }
+    gl.drawElements(gl.TRIANGLES, o.n, gl.UNSIGNED_INT, 0);
+    for (const [n] of names) gl.disableVertexAttribArray(P.a[n]);
+  }
+
+  function refit() {                                         // the scale and centre that frame what is drawn, for the current view
+    if (!SW || !SH) return;
+    const B = basis(), c = CASE(), fl = FIELD(), pts = [[-0.8 * LH, 0, 0]];
+    for (const side of ['upper', 'lower']) { const S = c.surface[side]; S.x.forEach((row, i) => { for (let j = 0; j < NX; j += 5) pts.push([row[j], S.y[i][j], S.z[i][j]]); }); }
+    if (state.stream) (fl.lines || []).forEach(l => { for (let m = 0; m < l.x.length; m += 8) pts.push([l.x[m], l.y[m], l.z[m]]); });
+    if (state.sheet && fl.sheet) for (let k = 0; k < fl.sheet.nj * fl.sheet.ni; k += 7) pts.push([fl.sheet.x[k], fl.sheet.y[k], fl.sheet.z[k]]);
+    if (state.wake) wakeRoots(c).forEach((p, k) => {         // straight legs, or the relaxed wake as far as 2.5 half-spans downstream (the tips' roll-up starts inside that)
+      if (!c.wake) pts.push([p[0] + 0.7 * LH, p[1], p[2]]);
+      else c.wake[k].forEach(q => { if (q[0] < 2.5 * LH) pts.push(q); });
+    });
+    for (const [on, kind] of [[state.sheet, 'yz'], [state.planes, 'xz']]) if (on) planesOf(c.alpha, kind).forEach(p =>
+      [[p.u0, p.v0], [p.u1, p.v1], [p.u0, p.v1], [p.u1, p.v0]].forEach(([u, w]) => pts.push(p.kind === 'xz' ? [u, p.at, w] : [p.at, u, w])));
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const p of pts) {
+      const d = sub(p, TGT), k = DIST / (DIST - dot(d, B.b)), a = dot(d, B.r) * k, b = dot(d, B.u) * k;
+      x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b);
+    }
+    view.fit = 0.9 * Math.min(SW / Math.max(x1 - x0, 1e-6), SH / Math.max(y1 - y0, 1e-6)); view.cx = (x0 + x1) / 2; view.cy = (y0 + y1) / 2;
+  }
+  const pressed = name => document.querySelectorAll('.view-btn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.cam === name)));
+  const setPreset = name => {
+    state.preset = name; [view.az, view.el] = PRESETS[name].map(v => v * DEG); view.zoom = 1; view.ox = view.oy = 0; pressed(name); refit(); schedule();
+  };
+  function resize() {
+    const r = stage.getBoundingClientRect(); dpr = window.devicePixelRatio || 1; SW = r.width; SH = r.height;
+    for (const cv of [glc, ovc]) { cv.width = Math.round(SW * dpr); cv.height = Math.round(SH * dpr); }
+    refit(); draw();
+  }
+  function schedule() { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; draw(); }); } }
+
+  function draw() {
+    if (!SW || !SH) return;
+    const B = basis(), s = view.fit * view.zoom;
+    if (glOK) {
+      gl.viewport(0, 0, glc.width, glc.height);
+      gl.clearColor(T.stage[0], T.stage[1], T.stage[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.disable(gl.BLEND); gl.depthMask(true);
+      for (const P of [PM, PL]) {
+        gl.useProgram(P.p);
+        gl.uniform3fv(P.u.u_t, TGT); gl.uniform3fv(P.u.u_r, B.r); gl.uniform3fv(P.u.u_u, B.u); gl.uniform3fv(P.u.u_b, B.b);
+        gl.uniform1f(P.u.u_dist, DIST); gl.uniform1f(P.u.u_sx, 2 * s / SW); gl.uniform1f(P.u.u_sy, 2 * s / SH);
+        gl.uniform2f(P.u.u_off, 2 * (view.ox - s * view.cx) / SW, -2 * (view.oy + s * view.cy) / SH);
+        gl.uniform1f(P.u.u_near, DIST - DEPTH); gl.uniform1f(P.u.u_far, DIST + DEPTH);
+        if (P.u.u_vp) gl.uniform2f(P.u.u_vp, SW / 2, SH / 2);
+      }
+      const o = objs();
+      if (view.el > 0.03) drawObj(o.grid);
+      drawObj(o.surface);
+      if (state.stream) drawObj(o.lines);
+      if (state.wake) drawObj(o.wake);
+      if ((state.planes && o.xz) || (state.sheet && (o.sheet || o.yz))) {
+        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+        if (state.sheet) { drawObj(o.sheet); drawObj(o.yz); }
+        if (state.planes) drawObj(o.xz);
+        gl.depthMask(true); gl.disable(gl.BLEND);
+      }
+    }
+    ov.setTransform(dpr, 0, 0, dpr, 0, 0); ov.clearRect(0, 0, SW, SH);
+    const a0 = proj([-0.8 * LH, 0, 0], B, s), a1 = proj([-0.42 * LH, 0, 0], B, s), ang = Math.atan2(a1[1] - a0[1], a1[0] - a0[0]);
+    ov.strokeStyle = T.muted; ov.fillStyle = T.muted; ov.lineWidth = 2;
+    ov.beginPath(); ov.moveTo(a0[0], a0[1]); ov.lineTo(a1[0], a1[1]); ov.stroke();
+    if (Math.hypot(a1[0] - a0[0], a1[1] - a0[1]) > 12) {
+      ov.beginPath(); ov.moveTo(a1[0] + 8 * Math.cos(ang), a1[1] + 8 * Math.sin(ang));
+      ov.lineTo(a1[0] + 8 * Math.cos(ang + 2.5), a1[1] + 8 * Math.sin(ang + 2.5)); ov.lineTo(a1[0] + 8 * Math.cos(ang - 2.5), a1[1] + 8 * Math.sin(ang - 2.5)); ov.fill();
+    }
+    ov.font = `12px ${T.body}`; ov.textAlign = 'center'; ov.fillText(fin(VINF) ? `V∞ ${+VINF.toFixed(2)} m/s` : 'V∞', a0[0], a0[1] - 10);
+    const og = [36, SH - 34];                                 // axis triad
+    ov.lineWidth = 1.5; ov.strokeStyle = T.ink; ov.fillStyle = T.ink; ov.font = `11px ${T.body}`;
+    [['x', [1, 0, 0]], ['y', [0, 1, 0]], ['z', [0, 0, 1]]].forEach(([lab, e]) => {
+      const dx = 20 * dot(e, B.r), dy = -20 * dot(e, B.u);
+      ov.beginPath(); ov.moveTo(og[0], og[1]); ov.lineTo(og[0] + dx, og[1] + dy); ov.stroke();
+      ov.fillText(lab, og[0] + 1.45 * dx, og[1] + 1.45 * dy + 4);
+    });
+    document.documentElement.dataset.view = glOK ? 'ready' : 'no-webgl';   // for the tests: the first frame is drawn,
+    document.documentElement.dataset.depth = (DEPTH / LH).toFixed(2);      // and the clip planes' half-range in half-spans
+  }
+
+  /* ------------------------------------------------------------------ hover */
+  const inTri = (px, py, a, b, c) => {
+    const d1 = (px - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (py - b[1]);
+    const d2 = (px - c[0]) * (b[1] - c[1]) - (b[0] - c[0]) * (py - c[1]);
+    const d3 = (px - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (py - a[1]);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+  };
+  function hover(clientX, clientY) {
+    const r = stage.getBoundingClientRect(), mx = clientX - r.left, my = clientY - r.top, B = basis(), s = view.fit * view.zoom;
+    let best = null;
+    for (const side of ['upper', 'lower']) {
+      const R = rows(side), Q = R.V.map(row => row.map(p => proj(p, B, s)));
+      for (let i = 0; i < Q.length - 1; i++) for (let j = 0; j < NX - 1; j++) {
+        const q = [Q[i][j], Q[i][j + 1], Q[i + 1][j + 1], Q[i + 1][j]];
+        if (mx < Math.min(q[0][0], q[1][0], q[2][0], q[3][0]) || mx > Math.max(q[0][0], q[1][0], q[2][0], q[3][0]) ||
+            my < Math.min(q[0][1], q[1][1], q[2][1], q[3][1]) || my > Math.max(q[0][1], q[1][1], q[2][1], q[3][1])) continue;
+        if (!(inTri(mx, my, q[0], q[1], q[2]) || inTri(mx, my, q[0], q[2], q[3]))) continue;
+        const d = (q[0][2] + q[1][2] + q[2][2] + q[3][2]) / 4;
+        if (!best || d < best.d) best = { d, side, q, i: R.M[i], i2: R.M[i + 1], j };
+      }
+    }
+    if (!best) { tip.hidden = true; return; }
+    const c = CASE(), S = c.surface[best.side], corners = [[best.i, best.j], [best.i, best.j + 1], [best.i2, best.j + 1], [best.i2, best.j]];
+    let m0 = 0, bd = Infinity;
+    best.q.forEach((p, m) => { const d = (p[0] - mx) ** 2 + (p[1] - my) ** 2; if (d < bd) { bd = d; m0 = m; } });
+    const [i, j] = corners[m0], x = S.x[i], zz = S.z[i], dx = x[NX - 1] - x[0], dz = zz[NX - 1] - zz[0];
+    const xc = ((x[j] - x[0]) * dx + (zz[j] - zz[0]) * dz) / (dx * dx + dz * dz);
+    tip.innerHTML = `${best.side} · y ${f(S.y[i][j], 3)} m · x/c ${xc.toFixed(2)}<br>C<sub>p</sub> ${f(S.cp[i][j], 2)}` +
+                    (c.alpha_eff ? ` · α<sub>eff</sub> ${f(c.alpha_eff[i], 2)}°` : '');
+    tip.hidden = false;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = `${clamp(mx + 14, 4, SW - tw - 4)}px`; tip.style.top = `${clamp(my - th - 12, 4, SH - th - 4)}px`;
+  }
+
+  /* ------------------------------------------------------------------ mouse, touch and keys */
+  const ZMIN = 0.3, ZMAX = 12;
+  const zoomBy = (k, mx = SW / 2, my = SH / 2) => {          // zoom by k, keeping the point under (mx, my) in place; the keys use the centre
+    const z = clamp(view.zoom * k, ZMIN, ZMAX), q = z / view.zoom;
+    view.ox = (mx - SW / 2) * (1 - q) + q * view.ox; view.oy = (my - SH / 2) * (1 - q) + q * view.oy; view.zoom = z; tip.hidden = true; pressed(); schedule();
+  };
+  const pts = new Map(); let drag = null, moved = 0;
+  const pinch = () => { const p = [...pts.values()]; return p.length > 1 ? Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) : 0; };
+  const anchor = pan => { const p = [...pts.values()][0]; drag = { az: view.az, el: view.el, zoom: view.zoom, ox: view.ox, oy: view.oy, x: p[0], y: p[1], d0: pinch(), pan }; };
+  glc.addEventListener('pointerdown', e => { glc.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); anchor(e.button > 0 || e.shiftKey); moved = 0; tip.hidden = true; });
+  glc.addEventListener('contextmenu', e => e.preventDefault());
+  glc.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse') hover(e.clientX, e.clientY); return; }
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size > 1) { if (drag.d0) view.zoom = clamp(drag.zoom * pinch() / drag.d0, ZMIN, ZMAX); }
+    else {
+      moved = Math.max(moved, Math.hypot(e.clientX - drag.x, e.clientY - drag.y));
+      if (moved > 4) pressed();
+      if (drag.pan) { view.ox = drag.ox + e.clientX - drag.x; view.oy = drag.oy + e.clientY - drag.y; }       // right button or Shift: move the view
+      else { view.az = drag.az - (e.clientX - drag.x) * 0.008; view.el = clamp(drag.el + (e.clientY - drag.y) * 0.008, -1.55, 1.562); }
+    }
+    schedule();
+  });
+  const release = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (pts.size) anchor(false); else { drag = null; if (moved < 4 && e.type === 'pointerup') hover(e.clientX, e.clientY); }
+  };
+  glc.addEventListener('pointerup', release); glc.addEventListener('pointercancel', release);
+  glc.addEventListener('pointerleave', () => { if (!pts.size) tip.hidden = true; });
+  glc.addEventListener('wheel', e => { e.preventDefault(); const r = stage.getBoundingClientRect(); zoomBy(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+  glc.addEventListener('dblclick', () => setPreset(state.preset));
+  glc.addEventListener('keydown', e => {                     // the arrows turn the wing while the 3D view has the focus
+    const st = 5 * DEG, keys = { ArrowLeft: () => (view.az += st), ArrowRight: () => (view.az -= st),
+      ArrowUp: () => (view.el = clamp(view.el + st, -1.55, 1.562)), ArrowDown: () => (view.el = clamp(view.el - st, -1.55, 1.562)) };
+    if (keys[e.key]) { e.preventDefault(); keys[e.key](); schedule(); }
+  });
+  document.addEventListener('keydown', e => {                // + - and 0 work anywhere on the page (not with Ctrl or Cmd: the browser's own zoom)
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== 'checkbox') return;
+    if (e.key === '+' || e.key === '=') zoomBy(1.15); else if (e.key === '-' || e.key === '_') zoomBy(1 / 1.15); else if (e.key === '0') setPreset(state.preset);
+    else return;
+    e.preventDefault();
+  });
+
+  /* ------------------------------------------------------------------ charts and numbers */
+  function niceStep(r) { const p = 10 ** Math.floor(Math.log10(r)), q = r / p; return (q < 1.5 ? 1 : q < 3 ? 2 : q < 7 ? 5 : 10) * p; }
+  function ticks(lo, hi, n) { const st = niceStep((hi - lo) / n || 1), out = []; for (let v = Math.ceil(lo / st - 1e-9) * st; v <= hi + 1e-9; v += st) out.push(+v.toFixed(10)); return { st, out }; }
+  function domain(vals, n, zero) {
+    const lo = zero ? Math.min(0, ...vals) : Math.min(...vals), hi = Math.max(...vals), t = ticks(lo, hi, n);
+    return { yd: [Math.floor(lo / t.st + 1e-9) * t.st, Math.ceil(hi / t.st - 1e-9) * t.st], ...t };
+  }
+  function chart(svg, o) {                                   // drawn at the svg's own width in px, so the text keeps its size
+    const w = svg.getBoundingClientRect().width, Wc = w > 100 ? Math.round(w) : 400, m = { l: 46, r: 10, t: 8, b: 34 };
+    const Hc = matchMedia('(min-width: 901px) and (orientation: landscape)').matches ? clamp(Math.round(Wc * 0.4), 120, 170)   // the CSS's landscape: the right column scrolls by itself,
+      : clamp(Math.round(Wc * 0.46), 150, 240);                                                                                   // so the charts stay low and both are in view
+    const X = v => m.l + (v - o.xd[0]) / (o.xd[1] - o.xd[0]) * (Wc - m.l - m.r);
+    const Y = v => Hc - m.b - (v - o.yd[0]) / (o.yd[1] - o.yd[0]) * (Hc - m.t - m.b);
+    const dx = o.xst < 1 ? 1 : 0, dy = o.yst < 0.1 ? 2 : o.yst < 1 ? 1 : 0;
+    let s = '';
+    for (const t of o.xt) s += `<line class="grid" x1="${X(t)}" x2="${X(t)}" y1="${m.t}" y2="${Hc - m.b}"/><line class="tick" x1="${X(t)}" x2="${X(t)}" y1="${Hc - m.b}" y2="${Hc - m.b - 4}"/><text class="tl" x="${X(t)}" y="${Hc - m.b + 14}" text-anchor="middle">${f(t, dx)}</text>`;
+    for (const t of o.yt) s += `<line class="grid" x1="${m.l}" x2="${Wc - m.r}" y1="${Y(t)}" y2="${Y(t)}"/><line class="tick" x1="${m.l}" x2="${m.l + 4}" y1="${Y(t)}" y2="${Y(t)}"/><text class="tl" x="${m.l - 6}" y="${Y(t) + 3.5}" text-anchor="end">${f(t, dy)}</text>`;
+    if (o.vline != null) s += `<line class="vline" x1="${X(o.vline)}" x2="${X(o.vline)}" y1="${m.t}" y2="${Hc - m.b}"/>`;
+    for (const se of o.series) s += `<polyline class="${se.cls}" points="${se.pts.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ')}"/>`;
+    for (const p of o.marks || []) s += `<circle class="hl" cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="4.5"/>`;
+    s += `<rect class="frame" x="${m.l}" y="${m.t}" width="${Wc - m.l - m.r}" height="${Hc - m.t - m.b}"/>`;
+    s += `<text class="al" x="${(m.l + Wc - m.r) / 2}" y="${Hc - 3}" text-anchor="middle">${o.xl}</text>`;
+    s += `<text class="al" transform="translate(12 ${(m.t + Hc - m.b) / 2}) rotate(-90)" text-anchor="middle">${o.yl}</text>`;
+    svg.setAttribute('viewBox', `0 0 ${Wc} ${Hc}`); svg.innerHTML = s;
+  }
+  const sub2 = '<tspan dy="3" font-size="9">', end2 = '</tspan><tspan dy="-3">';
+  function planform() {                                      // chips: the wing's size and shape
+    const st = WING.stations || [], pan = st.slice(1).map((s, i) => [st[i], s]), deg = (a, b) => Math.atan2(a, b) / DEG;
+    const dih = pan.map(([a, b]) => deg(b.z - a.z, b.y - a.y)), swp = pan.map(([a, b]) => deg(b.x - a.x, b.y - a.y));
+    const c0 = st.length ? st.map(s => s.chord) : [WING.c_root, WING.c_tip].filter(fin);
+    return [['span', `${SPAN.toFixed(2)} m`], ...(c0.length ? [['chord', `${c0.map(c => c.toFixed(2)).join(' → ')} m`]] : []),
+      ...(st.length > 2 ? [['kinks', st.slice(1, -1).map(s => `y ${s.y.toFixed(1)} m`).join(', ')]] : []),
+      ['AR', fv(WING.AR, 2)], ['S', fin(WING.S) ? `${WING.S.toFixed(WING.S < 1 ? 3 : 2)} m²` : '—'], ...(fin(WING.MAC) ? [['MAC', `${WING.MAC.toFixed(2)} m`]] : []),
+      ...(st.length ? [['twist', st.map(s => `${f(s.twist, 1)}°`).join(' → ')]] : []),
+      ...(dih.some(d => Math.abs(d) > 0.05) ? [['dihedral', dih.map(d => `${f(d, 0)}°`).join(' | ')]] : []),
+      ...(swp.some(d => Math.abs(d) > 0.05) ? [['sweep', swp.map(d => `${f(d, 0)}°`).join(' | ')]] : []),
+      ['sections', SECTIONS], ['state', STATE]];
+  }
+  let chartW = 0;
+  function charts() {                                        // the two charts, at the width they have now
+    const c = CASE(), k = coef(c), cbar = WING.S / SPAN, cl = c.cl, ch = c.chord, y = c.y;
+    chartW = Math.round($('ch-load').getBoundingClientRect().width);
+    if (cl && ch && y) {
+      const pts = y.map((v, i) => [v / LH, ch[i] * cl[i] / cbar]), el = [];
+      for (let i = 0; i <= 40; i++) { const e = -1 + i / 20; el.push([e, 4 / Math.PI * k.CL * Math.sqrt(Math.max(0, 1 - e * e))]); }
+      const dl = domain([...pts.map(p => p[1]), ...(fin(k.CL) ? el.map(p => p[1]) : [])], 4, true);
+      chart($('ch-load'), { xd: [-1, 1], xt: [-1, -0.5, 0, 0.5, 1], xst: 0.5, yd: dl.yd, yt: ticks(dl.yd[0], dl.yd[1], 4).out, yst: dl.st, xl: '2y/b · dashed: elliptic loading',
+        yl: `c·C${sub2}l${end2} / c̄</tspan>`, series: [...(fin(k.CL) ? [{ cls: 's-ref', pts: el }] : []), { cls: 's-vf', pts }] });
+    }
+    const pl = POLAR.filter(r => fin(r.CL));
+    if (pl.length > 1) {
+      const al = pl.map(r => r.alpha), dc = domain(pl.map(r => r.CL), 4, true), tx = ticks(al[0], al[al.length - 1], 5);
+      chart($('ch-cl'), { xd: [al[0], al[al.length - 1]], xt: tx.out, xst: tx.st, yd: dc.yd, yt: ticks(dc.yd[0], dc.yd[1], 4).out, yst: dc.st, xl: 'α (°)',
+        yl: `C${sub2}L${end2}</tspan>`, vline: c.alpha, series: [{ cls: 's-vf', pts: pl.map(r => [r.alpha, r.CL]) }], marks: [[c.alpha, k.CL]] });
+    } else $('ch-cl').closest('section').hidden = true;
+  }
+  function render() {
+    const c = CASE(), k = coef(c), ws = warnings(c);
+    $('title').textContent = NAME; document.title = /VortFoil/.test(NAME) ? NAME : `${NAME} · VortFoil 3D view`;
+    $('readout').innerHTML = `α <b>${fa(c.alpha)}°</b> · V<sub>∞</sub> <b>${fin(VINF) ? +VINF.toFixed(2) : '—'} m/s</b> · Re <b>${sci(WING.Re_root)}</b> root → <b>${sci(WING.Re_tip)}</b> tip`;
+    $('spec').innerHTML = planform().map(([n, v]) => `<li>${n} <b>${esc(v)}</b></li>`).join('');
+    $('ov-alpha').textContent = `α = ${fa(c.alpha)}°`; $('ov-wing').textContent = `${SECTIONS} · AR ${fv(WING.AR, 2)}`;
+    $('coef-at').textContent = `α = ${fa(c.alpha)}°`;
+    const items = [['C<sub>L</sub>', fv(k.CL, 3), 'Lift coefficient (reference area S)'], ['C<sub>D,i</sub>', fv(k.CDi, 5), 'Induced drag coefficient (Trefftz plane)'],
+      ['e', fv(k.e, 3), 'Span efficiency C_L² / (π AR C_D,i); it means little at small incidence'],
+      ['C<sub>D,0</sub>', fv(k.CD0, 5), 'Profile drag of the sections at their effective incidence'],
+      ...(fin(k.CD0p) && fin(k.CD0f) ? [['C<sub>D,0</sub> pressure', fv(k.CD0p, 5), 'Pressure part of the profile drag (SST state)'], ['C<sub>D,0</sub> friction', fv(k.CD0f, 5), 'Skin-friction part of the profile drag (SST state)']] : []),
+      ['C<sub>D</sub>', fv(k.CD, 5), 'Total drag coefficient, C_D,i + C_D,0'], ['L/D', fv(k.LD, 1), 'Lift to drag ratio'],
+      ['C<sub>M</sub>', fv(k.CM, 4), 'Pitching moment about the root quarter chord, reference length MAC, nose up positive']];
+    $('coef').innerHTML = items.map(([n, v, t]) => `<div title="${t}"><span class="k">${n}</span><span class="v">${v}</span></div>`).join('');
+    const ae = c.alpha_eff, root = c.y.reduce((b, y, i) => (Math.abs(y) < Math.abs(c.y[b]) ? i : b), 0), tipI = c.y.reduce((b, y, i) => (Math.abs(y) > Math.abs(c.y[b]) ? i : b), 0);
+    $('aeff').innerHTML = ae ? `Strip incidence α<sub>eff</sub>: root ${f(ae[root], 2)}° → tip ${f(ae[tipI], 2)}°. ${esc(STATE)}.` : esc(STATE) + '.';
+    const wbox = $('warnings');
+    wbox.className = 'wide warn' + (ws.length ? '' : ' none');
+    wbox.innerHTML = `<h2>Warnings <span>${ws.length ? ws.length : 'none'}</span></h2>` + (ws.length ? `<ul>${ws.map(m => `<li>${esc(m)}</li>`).join('')}</ul>` : '<span>No range warnings at this incidence.</span>');
+    const chip = $('warn-chip'); chip.hidden = !ws.length; chip.textContent = `⚠ ${ws.length} warning${ws.length > 1 ? 's' : ''}`;
+    charts();
+    const fl = FIELD(), has = HAS.lines || HAS.sheet || HAS.yz || HAS.xz;
+    const kind = FLD ? (FLD.kind === 'viscous' ? 'viscous: the inner flow from the RANS field decoder, strip by strip' : 'inviscid composite of the panel sections') : 'not computed';
+    $('notes').innerHTML = '<ul>' +
+      "<li><b>Surface colour</b>: each strip's section C<sub>p</sub> at its effective incidence.</li>" +
+      (has ? `<li><b>Flow field</b> (${esc(kind)}), at α = ${fa(FOCUS)}° only: streamlines, ${HAS.xz ? 'section planes, ' : ''}${HAS.sheet || HAS.yz ? 'the viscous wake (wake sheet and wake planes), ' : ''}coloured by q = 1 − |V|²/V<sub>∞</sub>².</li>` : '<li><b>Flow field</b>: not computed for this view.</li>') +
+      `<li><b>Grey lines</b>: trailing vortices, width ∝ shed circulation. Wake model: ${esc(REC.wake_model || (FREE ? 'relaxed free wake' : 'straight legs along the wind'))}.</li>` +
+      '<li>True scale; wind along +x, the wing pitched by α. Hover the surface for values.</li></ul>';
+    $('q-note').hidden = !has; $('q-note').innerHTML = `${HAS.xz || HAS.yz || HAS.sheet ? 'streamlines and planes' : 'streamlines'}: q = 1 − |V|²/V<sub>∞</sub>²`;
+    $('wake-name').textContent = FREE ? 'Trailing vortices (rolled up)' : 'Trailing vortices';
+    const off = (id, no, why) => { $(id).querySelector('input').disabled = no; $(id).classList.toggle('off', no); $(id).title = no ? why : ''; };
+    off('tog-stream', !HAS.lines, 'no flow field was computed for this view');
+    off('tog-sheet', !(HAS.sheet || HAS.yz), 'computed with the viscous flow field only');
+    $('tog-planes').hidden = !HAS.xz;
+  }
+  function update() {
+    document.querySelectorAll('#alpha-seg button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === state.k)));
+    render(); refit(); schedule();
+  }
+
+  if (CASES.length > 1) {                                    // a page that holds several incidences offers them (the field exists at one)
+    $('alpha-group').hidden = false;
+    CASES.forEach((c, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = `${fa(c.alpha)}°${Math.abs(c.alpha - FOCUS) < 1e-9 ? ' •' : ''}`;
+      b.addEventListener('click', () => { state.k = i; tip.hidden = true; update(); }); $('alpha-seg').appendChild(b);
+    });
+  }
+  document.querySelectorAll('[data-cam]').forEach(b => b.addEventListener('click', () => setPreset(b.dataset.cam)));
+  const toggle = (id, key, fit) => $(id).addEventListener('change', e => { state[key] = e.target.checked; if (fit) refit(); schedule(); });
+  toggle('opt-stream', 'stream', true); toggle('opt-sheet', 'sheet', true); toggle('opt-planes', 'planes', true); toggle('opt-surf', 'surf', false); toggle('opt-wake', 'wake', true);
+  new ResizeObserver(resize).observe(stage);
+  new ResizeObserver(() => { if (Math.round($('ch-load').getBoundingClientRect().width) !== chartW) charts(); }).observe(document.querySelector('.side'));
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { T = tok(); schedule(); });
+  window.vortfoilView = { view, state, draw };               // read by the page tests (not by the page)
+  update();
+})();
+</script>
+</body>
+</html>
