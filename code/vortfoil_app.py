@@ -315,7 +315,7 @@ class App:
         self.wname, self.wdesc, self.cancel = "Full-scale wing (span 10 m)", "", threading.Event()
         self.started, self.cutof, self.cutlabel = 0.0, "", None
         self.selftest, self.exit_code, self.experimental = selftest, 0, experimental     # experimental: the 3D wing (vortfoil_exp)
-        self.rext_path = PF.DECODER_REXT if os.path.exists(PF.DECODER_REXT) else None   # experimental (branch exp/rext-decoder)
+        self.rext_path = PF.DECODER_REXT if experimental and os.path.exists(PF.DECODER_REXT) else None   # experimental: vortfoil_exp only
         dpi = root.winfo_fpixels("1i")                       # the screen's real resolution: a sharp figure
         root.title("VortFoil (experimental)" if experimental else "VortFoil")
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
@@ -371,8 +371,9 @@ class App:
         ttk.Label(fl, text=TRAINED_ON, foreground="gray", wraplength=wrap).grid(row=3, column=0, columnspan=3, sticky="w", pady=(4, 0))
         self.rext = tk.BooleanVar(value=False)
         if self.rext_path:
-            ttk.Checkbutton(fl, text="Re-extended field decoder (experimental; NACA sections; field Re 1e6 to 1e7)",
-                            variable=self.rext).grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
+            self.rext_chk = ttk.Checkbutton(fl, text="Re-extended field decoder (experimental; NACA sections; field Re 1e6 to 1e7)",
+                                            variable=self.rext)
+            self.rext_chk.grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
         if experimental:
             self.origin = None                                # how a station names the Airfoil box's section when it is no NACA designation: uiuc:<name> or the file
             self.f3 = ttk.Frame(self.flow); self.f3.grid(row=0, column=0, sticky="ew")     # the 3D rows: same cell, one mapped at a time
