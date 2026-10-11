@@ -1539,18 +1539,23 @@ def describe(w, skip=()):
             [describe(c, skip) for c in w.children if id(c) not in skip])
 
 
-def test_vortfoil_window_is_2d_only(tk):
+def test_vortfoil_window_is_2d_only(tk, tmp_path, monkeypatch):
     """`vortfoil` (App without experimental) builds nothing of the 3D wing: no '3D wing' box, no wing rows, no Wing geometry window, so
     the wing mode cannot be reached. Widget for widget (options, cells, mapping) it is the experimental window without them, in both
-    layouts, with the released 2D Flow box; only the experimental window's title says so."""
+    layouts, with the released 2D Flow box; only the experimental window's title says so. The Re-extended decoder's box is
+    experimental too: with its weights present, only vortfoil_exp shows it."""
+    rext = tmp_path / "field_decoder_rext_s2.npz"; rext.write_bytes(b"")
+    import predict_field as PF                                                # the app imports it where it uses it
+    monkeypatch.setattr(PF, "DECODER_REXT", str(rext))
     for screen in ((1728, 1117), (1080, 1920)):
         two, r2 = tk(screen, experimental=False)
         exp, rx = tk(screen)
         for app in (two, exp):
             settle(app, lambda: app.section is not None)
         assert "3D wing" not in texts(r2) and not any(hasattr(two, k) for k in ("chk", "f3", "stw", "cur", "cut_btn", "view3d_btn", "range_note", "origin"))
-        assert describe(r2) == describe(rx, skip={id(exp.chk), id(exp.f3), id(exp.stw)}) and len(r2.children) == len(rx.children) - 1
-        assert set(texts(two.f2)) == FLOW_2D | ({REXT} if two.rext_path else set()) and two.f2.mapped and two.mode() == "section"
+        assert two.rext_path is None and exp.rext_path == str(rext) and REXT in texts(exp.f2)
+        assert describe(r2) == describe(rx, skip={id(exp.chk), id(exp.f3), id(exp.stw), id(exp.rext_chk)}) and len(r2.children) == len(rx.children) - 1
+        assert set(texts(two.f2)) == FLOW_2D and two.f2.mapped and two.mode() == "section"
         assert (r2.name, rx.name) == ("VortFoil", "VortFoil (experimental)") and two.status.kw["text"] == "NACA 2412 loaded. Set the flow and press Run."
 
 
