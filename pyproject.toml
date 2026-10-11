@@ -37,6 +37,7 @@ dev = ["pytest>=7", "build", "twine"]
 
 [project.scripts]
 vortfoil = "vortfoil.cli:main"
+vortfoil_exp = "vortfoil.cli:main_exp"      # the same, with the experimental 3D wing in the application window
 
 [project.urls]
 Homepage = "https://github.com/SHRhie/VortFoil"

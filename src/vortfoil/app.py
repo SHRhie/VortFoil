@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""The desktop application (``vortfoil`` or ``vortfoil app``) and the one-window viewer (``vortfoil view``) of an
-installed package.
+"""The desktop application (``vortfoil`` or ``vortfoil app``; ``vortfoil_exp`` adds the experimental 3D wing) and the
+one-window viewer (``vortfoil view``) of an installed package.
 
 The wheel carries copies of the repository modules they run on - code/vortfoil_app.py, code/view_airfoil.py,
 code/wing_nll.py, code/view_wing.py, code/wing_flow.py, code/wing_view.html, code/vortfoil_paths.py, code/field and
@@ -27,9 +27,10 @@ def _module(name):
     return __import__(name)
 
 
-def app(argv=None):
-    """The application window; argv as for code/vortfoil_app.py (--selftest, --shortcut)."""
-    return _module("vortfoil_app").main(argv)
+def app(argv=None, experimental=False):
+    """The application window; argv as for code/vortfoil_app.py (--selftest, --shortcut). experimental: vortfoil_exp's window,
+    with the experimental 3D wing; without it (the vortfoil command) the window is 2D only and --experimental is refused."""
+    return _module("vortfoil_app").main(argv, experimental)
 
 
 def view(argv=None):
