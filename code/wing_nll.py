@@ -603,7 +603,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
             tab = section_tables(state, keys, payload, Re, dec, tick, RE_GRID)   # fits' rotation; polar points may pass stall
             t2 = time.perf_counter()
             pol = table_polar(tab)
-            al = np.arange(min(-4.0, np.floor(alpha)), max(12.0, np.ceil(alpha)) + 0.5, 1.0)
+            al = np.arange(min(-6.0, np.floor(alpha)), max(12.0, np.ceil(alpha)) + 0.5, 1.0)
             curve = [solve(w, V, a, pol) for a in al]
         s = solve(w, V, alpha, pol)
         t3 = time.perf_counter()
