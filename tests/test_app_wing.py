@@ -575,12 +575,6 @@ def small_wing(app, **over):
     app.walpha.set("5")
 
 
-def scroll(app, step):
-    """a wheel event over the 3D panel (step notches, as the canvas delivers it); the zoom's fast redraw ends with the next draw"""
-    bb = app.view.ax3d.get_window_extent()
-    app.fig.canvas.callbacks.process("scroll_event", MouseEvent("scroll_event", app.fig.canvas, bb.x0 + bb.width / 2, bb.y0 + bb.height / 2, step=step))
-
-
 def mouse(app, kind, eta, button=1):
     """a mouse event at span position eta in the span panel (in display pixels, as the canvas delivers them)"""
     ax = app.view.ax_span
@@ -633,12 +627,10 @@ def test_wing_run_display_cut_and_modes(tk, monkeypatch, tmp_path):
     assert app.view.cut_index == k and app.fig.canvas.idle > idle
     mouse(app, "button_release_event", 0.2); mouse(app, "motion_notify_event", -0.9)
     assert app.view.cut_index == k                                             # released: no more dragging
-    app.view.ax3d.view_init(elev=11, azim=-33)
-    scroll(app, 2)                                                             # the wheel zooms (1.15 a notch); the view is turn and zoom
-    zoom = app.view.pose[2]
-    assert abs(zoom - 1.15 ** 2) < 1e-9 and app.view.pose[:2] == (11, -33)
+    app.view.ax3d.view_init(elev=11, azim=-33)                                 # the user turns the wing: the view is its elevation and azimuth
+    assert app.view.pose == (11, -33)
     app.surface.set("theta/c"); app.wing_option("surface", "theta/c")          # a display choice keeps the view and the cut
-    assert app.view.cut_index == k and app.view.pose == (11, -33, zoom) and app.view.surface == "theta/c"
+    assert app.view.cut_index == k and app.view.pose == (11, -33) and app.view.surface == "theta/c"
 
     with monkeypatch.context() as m:                                           # the modes keep their results: nothing is recomputed
         m.setattr(A.WG, "compute", lambda *a, **kw: pytest.fail("recomputed"))
@@ -647,10 +639,10 @@ def test_wing_run_display_cut_and_modes(tk, monkeypatch, tmp_path):
         assert app.save_btn["state"] == app.csv_btn["state"] == "disabled" and app.fig.texts[0].get_text() == A.HINTS["section"]
         app.wing.set(True); app.show()
     assert app.f3.mapped and not app.f2.mapped and app.save_btn["state"] == app.csv_btn["state"] == "normal"
-    assert app.view.cut_index == k and app.view.pose == (11, -33, zoom) and app.view.surface == "theta/c"
+    assert app.view.cut_index == k and app.view.pose == (11, -33) and app.view.surface == "theta/c"
     app.can.size = (1500, 800); app.on_configure(None)                         # a resize that flips the layout redraws in it, same cut and view
     app.root.after_calls[-1][1]()
-    assert app.layout in ("landscape", "square") and app.view.cut_index == k and app.view.pose == (11, -33, zoom)
+    assert app.layout in ("landscape", "square") and app.view.cut_index == k and app.view.pose == (11, -33)
 
     with monkeypatch.context() as m:                                           # Open cut in 2D is ignored while a wing runs
         m.setattr(app, "submit", lambda *a: pytest.fail("started"))

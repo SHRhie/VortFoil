@@ -9,9 +9,9 @@ view_airfoil (landscape, square, portrait); and the CSV export of every number, 
     view.set_cut(0.4)                                        moves the cut to the strip nearest 2y/b = 0.4 (artists only)
     export_csv(folder, res, parts=["summary", "polar"], cut_index=view.cut_index)
 
-Press and drag on the span panel to move the cut (not while the toolbar's pan or zoom tool is on). In the 3D panel, at true scale
-and filling its cell: drag to turn the wing, the wheel zooms (1.15 per notch, 0.5 to 8), a double click is back to the first view;
-mplot3d's right drag zooms and its middle drag moves. While the mouse is down only what moves is redrawn, on the figure as it was.
+Press and drag on the span panel to move the cut (not while the toolbar's pan or zoom tool is on). In the 3D panel, at true scale,
+filling its cell at the first view and inside it at every turn: drag to turn the wing, a double click is back to the first view.
+While the mouse is down only what moves is redrawn, on the figure as it was.
 The colour of every surface point is its strip's 2D section value at the strip's effective incidence (strip theory), not a 3D
 pressure solution. The numbers turn red when the lifting line found no solution (residual above NEWTON_TOL) or the SST state is far
 outside its decoder's Reynolds range.
@@ -34,11 +34,11 @@ CSV_PARTS = {"summary": ("summary", "the wing's numbers and warnings (one row)")
              "surface": ("surface", "the 3D surface points with every colour quantity"),
              "section_tables": ("section_tables", "each strip's 2D section c_l, c_d, c_m over its incidence table"),
              "cut": ("cut", "the raw values of the cut strip (surface pressure, boundary layer or wall values)")}
-LEG, WRAP, MAX_DRAWN = 1.0, 56, 64   # trailing legs in root chords; text line width; strips drawn
+WRAP, MAX_DRAWN = 56, 64             # text line width; strips drawn
 RECT, FILL, PAD = (0.012, 0.014, 0.976, 0.972), 0.9, 9   # layout rectangle (slack for the pads a zoom does not scale); share of its cell a text may fill; x tick pad (pt)
 NEWTON_TOL = 1e-6                     # a lifting-line residual above this is no solution (wing_nll warns at the same value): the numbers turn red
 VIEW = (34.0, 225.0)                 # elevation, azimuth (deg) of the first 3D view: the research viewer's 'oblique' (from upstream, above, the left wing nearer)
-ZOOM, ZSTEP, TURN, FIT3D = (0.5, 8.0), 1.15, 0.458, 0.9   # zoom range; zoom per wheel notch; deg turned per pixel dragged (the viewer's 0.008 rad); share of its cell the wing fills at VIEW
+TURN, FIT3D = 0.458, 0.9              # deg turned per pixel dragged (the viewer's 0.008 rad); share of its cell the wing fills at VIEW (at most, at any turn)
 UP, LO = "#b2182b", "#2166ac"         # upper and lower surface (as view_airfoil)
 
 # colour quantity: (label, CSV column, what it is)
@@ -120,7 +120,7 @@ def _quad_collection():
 class WingView:
     """The wing result in one figure (draw), with a draggable section cut (cut_index, cut_eta). res: wing_nll.compute's dict.
     options: surface (a SURFACE_QUANTITIES item of the result's state; C_p when it is not one), span, polar, cut_eta (2y/b,
-    the strip nearest to it) and view ((elevation, azimuth) in deg and the zoom of the 3D view: `pose`). on_cut(index, eta) is
+    the strip nearest to it) and view ((elevation, azimuth) in deg of the 3D view: `pose`). on_cut(index, eta) is
     called when a mouse drag moves the cut to another strip (not by set_cut). layout (a view_airfoil.DESIGNS key) may be set
     before draw()."""
 
@@ -133,20 +133,20 @@ class WingView:
         if o["surface"] not in SURFACE_QUANTITIES[res["state"]]:
             o["surface"] = "C_p"                                      # e.g. 'H' left over from the other state
         self.surface, self.span, self.polar = (self._check(k, o[k]) for k in ("surface", "span", "polar"))
-        self._pose = tuple(float(a) for a in (tuple(o.get("view") or VIEW) + (1.0,))[:3])      # (elevation, azimuth, zoom)
+        self._pose = tuple(float(a) for a in (o.get("view") or VIEW)[:2])      # (elevation, azimuth)
         self.cut_index = self._nearest(self._check("cut_eta", o["cut_eta"])); self.cut_eta = float(res["strips"]["eta"][self.cut_index])
-        self.ax3d = self.ax_span = self._turn = self._bg = self._timer = None
+        self.ax3d = self.ax_span = self._turn = self._bg = None
         self._drag, self._anim = False, ()
         cv = fig.canvas
         self._cids = [cv.mpl_connect(e, f) for e, f in (("button_press_event", self._press), ("motion_notify_event", self._motion),
-                                                         ("button_release_event", self._release), ("scroll_event", self._scroll))]
+                                                         ("button_release_event", self._release))]
         fig.wing_view = self
 
     @property
     def pose(self):
-        """the 3D view as it is now (the user turns and zooms it): (elevation, azimuth in deg, zoom); pass it as options['view'] to keep it"""
+        """the 3D view as it is now (the user turns it): (elevation, azimuth in deg); pass it as options['view'] to keep it"""
         ax = self.ax3d
-        return (ax.elev, ax.azim, np.ptp(self._lim0[0]) / np.ptp(ax.get_xlim())) if ax is not None else self._pose
+        return (ax.elev, ax.azim) if ax is not None else self._pose
 
     # ------------------------------------------------------------------ options and the cut
     def _check(self, key, value):
@@ -206,17 +206,13 @@ class WingView:
         return (self._vline, self._dot, *self._sec, self._poly, self._info, self._outline)
 
     # ------------------------------------------------------------------ the 3D view
-    def _set_zoom(self, z, keep=True):
-        """zoom z (1: the first view) about the centre of the limits, as mplot3d's own zoom does (keep=False: about the box's centre)"""
-        ax = self.ax3d
-        for set_, get, (a, b) in zip((ax.set_xlim, ax.set_ylim, ax.set_zlim), (ax.get_xlim, ax.get_ylim, ax.get_zlim), self._lim0):
-            c, h = (0.5 * sum(get()) if keep else 0.5 * (a + b)), 0.5 * (b - a) / z
-            set_(c - h, c + h)
-
     def reset_view(self):
-        """the first view: VIEW, zoom 1 (a double click in the 3D panel)"""
+        """the first view: VIEW and the first limits, where a toolbar tool moved them (a double click in the 3D panel)"""
         self._fast_off(False)
-        self.ax3d.view_init(elev=VIEW[0], azim=VIEW[1]); self._set_zoom(1.0, keep=False)
+        ax = self.ax3d
+        ax.view_init(elev=VIEW[0], azim=VIEW[1])
+        for set_, lim in zip((ax.set_xlim, ax.set_ylim, ax.set_zlim), self._lim0):
+            set_(*lim)
         self.fig.canvas.draw_idle()
 
     def _fast_on(self, anim, box):
@@ -264,15 +260,15 @@ class WingView:
         return tb is not None and str(getattr(tb, "mode", "")) != ""          # pan or zoom: the mouse is theirs
 
     def _press(self, ev):
-        if ev.button not in (1, 2, 3) or self.ax_span is None or self._moving_tools():
+        if ev.button != 1 or self.ax_span is None or self._moving_tools():
             return
-        if ev.inaxes is self.ax3d:                        # left: turn (here); middle and right: mplot3d's move and zoom
-            if ev.button == 1 and ev.dblclick:
+        if ev.inaxes is self.ax3d:                        # turn the wing (here); a double click: the first view
+            if ev.dblclick:
                 self.reset_view()
             else:
-                self._turn = (ev.x, ev.y, self.ax3d.elev, self.ax3d.azim, ev.button)
+                self._turn = (ev.x, ev.y, self.ax3d.elev, self.ax3d.azim)
                 self._fast_on((self.ax3d,), self.ax3d.bbox)           # ready before the first move: no delay at the start of a drag
-        elif ev.button == 1 and ev.inaxes is self.ax_span:
+        elif ev.inaxes is self.ax_span:
             self._drag = True
             self._motion(ev)
 
@@ -280,10 +276,9 @@ class WingView:
         if ev.x is None:
             return
         if self._turn:
-            x, y, elev, azim, button = self._turn
-            if button == 1:                               # TURN deg a pixel, like the research viewer; not over the poles
-                self.ax3d.view_init(elev=float(np.clip(elev - (ev.y - y) * TURN, -89.5, 89.5)), azim=azim - (ev.x - x) * TURN)
-                self.fig.canvas.draw_idle()
+            x, y, elev, azim = self._turn                 # TURN deg a pixel, like the research viewer; not over the poles
+            self.ax3d.view_init(elev=float(np.clip(elev - (ev.y - y) * TURN, -89.5, 89.5)), azim=azim - (ev.x - x) * TURN)
+            self.fig.canvas.draw_idle()
         elif self._drag:                                  # through the axes' transform: also outside the axes and after a window zoom
             self._cut(self.ax_span.transData.inverted().transform((ev.x, ev.y))[0], notify=True)
 
@@ -291,25 +286,9 @@ class WingView:
         self._drag = self._turn = None
         self._fast_off()
 
-    def _scroll(self, ev):
-        if self.ax3d is None or ev.inaxes is not self.ax3d or self._moving_tools():
-            return
-        n = float(np.clip(ev.step * (20 if abs(ev.step) < 1 else 1), -3, 3))   # Windows and X11 report +-1 a notch; macOS Tk its scroll units / 120 (6 a notch)
-        self._fast_on((self.ax3d,), self.ax3d.bbox)
-        self._set_zoom(float(np.clip(self.pose[2] * ZSTEP ** n, *ZOOM)))
-        cv = self.fig.canvas
-        cv.draw_idle()
-        if self._timer is None:                           # the whole figure again 150 ms after the last notch
-            self._timer = cv.new_timer(interval=150)
-            self._timer.single_shot = True
-            self._timer.add_callback(self._fast_off)
-        self._timer.stop(); self._timer.start()
-
     def disconnect(self):
         """Remove this view's mouse connections (before the figure is used for something else)."""
         self._fast_off(False)
-        if self._timer is not None:
-            self._timer.stop()
         for c in self._cids:
             self.fig.canvas.mpl_disconnect(c)
         self._cids, self._drag, self._turn = [], False, None
@@ -426,12 +405,11 @@ class WingView:
     def _wing3d(self, cell):
         from matplotlib import cm, ticker
         from mpl_toolkits.mplot3d import proj3d
-        from mpl_toolkits.mplot3d.art3d import Line3DCollection
-        S, t, w, q = self.res["surface"], self.res["trailing"], self.res["wing"], self.surface
+        S, w, q = self.res["surface"], self.res["wing"], self.surface
         ax = self.fig.add_subplot(cell, projection="3d")
         cmap, norm = self._look(q)
-        step = -(-w["n"] // MAX_DRAWN)         # ponytail: above MAX_DRAWN strips every step-th strip and leg is drawn (a redraw is ~0.3 s at 200)
-        rows, legs = np.unique(np.r_[np.arange(0, w["n"], step), w["n"] - 1]), np.unique(np.r_[np.arange(0, w["n"] + 1, step), w["n"]])
+        step = -(-w["n"] // MAX_DRAWN)         # ponytail: above MAX_DRAWN strips every step-th strip is drawn (a redraw is ~0.3 s at 200)
+        rows = np.unique(np.r_[np.arange(0, w["n"], step), w["n"] - 1])
         quads, vals = [], []
         for side in ("upper", "lower"):
             P, v = np.stack([S[side][c][rows] for c in "XYZ"], -1), S[side][q][rows]
@@ -441,19 +419,17 @@ class WingView:
         quads = np.concatenate(quads)
         fc = cmap(norm(np.ma.masked_invalid(np.concatenate(vals))))
         ax.add_collection3d(_quad_collection()(quads, facecolors=fc, edgecolors=fc, linewidths=0.2, rasterized=True))
-        leg, shed = LEG * w["c_root"], np.abs(t["strength"][legs])    # trailing legs from the trailing edge, width ~ shed circulation
-        segs = [np.array([[x, y, z], [x + leg, y, z]]) for x, y, z in zip(t["x_te"][legs], t["y"][legs], t["z_te"][legs])]
-        ax.add_collection3d(Line3DCollection(segs, colors="0.5", linewidths=0.2 + 1.6 * shed / max(shed.max(), 1e-12)))
         U, L = S["upper"], S["lower"]
-        z = np.r_[U["Z"].ravel(), L["Z"].ravel()]; x0, x1 = min(U["X"].min(), L["X"].min()), t["x_te"].max() + leg; b2 = 0.5 * w["b"]
-        ax.set_xlim(x0, x1); ax.set_ylim(-b2, b2); ax.set_zlim(z.min(), z.max())
-        ax.set_box_aspect((x1 - x0, 2 * b2, np.ptp(z))); ax.set_proj_type("ortho"); ax.set_axis_off()    # true scale: the box has the data's proportions
-        ax.mouse_init(rotate_btn=[])                                  # the left button turns the wing here (_motion); mplot3d keeps its middle (move) and right (zoom)
+        x, z = (np.r_[U[c].ravel(), L[c].ravel()] for c in "XZ"); b2 = 0.5 * w["b"]
+        ax.set_xlim(x.min(), x.max()); ax.set_ylim(-b2, b2); ax.set_zlim(z.min(), z.max())
+        ax.set_box_aspect((np.ptp(x), 2 * b2, np.ptp(z))); ax.set_proj_type("ortho"); ax.set_axis_off()    # true scale: the box has the data's proportions
+        ax.disable_mouse_rotation()                                   # the left button turns the wing here (_motion); mplot3d's own turn, move and zoom are off
         self._outline, = ax.plot(*self._loop3d(self.cut_index), color="k", lw=1.8, zorder=10)  # above the surface (collections sort below)
         # mplot3d draws in a square inside its cell, its window sized for the box's circumscribed sphere (any turn fits). Here the window
-        # is the cell's shape, centred on the wing at VIEW, as small as the wing fills FIT3D of its limiting dimension (circles stay circles)
+        # is the cell's shape, centred on the wing at VIEW, where the wing fills FIT3D of its limiting dimension; it grows only as far as
+        # a turn needs to keep the wing within FIT3D of it, and is never smaller (no zoom to bring a clipped wing back; circles stay circles)
         ax.view_init(elev=VIEW[0], azim=VIEW[1])
-        pts = np.concatenate([np.stack([a[c].ravel() for c in "XYZ"], -1) for a in (U, L)] + [np.c_[t["x_te"] + leg, t["y"], t["z_te"]]])
+        pts = np.concatenate([np.stack([a[c].ravel() for c in "XYZ"], -1) for a in (U, L)])
         px, py, _ = proj3d.proj_transform(pts[:, 0], pts[:, 1], pts[:, 2], ax.get_proj())
         cx, cy, ex, ey = (px.max() + px.min()) / 2, (py.max() + py.min()) / 2, np.ptp(px) / 2, np.ptp(py) / 2
 
@@ -464,11 +440,12 @@ class WingView:
             if cell_px.width <= 0 or cell_px.height <= 0:                 # a collapsed cell (a layout that failed): nothing to fit
                 return
             r = cell_px.width / cell_px.height
-            h = max(ey, ex / r, 1e-9) / FIT3D                         # half the window's height (projection units); its width is r times that
+            X, Y, _ = proj3d.proj_transform(pts[:, 0], pts[:, 1], pts[:, 2], ax.get_proj())      # the wing at the pose it has now
+            h = max(ey, ex / r, np.abs(Y - cy).max(), np.abs(X - cx).max() / r, 1e-9) / FIT3D   # half the window's height (projection units); its width is r times that
             ax.viewLim.intervalx, ax.viewLim.intervaly = (cx - r * h, cx + r * h), (cy - h, cy + h)
         ax.apply_aspect = fill_cell
         self.ax3d, self._lim0 = ax, (ax.get_xlim(), ax.get_ylim(), ax.get_zlim())
-        ax.view_init(elev=self._pose[0], azim=self._pose[1]); self._set_zoom(self._pose[2], keep=False)
+        ax.view_init(elev=self._pose[0], azim=self._pose[1])
         side = self.layout == "square"                                # in the wide, short cells the bar goes below the wing; beside it in the square layout
         cb = self.fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax, location="right" if side else "bottom", shrink=0.6, pad=0.02, aspect=25 if side else 40,
                                label=QUANT[q][0])
@@ -476,7 +453,7 @@ class WingView:
             tv = ticker.MaxNLocator(6).tick_values(*self._lim)
             cb.set_ticks(tv[(tv >= self._lim[0]) & (tv <= self._lim[1])])    # inside the range: a tick outside would widen the bar
             (cb.ax.yaxis if side else cb.ax.xaxis).set_major_formatter(ticker.FormatStrFormatter("%.3g"))
-        ax.set_title(f"{QUANT[q][0]} on the wing: drag to turn, wheel to zoom, double-click to reset", fontsize=10)
+        ax.set_title(f"{QUANT[q][0]} on the wing: drag to turn, double-click to reset", fontsize=10)
         return ax
 
     # ---- span, section, polar

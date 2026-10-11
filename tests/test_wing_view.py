@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The 3D wing's result window (code/view_wing.py): the three layouts at their design sizes with no overlapping or clipped
 text, every colour / span / polar option in both section states, the 3D panel (true scale, the first view, the wing filling its
-cell, turn / wheel zoom / double click by mouse, only what moves redrawn while the mouse is down), the draggable section cut
+cell and staying in it at every turn, turn / double click by mouse, only what moves redrawn while the mouse is down), the draggable section cut
 (synthetic mouse events, also after a window zoom), and the CSV export of all values or a chosen subset. No window is opened (Agg)."""
 import csv
 import itertools
@@ -208,21 +208,20 @@ def test_stale_surface_option_falls_back_to_cp(results):
 
 def test_set_option_keeps_the_view_and_the_cut(res):
     fig, view = make(res, options={"view": (12.0, -70.0), "cut_eta": -0.3})
-    assert tuple(round(a, 6) for a in view.pose) == (12, -70, 1)                            # a view of two numbers: no zoom
+    assert tuple(round(a, 6) for a in view.pose) == (12, -70)                               # a view of two numbers: elevation and azimuth
     view.ax3d.view_init(elev=50, azim=20)                      # the user turns the wing
-    view._set_zoom(2.5)                                        # and zooms it
-    assert tuple(round(a, 6) for a in view.pose) == (50, 20, 2.5)
-    assert tuple(round(a, 6) for a in make(res, options={"view": view.pose})[1].pose) == (50, 20, 2.5)      # a new view can keep both
+    assert tuple(round(a, 6) for a in view.pose) == (50, 20)
+    assert tuple(round(a, 6) for a in make(res, options={"view": view.pose})[1].pose) == (50, 20)          # a new view can keep it
     k = view.cut_index
     view.set_option("polar", "C_D vs C_L")
     view.set_option("surface", "C_p")
-    assert tuple(round(a, 6) for a in view.pose) == (50, 20, 2.5) and view.cut_index == k == nearest(res, -0.3)
+    assert tuple(round(a, 6) for a in view.pose) == (50, 20) and view.cut_index == k == nearest(res, -0.3)
     on_resize = VA.scale_with_window(fig)                       # as the application does: a zoomed, frozen figure is redrawn
     fig.set_size_inches(11, 5, forward=False)
     on_resize()
     view.layout = "portrait"                                    # a relayout draws the same view again
     view.draw()
-    assert tuple(fig.get_size_inches()) == VA.DESIGNS["portrait"] and tuple(round(a, 6) for a in view.pose) == (50, 20, 2.5)
+    assert tuple(fig.get_size_inches()) == VA.DESIGNS["portrait"] and tuple(round(a, 6) for a in view.pose) == (50, 20)
     assert text_problems(fig) == [] and "$" not in view._text.get_text().replace("\\$", "")
     view.layout = "tall"
     with pytest.raises(ValueError, match="layout"):
@@ -364,10 +363,9 @@ def project(view, pts):
 
 
 def wing_points(res):
-    """every point the wing view must show: both surfaces and the trailing legs' ends"""
-    S, t = res["surface"], res["trailing"]
-    leg = VW.LEG * res["wing"]["c_root"]
-    return np.concatenate([np.stack([a[c].ravel() for c in "XYZ"], -1) for a in (S["upper"], S["lower"])] + [np.c_[t["x_te"] + leg, t["y"], t["z_te"]]])
+    """every point the wing view must show: both surfaces"""
+    S = res["surface"]
+    return np.concatenate([np.stack([a[c].ravel() for c in "XYZ"], -1) for a in (S["upper"], S["lower"])])
 
 
 def centre3d(view):
@@ -390,7 +388,9 @@ def test_first_view_is_the_viewers_oblique_one_at_true_scale(res):
     from mpl_toolkits.mplot3d import proj3d
     fig, view = make(res)
     ax = view.ax3d
-    assert view.pose == (34.0, 225.0, 1.0) and VW.VIEW == (34.0, 225.0)
+    assert view.pose == (34.0, 225.0) and VW.VIEW == (34.0, 225.0)
+    assert len(ax.collections) == 1 and len(ax.lines) == 1                     # the surface and the cut's outline: no trailing lines
+    assert "double-click to reset" in ax.get_title() and "wheel" not in ax.get_title()     # the hint says what the panel does
     fig.canvas.draw()
     o, *axes = [proj3d.proj_transform(*(np.array([float(c)]) for c in p), ax.M)[:2] for p in ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1))]
     (xr, xu), (yr, yu), (zr, zu) = [(float(a[0][0] - o[0][0]), float(a[1][0] - o[1][0])) for a in axes]
@@ -398,7 +398,7 @@ def test_first_view_is_the_viewers_oblique_one_at_true_scale(res):
     box, lim = np.array(ax.get_box_aspect()), np.array([np.ptp(ax.get_xlim()), np.ptp(ax.get_ylim()), np.ptp(ax.get_zlim())])
     assert np.allclose(box / box[1], lim / lim[1], rtol=1e-6)                  # the box has the limits' proportions: equal scale in X, Y and Z
     P = wing_points(res)
-    for i, get in enumerate((ax.get_xlim, ax.get_ylim, ax.get_zlim)):          # and the limits hold every point of the wing and its legs
+    for i, get in enumerate((ax.get_xlim, ax.get_ylim, ax.get_zlim)):          # and the limits hold every point of the wing
         assert get()[0] <= P[:, i].min() + 1e-9 and P[:, i].max() <= get()[1] + 1e-9
 
 
@@ -424,61 +424,57 @@ def test_the_wing_fills_its_cell(res, layout):
     assert ax.get_position().bounds == ax.get_position(original=True).bounds
 
 
-def test_the_view_turns_zooms_and_starts_over_by_mouse(res):
-    """Left drag turns (0.458 deg a pixel, not over the poles, also when the pointer leaves the panel); the wheel zooms 1.15 a notch
-    between 0.5 and 8 (a fraction of a notch on macOS); a double click is back to the first view; mplot3d's right drag still zooms and
-    its middle drag moves; the span panel's cut is not moved by any of it."""
+@pytest.mark.parametrize("layout", list(VA.DESIGNS))
+def test_the_wing_stays_in_its_cell_at_every_turn(res, layout):
+    """There is no zoom, so the window follows the turn: at any elevation and azimuth the wing lies inside the cell (filling at most
+    90% of its limiting dimension, as at the first view) and the window is never smaller than the first view's (the wing keeps its
+    scale while turned and shrinks only where a turn would take it out of the cell)."""
+    fig, view = make(res, layout)
+    ax, P = view.ax3d, wing_points(res)
+    fig.canvas.draw()
+    h0 = np.ptp(ax.viewLim.intervaly)
+    for el, az in ((0, 180), (0, 270), (90, 270), (60, 225), (-34, 45)):         # along the chord, along the span, down on it, steep, from below
+        ax.view_init(elev=el, azim=az)
+        d, bb = project(view, P), ax.get_window_extent()
+        assert d[:, 0].min() >= bb.x0 - 1 and d[:, 0].max() <= bb.x1 + 1 and d[:, 1].min() >= bb.y0 - 1 and d[:, 1].max() <= bb.y1 + 1, (el, az)
+        assert max(np.ptp(d[:, 0]) / bb.width, np.ptp(d[:, 1]) / bb.height) < 0.91, (el, az)
+        assert np.ptp(ax.viewLim.intervaly) >= h0 * (1 - 1e-9), (el, az)
+
+
+def test_the_view_turns_and_starts_over_by_mouse(res):
+    """Left drag turns (0.458 deg a pixel, not over the poles, also when the pointer leaves the panel); a double click is back to the
+    first view, its limits too where a toolbar tool moved them; the wheel, the right drag and the middle drag do nothing (there is no
+    zoom or move); the span panel's cut is not moved by any of it."""
     fig, view = make(res)
     ax, k = view.ax3d, view.cut_index
-    e0, a0, _ = view.pose
+    e0, a0 = view.pose
+    first = lambda: all(np.allclose(get(), lim) for get, lim in zip((ax.get_xlim, ax.get_ylim, ax.get_zlim), view._lim0))
     x, y = turn(view, 100, 50)
-    assert view.pose[:2] == pytest.approx((e0 - 50 * VW.TURN, a0 - 100 * VW.TURN)) and view.pose[2] == 1.0
+    assert view.pose == pytest.approx((e0 - 50 * VW.TURN, a0 - 100 * VW.TURN))
     send(fig, "motion_notify_event", x - 3000, y + 5000)                          # far outside the panel: the turn goes on, not past the poles
-    assert view.pose[:2] == pytest.approx((-89.5, a0 + 3000 * VW.TURN))
+    assert view.pose == pytest.approx((-89.5, a0 + 3000 * VW.TURN))
     send(fig, "motion_notify_event", x, y - 9000)                                  # (the turn is from where the press was)
-    assert view.pose[:2] == pytest.approx((89.5, a0))
+    assert view.pose == pytest.approx((89.5, a0))
     send(fig, "button_release_event", x, y)
     assert "draw" not in vars(fig.canvas) and not ax.get_animated() and view.cut_index == k
     cx, cy = centre3d(view)
-    wheel = lambda step, at=(cx, cy): fig.canvas.callbacks.process("scroll_event", MouseEvent("scroll_event", fig.canvas, *at, step=step))
-    wheel(1); wheel(1)
-    assert view.pose[2] == pytest.approx(1.15 ** 2)
-    wheel(-1)
-    assert view.pose[2] == pytest.approx(1.15)
-    wheel(1 / 120)                                                                # macOS: Tk reports its scroll unit / 120: 6 units a notch
-    assert view.pose[2] == pytest.approx(1.15 * 1.15 ** (1 / 6))
-    wheel(100 / 120); assert view.pose[2] == pytest.approx(1.15 * 1.15 ** (1 / 6) * 1.15 ** 3)      # one event is at most 3 notches
-    wheel(-100 / 120)
-    for _ in range(30):
-        wheel(3)
-    assert view.pose[2] == pytest.approx(8.0)                                      # the limits: 8 and 0.5
-    for _ in range(30):
-        wheel(-3)
-    assert view.pose[2] == pytest.approx(0.5)
-    wheel(2, span_point(view, 0.0))                                               # over another panel: nothing
-    assert view.pose[2] == pytest.approx(0.5)
-    view._fast_off()
-    for a, (lo, hi) in zip((ax.get_xlim(), ax.get_ylim(), ax.get_zlim()), view._lim0):
-        assert np.ptp(a) == pytest.approx((hi - lo) / 0.5)                         # the limits hold the zoom: mplot3d's own zoom reads them
-    send(fig, "button_press_event", cx, cy, button=3)                              # mplot3d's right drag: down zooms in
-    send(fig, "motion_notify_event", cx, cy - 40, button=3)
-    z = view.pose[2]
-    send(fig, "button_release_event", cx, cy - 40, button=3)
-    assert z > 0.5 and view.pose[:2] == pytest.approx((89.5, a0))
-    c0 = [np.mean(v) for v in (ax.get_xlim(), ax.get_ylim(), ax.get_zlim())]
-    send(fig, "button_press_event", cx, cy, button=2)                              # the middle drag moves the view
-    send(fig, "motion_notify_event", cx + 30, cy + 10, button=2)
-    send(fig, "button_release_event", cx + 30, cy + 10, button=2)
-    assert not np.allclose(c0, [np.mean(v) for v in (ax.get_xlim(), ax.get_ylim(), ax.get_zlim())]) and view.pose[2] == pytest.approx(z)
+    fig.canvas.callbacks.process("scroll_event", MouseEvent("scroll_event", fig.canvas, cx, cy, step=3))     # the wheel: nothing
+    for button in (3, 2):                                                          # the right and the middle drag: nothing (mplot3d's zoom and move are off)
+        send(fig, "button_press_event", cx, cy, button=button)
+        assert "draw" not in vars(fig.canvas) and view._bg is None                # and they start no fast redraw
+        send(fig, "motion_notify_event", cx, cy - 40, button=button)
+        send(fig, "button_release_event", cx, cy - 40, button=button)
+        assert view.pose == pytest.approx((89.5, a0)) and first() and "draw" not in vars(fig.canvas)
+    ax.set_xlim(*(np.array(ax.get_xlim()) + 1.0))                                  # what the toolbar's pan tool does to the limits
+    assert not first()
     send(fig, "button_press_event", cx, cy, dblclick=True)                        # double click: the first view, centred again
-    assert view.pose == pytest.approx((34.0, 225.0, 1.0))
-    assert all(np.allclose(get(), lim) for get, lim in zip((ax.get_xlim, ax.get_ylim, ax.get_zlim), view._lim0))
+    assert view.pose == pytest.approx((34.0, 225.0)) and first()
     send(fig, "button_release_event", cx, cy)
     assert "draw" not in vars(fig.canvas) and view.cut_index == k
 
 
 def test_the_tools_of_the_toolbar_keep_the_mouse(res):
-    """While the toolbar's pan or zoom tool is on, a drag or the wheel over the 3D panel does not turn or zoom it (the tool's own)."""
+    """While the toolbar's pan or zoom tool is on, a drag over the 3D panel does not turn it (the tool's own)."""
     from matplotlib.backend_bases import NavigationToolbar2
     fig, view = make(res)
     tb = NavigationToolbar2(fig.canvas)
@@ -487,7 +483,6 @@ def test_the_tools_of_the_toolbar_keep_the_mouse(res):
         tool()
         x, y = turn(view, 80, 20)
         send(fig, "button_release_event", x, y)
-        fig.canvas.callbacks.process("scroll_event", MouseEvent("scroll_event", fig.canvas, x, y, step=2))
         assert view.pose == pose and "draw" not in vars(fig.canvas)
         tool()
     x, y = turn(view, 80, 20)
@@ -508,8 +503,8 @@ def whole_draw(view):
 
 
 def test_only_what_moves_is_redrawn_while_the_mouse_is_down(res):
-    """A turn or a zoom redraws only the 3D panel, a cut drag only the cut's artists, on the figure as it was: no other panel is drawn,
-    the frame is the whole draw's (the turn and the zoom to the pixel), and the release is one whole draw that puts it all back."""
+    """A turn redraws only the 3D panel, a cut drag only the cut's artists, on the figure as it was: no other panel is drawn,
+    the frame is the whole draw's (the turn to the pixel), and the release is one whole draw that puts it all back."""
     fig, view = make(res)
     cv, ax = fig.canvas, view.ax3d
     drawn = []
@@ -528,18 +523,6 @@ def test_only_what_moves_is_redrawn_while_the_mouse_is_down(res):
     send(fig, "button_release_event", x, y)
     assert "draw" not in vars(cv) and not ax.get_animated() and view._anim == () and view._bg is None
     assert drawn                                                                  # the release: one whole draw (every panel)
-    wheel = lambda step: cv.callbacks.process("scroll_event", MouseEvent("scroll_event", cv, x, y, step=step))
-    drawn.clear()
-    wheel(1)
-    assert drawn and ax.get_animated() and "draw" in vars(cv)                      # the first notch takes the background (a whole draw)
-    drawn.clear()
-    for step in (1, 1, -1):
-        wheel(step)
-        assert not drawn and np.array_equal(np.asarray(cv.buffer_rgba()), whole_draw(view))
-        drawn.clear()
-    assert view._timer is not None and ax.get_animated()                          # the whole figure comes back 150 ms after the last notch
-    view._timer.callbacks[0][0]()
-    assert not ax.get_animated() and "draw" not in vars(cv) and drawn
     # the cut drag: the cut's artists only; the frame differs from the whole draw only where the cut's lines cross the panels' frames
     cut = view._cut_artists()
     send(fig, "button_press_event", *span_point(view, 0.8))
@@ -589,10 +572,10 @@ def test_a_click_that_moves_nothing_redraws_nothing(res):
     assert "draw" in vars(fig.canvas) and view._anim == (view.ax3d,)                 # ready for the drag
     spied.clear()
     send(fig, "button_release_event", x, y)
-    assert not spied and "draw" not in vars(fig.canvas) and not view.ax3d.get_animated() and view.pose == (34.0, 225.0, 1.0)
+    assert not spied and "draw" not in vars(fig.canvas) and not view.ax3d.get_animated() and view.pose == (34.0, 225.0)
     send(fig, "button_press_event", x, y); send(fig, "button_release_event", x, y)      # a double click: the second press is the reset
     send(fig, "button_press_event", x, y, dblclick=True); send(fig, "button_release_event", x, y)
-    assert view.pose == pytest.approx((34.0, 225.0, 1.0)) and "draw" not in vars(fig.canvas)
+    assert view.pose == pytest.approx((34.0, 225.0)) and "draw" not in vars(fig.canvas)
 
 
 def test_a_rebuild_ends_a_fast_redraw(res):
@@ -600,7 +583,7 @@ def test_a_rebuild_ends_a_fast_redraw(res):
     x, y = turn(view, 20, 20)
     assert "draw" in vars(fig.canvas)
     view.set_option("polar", "C_D vs C_L")                                          # the figure is built anew: no cached background
-    assert "draw" not in vars(fig.canvas) and view._bg is None and view.pose[:2] == pytest.approx((34 - 20 * VW.TURN, 225 - 20 * VW.TURN))
+    assert "draw" not in vars(fig.canvas) and view._bg is None and view.pose == pytest.approx((34 - 20 * VW.TURN, 225 - 20 * VW.TURN))
 
 
 def test_the_vectorised_surface_equals_mplot3ds_own(results, monkeypatch):

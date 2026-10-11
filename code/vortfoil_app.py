@@ -25,7 +25,7 @@ and a section: a NACA designation, `current` (the Airfoil box's section, which t
 `uiuc:<name>` or a coordinate file; any size in metres, kinks at any station), a flow speed in m/s and an incidence. A
 nonlinear lifting line (code/wing_nll.py) carries the sections in one of two states: the surface model (XFOIL state, free
 transition) or the RANS field decoder (SST state, fully turbulent). The figure (code/view_wing.py) shows the wing in 3D at
-true scale (drag it to turn it, scroll to zoom, double-click to start over) coloured by C_p or another surface quantity, a
+true scale (drag it to turn it, double-click to start over) coloured by C_p or another surface quantity, a
 spanwise quantity with a section cut that you move by dragging, the section at that cut, the wing polar, the coefficients
 and every warning. Each mode keeps its last result: Run, Save figure and Export data (CSV) act on the mode that is on (the
 wing's export lets you tick the parts to write), and Open cut in 2D analyses the section at the cut as an airfoil.
@@ -112,7 +112,7 @@ HINTS = {"section": "Choose an airfoil, set the flow and press Run",
          "wing": "Choose a planform (Geometry ... edits it; one-section planforms use the Airfoil box's section),\n"
                  "set the speed and press Run. XFOIL state: surface model, free transition;\n"
                  "SST state: RANS field decoder, fully turbulent. Then drag in the spanwise plot to\n"
-                 "move the section cut; drag the wing to turn it, scroll to zoom, double-click to reset."}
+                 "move the section cut; drag the wing to turn it, double-click to reset."}
 GEOMETRY_TEXT = ("Each row is a spanwise station: the wing's shape at one position along the half-span, root (y = 0) first. "
                  "Between rows the chord, twist, sweep, dihedral and section change linearly.\n"
                  "Columns: y chord twist x z section. Lengths in m, twist in deg (nose up); x and z of the quarter chord give the "
@@ -520,7 +520,7 @@ class App:
         self.fit()
 
     def drop_view(self):
-        """The wing figure's mouse handling goes before its figure is reused; its view (turn and zoom) and cut are kept for the next one."""
+        """The wing figure's mouse handling goes before its figure is reused; its view (the turn) and cut are kept for the next one."""
         if self.view is not None:
             self.wopts["view"], self.wopts["cut_eta"] = self.view.pose, self.view.cut_eta
             self.view.disconnect(); self.view = None
