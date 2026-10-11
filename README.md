@@ -251,8 +251,8 @@ print(w["cl"], w["cd"], w["cd_pressure"], w["cd_friction"])
 ```
 
 `predict_field.py` prints them and stores them in its output (`wall_x`, `wall_y`, `wall_cp`, `wall_cf`, `wall_upper`). The
-viewer and the application draw this C_p dashed over the surface model's and list its lift and drag, and the CSV export adds
-`_wall.csv`.
+viewer and the application draw this C_p dashed over the surface model's and list its lift, drag and moment (the RANS state,
+below), and the CSV export adds `_wall.csv`.
 
 Against the RANS wall values of the 200 AirfRANS test cases, from the section coordinates alone
 (`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
@@ -266,20 +266,60 @@ Against the RANS wall values of the 200 AirfRANS test cases, from the section co
 These are SST-state values. The surface model's coefficients are XFOIL-state values, and the two are not compared in
 absolute terms.
 
+### Boundary layer in the RANS state
+
+`predict_field.boundary_layer()` reads the layer off the decoder's own flow. At every second node of the section from
+x/c = 0.01 to 0.99, on each surface, it samples the decoder's velocity and pressure along a wall-normal ray (0.1 chord
+long) and integrates the momentum thickness θ and the displacement thickness δ*, the shape factor H, the edge speed and the
+edge distance; C_f is the wall function's above. The edge is where the integral of the vorticity of the tangential speed
+saturates (a criterion that follows the layer; a threshold relative to the wall gradient follows the Reynolds number
+instead), and the speed is first divided by the inviscid speed that the field's own pressure gives, so that the curved flow
+ahead of the layer does not move the edge. A station where no layer is read is NaN, and a station whose near-wall flow runs
+against the outer flow is flagged `separated`. Against the same extraction applied to the RANS fields of the 200 AirfRANS
+test cases, from the section coordinates alone (`code/field/validate_field_boundary_layer.py`,
+`results/field_boundary_layer_validation.json`):
+
+- **Attached stations at x/c 0.1–0.95** (the bound set beforehand, a median relative error of at most 0.20 for θ and δ\*, is
+  met): the upper surface 3.6% (θ) and 3.8% (δ\*), the lower 6.4% and 5.8%; H 1.1%. The 90th percentiles are 19% and 19%
+  (upper) and 46% and 36% (lower).
+- **By case the lower surface varies:** its median error exceeds 20% in 31 of the 200 cases and 50% in 13; 21 of the 31 are
+  among the 66 cases from 8° on (9 of that range's 17 thin sections, t/c < 9%). The upper surface's exceeds 20% in 5 cases
+  and 50% in none.
+- **Trailing edge (x/c > 0.95):** 1–3%. **Leading edge (x/c < 0.1): not validated**, 10% on the upper surface and 48% on
+  the lower; the figure draws the layer from x/c = 0.1, and the CSV file carries the stations from 0.01.
+- **Separated stations are few:** 373 of the 38,421, in 32 cases, all on the upper surface; there θ and δ\* are within 2%
+  (median).
+
+The RANS state's boundary layer is a read-out of the decoder's field: it is as good as the field is near the wall, and
+outside the decoder's training range it is often not read at all.
+
 ### One window for one airfoil
 
 `code/view_airfoil.py` asks for an airfoil (a NACA 4- or 5-digit designation or a `.dat` file), an incidence and a
-Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame; on
-the right are the sheet's surface pressure, both surfaces' boundary-layer thicknesses, and the coefficients with every
-range warning. It needs matplotlib. Resizing the window zooms the whole figure; the layout stays as drawn. Arguments
-skip the questions, and `--save` also writes the figure:
+Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame (the RANS
+field decoder's); on the right are the surface pressure, both surfaces' boundary-layer thicknesses, the RANS state's
+wall-function C_f and the coefficients with every range warning, in two states:
+
+- **XFOIL state** (solid lines): the surface model, trained on XFOIL. The vortex sheet's C_p, its δ\* and θ, and C_l, C_d,
+  C_m, the circulation lift and the stagnation point. Training range −10° to 18°, Re 5×10⁴ to 10⁷.
+- **RANS state** (dashed C_p, dots for the boundary layer): the field decoder's own values, trained on AirfRANS k–ω SST
+  fields. The wall C_p, C_l, C_d with its pressure and friction parts, C_m about the quarter chord, the wall-function C_f,
+  and the boundary layer (δ\* filled, θ open dots) read from its flow, from x/c = 0.1 where it was checked (above).
+  Training range −5° to 15°, Re 2×10⁶ to 6×10⁶.
+
+Each state has its own range, and each warns about its own. Both are drawn by default; in the application the boxes
+**XFOIL state** and **RANS state** in the Flow box choose which are shown, redrawing without recomputing (one stays
+ticked). A state outside its training range is still computed, but it is drawn faded and labelled "outside training
+range", with its numbers pale; when it is the RANS state the four field panels fade too, and the legends, the status line
+and the title say so. It needs matplotlib. Resizing the window zooms the whole figure; the layout stays as drawn.
+Arguments skip the questions, and `--save` also writes the figure:
 
 ```bash
 python code/view_airfoil.py
 python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 ```
 
-![Viewer: NACA 2412 at 6 degrees, Re 3e6](docs/viewer_example.png)
+![Viewer: NACA 2412 at 6 degrees, Re 3e6, the XFOIL state and the RANS state](docs/viewer_example.png)
 
 ### Desktop application
 
@@ -289,7 +329,7 @@ python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 - a search of the UIUC Airfoil Coordinates Database. Its list and the section you choose are downloaded from the UIUC site and cached; VortFoil does not redistribute them;
 - your own coordinate file, for a section that is in no database.
 
-Then set the incidence, the Reynolds number and the field detail, press **Run**, **Save figure** at 400 dpi (png, pdf or svg), and **Export data (CSV)**: every number of the result, as CSV files with a text file explaining the columns. The files hold the coefficients, the surface C_p at 240 panels, both boundary layers at 121 stations, the field at every grid point (in units of U and c and in SI) and the section; `vortfoil view ... --csv DIR` writes the same. The application picks whichever of three layouts shows the figure largest:
+Then set the incidence, the Reynolds number and the field detail, press **Run**, **Save figure** at 400 dpi (png, pdf or svg), and **Export data (CSV)**: every number of the result, as CSV files with a text file explaining the columns. The files hold the coefficients (with the RANS state's lift, drag and moment and 1/0 for whether each state is inside its training range), the surface C_p at 240 panels, the surface model's boundary layers at 121 stations, the field at every grid point (in units of U and c and in SI), the RANS state's wall values and boundary layer (`_wall.csv`, `_boundary_layer_rans.csv`) and the section; `vortfoil view ... --csv DIR` writes the same. The application picks whichever of three layouts shows the figure largest:
 
 - side by side, for a wide window;
 - fields over a row of surface panels, for a window of ordinary proportions;

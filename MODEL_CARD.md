@@ -178,6 +178,13 @@ absolute terms.
   wall gradient (friction from that gradient is 2.3 times the RANS friction). On the 200 test cases, from coordinates alone,
   the wall C_p has a mean RMSE of 0.035 (0.014 over 5–95% of the chord), the lift R² 0.9993 against the RANS lift (mean
   relative error 0.029), and the drag a mean relative error of 0.14 (Spearman 0.81; friction part 0.045).
+- **Boundary layer in the RANS state:** `predict_field.boundary_layer()` reads θ, δ* and H off the decoder's flow along
+  wall-normal rays (every second node, x/c 0.01–0.99). Against the same extraction on the RANS fields of the 200 test cases,
+  from coordinates alone, the median relative error on attached stations at x/c 0.1–0.95 is 3.6% (θ) and 3.8% (δ*) on the upper
+  surface and 6.4% and 5.8% on the lower (the bound set beforehand, 0.20, is met); the lower surface's median exceeds 20% in 31
+  of the 200 cases, mostly from 8° on. The leading edge (x/c < 0.1) is not validated (10% upper, 48% lower). Separated stations
+  are few (373 of 38,421). The viewer draws it from x/c 0.1; outside the decoder's training range it is often not read at all
+  (`results/field_boundary_layer_validation.json`).
 - **Other airfoil families:** on ten UIUC sections computed with the AirfRANS protocol inside those ranges, its errors were
   1.5 to 80 times its NACA test level (26 times on average for u_x), largest near the wall. Only near-NACA shapes (RAE 2822,
   NACA 64₂-415, DU 84-132V) stayed within the test tail. The shape-code distance did not flag them, so every non-NACA input

@@ -13,8 +13,10 @@ Press and drag on the span panel to move the cut (not while the toolbar's pan or
 filling its cell at the first view and inside it at every turn: drag to turn the wing, a double click is back to the first view.
 While the mouse is down only what moves is redrawn, on the figure as it was.
 The colour of every surface point is its strip's 2D section value at the strip's effective incidence (strip theory), not a 3D
-pressure solution. The numbers turn red when the lifting line found no solution (residual above NEWTON_TOL) or the SST state is far
-outside its decoder's Reynolds range.
+pressure solution. The numbers turn red when the lifting line found no solution (residual above NEWTON_TOL) or the RANS state is far
+outside its decoder's Reynolds range. The polar runs over the state's training incidences (res["polar"]); its points outside the
+state's training range (res["polar"]["in_range"]: a strip's incidence or Re outside it, or a strip past stall) are drawn faded,
+dashed and hollow, and the numbers say so when the requested incidence is one of them.
 """
 import os, re, sys, csv, gc, textwrap, functools
 import numpy as np
@@ -43,12 +45,12 @@ UP, LO = "#b2182b", "#2166ac"         # upper and lower surface (as view_airfoil
 
 # colour quantity: (label, CSV column, what it is)
 QUANT = {"C_p": (r"$C_p$", "Cp", "pressure coefficient of the strip's section at its effective incidence (the sheet's in the XFOIL state, "
-                                 "the field decoder's wall pressure in the SST state)"),
+                                 "the field decoder's wall pressure in the RANS state)"),
          "theta/c": (r"$\theta/c$", "theta_over_c", "momentum thickness / chord of the strip's boundary layer (XFOIL state)"),
          "delta*/c": (r"$\delta^*/c$", "dstar_over_c", "displacement thickness / chord of the strip's boundary layer (XFOIL state)"),
          "H": (r"$H=\delta^*/\theta$", "H", "shape factor delta*/theta (nan where either thickness is <= 0, near the leading edge)"),
          "C_f": (r"$C_f$", "Cf", "skin friction coefficient from the decoder's wall function (> 0: the near-wall flow runs toward the "
-                                 "trailing edge; SST state)")}
+                                 "trailing edge; RANS state)")}
 # spanwise quantity: (strips key, axis label, legend label of the line, extra dashed lines [(key, legend label, colour, only in state)])
 SPAN = {"c_l": ("cl", r"$c_l$", None, []), "c*c_l/c_bar": ("cl_c_over_cbar", r"$c\,c_l/\bar c$", "loading", []),
         "alpha_eff": ("alpha_eff_deg", r"$\alpha_{eff}$ (deg)", "effective", [("alpha_geo_deg", "geometric", "0.45", None)]),
@@ -86,7 +88,7 @@ def _raw(res, q, k):
 
 
 def range_message(res):
-    """the sentence that says the SST state's numbers mean nothing here (more than half the strips outside the decoder's Reynolds range), else None"""
+    """the sentence that says the RANS state's numbers mean nothing here (more than half the strips outside the decoder's Reynolds range), else None"""
     return (res.get("sst_range") or {}).get("message")
 
 
@@ -322,7 +324,7 @@ class WingView:
         if res["newton"]["residual"] > NEWTON_TOL or range_message(res):
             self._text.set_color(UP)                                  # no lifting-line solution, or a decoder far outside its Reynolds range: not numbers to read
         name = short(res["wing"]["name"], 80).replace("$", r"\$")      # _fit below shrinks a long one to the figure's width
-        state = "SST state" if res["state"] == "sst" else "XFOIL state"
+        state = "RANS state" if res["state"] == "sst" else "XFOIL state"
         fig.suptitle(rf"VortFoil wing — {name},  $\alpha$ = {res['alpha']:.2f}$^\circ$,  V = {res['V']:g} m/s,  {state}" + "\n"
                      + "lifting line on VortFoil sections; colour: each strip's 2D section values; wind frame, true scale", fontsize=12)
         fig.draw_without_rendering()                                  # the layout, to fit the texts
@@ -330,7 +332,7 @@ class WingView:
             p = pol.get_position(); x = p.x1 + 0.02
             ax.set_position([x, RECT[1], RECT[0] + RECT[2] - x, p.y1 - RECT[1]])
         self._fit(fig._suptitle, fig)
-        self._fit(self._text, ax, keep_lines=14 + (5 if range_message(res) else 0), floor=6.0)    # 14: down to the coefficients and 'warnings:' (5: the lead sentence)
+        self._fit(self._text, ax, keep_lines=14 + (5 if range_message(res) else 0) + len(self._out_of_range()), floor=6.0)    # 14: down to the coefficients and 'warnings:' (5 or more: the lead sentence)
         self._fit(self._info, self._info.axes, self._widest())
         return fig
 
@@ -510,17 +512,40 @@ class WingView:
     def _polarplot(self, ax):
         p, c = self.res["polar"], self.res["coef"]
         xk, yk, xl, yl = POLAR[self.polar]
-        ax.plot(p[xk], p[yk], color=UP, lw=1.2)
-        ax.plot([self.res["alpha"] if xk == "alpha" else c[xk]], [c[yk]], "o", color="k", ms=5)
+        x, y = np.asarray(p[xk], float), np.asarray(p[yk], float)
+        ok = np.asarray(p.get("in_range", np.ones(len(x), bool)), bool)               # (a result of an older version has no flags)
+        ax.plot(np.where(ok, x, np.nan), np.where(ok, y, np.nan), color=UP, lw=1.2, zorder=3, label="inside the training range" if ok.any() and not ok.all() else None)
+        if not ok.all():                                              # points outside the state's training range: faded, dashed, hollow
+            ax.plot(x, y, "--", color=UP, lw=1.0, alpha=VA.FADE, zorder=2)
+            ax.plot(x[~ok], y[~ok], "o", ls="none", ms=4, color=UP, mfc="white", alpha=0.7, zorder=2)
+            ax.plot([], [], "--o", ms=4, color=UP, mfc="white", alpha=0.7, label="outside the training range")
+        inside = bool(c.get("in_range", True))
+        ax.plot([self.res["alpha"] if xk == "alpha" else c[xk]], [c[yk]], "o", color="k", ms=5, mfc="k" if inside else "white", zorder=4)
         ax.tick_params(axis="x", pad=PAD); ax.set_xlabel(xl); ax.set_ylabel(yl); ax.set_title("wing polar, dot: this incidence", fontsize=10)
+        if not ok.all():
+            ax.legend(fontsize=8, framealpha=0.9, edgecolor="0.8")
 
     # ---- numbers
+    def _out_of_range(self):
+        """the lines that say the requested incidence is outside the state's training range (a strip's incidence or Re outside it, or a
+        strip past stall), else []; none when the RANS state's lead sentence already says the Reynolds number is far outside"""
+        r = self.res
+        if r["coef"].get("in_range", True) or range_message(r):
+            return []
+        import predict_field as PF
+        if r["state"] == "xfoil":
+            from vortfoil.api import TRAIN_ALPHA_DEG as alpha, TRAIN_RE as Re
+        else:
+            alpha, Re = PF.FIELD_ALPHA, {os.path.basename(k): v for k, v in PF.FIELD_RE_OF.items()}.get(r["decoder"], PF.FIELD_RE)
+        return textwrap.fill(f"Outside the {'RANS' if r['state'] == 'sst' else 'XFOIL'} state's training range (strip incidence {alpha[0]:g} to "
+                             f"{alpha[1]:g} deg, Re {_e(Re[0])} to {_e(Re[1])}, no strip past stall): the numbers are extrapolated.", WRAP).split("\n")
+
     def _summary(self):
         r, w, c = self.res, self.res["wing"], self.res["coef"]
         sst, msg = r["state"] == "sst", range_message(r)
         L = ([textwrap.fill(msg, WRAP), ""] if msg else []) + [short(w["name"], WRAP),
-             "SST state (RANS field decoder, fully turbulent)" if sst else "XFOIL state (VortFoil surface model, free transition)",
-             f"V {r['V']:g} m/s, alpha {r['alpha']:.2f} deg (root chord)",
+             "RANS state (SST field decoder, fully turbulent)" if sst else "XFOIL state (VortFoil surface model, free transition)",
+             f"V {r['V']:g} m/s, alpha {r['alpha']:.2f} deg (root chord)"] + self._out_of_range() + [
              f"span {w['b']:.4g} m, S {w['S']:.4g} m^2, AR {w['AR']:.2f}",
              f"MAC {w['MAC']:.4g} m, taper {w['taper']:.3g}, {w['n']} strips",
              f"Re {_e(w['Re_root'])} (root), {_e(w['Re_tip'])} (tip)", "",
@@ -546,7 +571,7 @@ def _tables(res, k):
                     one("state", "section state: xfoil (VortFoil surface model) or sst (RANS field decoder)", st),
                     one("V_m_s", "freestream speed", res["V"]), one("alpha_deg", "incidence of the root chord", res["alpha"]),
                     one("nu_m2_s", "kinematic viscosity in Re = V c / nu", res["nu"]),
-                    one("decoder", "field decoder weights file (SST state; empty in the XFOIL state)", res["decoder"] or ""),
+                    one("decoder", "field decoder weights file (RANS state; empty in the XFOIL state)", res["decoder"] or ""),
                     one("n_strips", "number of strips", n), one("span_m", "span b", w["b"]),
                     one("S_m2", "planform area S = sum of c ds over the strips (along the dihedral)", w["S"]), one("AR", "aspect ratio b^2/S", w["AR"]),
                     one("MAC_m", "mean aerodynamic chord sum(c^2 ds)/S, the reference length of C_M", w["MAC"]),
@@ -558,14 +583,15 @@ def _tables(res, k):
                     one("CDi", "induced drag coefficient (Trefftz plane)", c["CDi"]),
                     one("CD0", "profile drag coefficient (the sections' c_d at their effective incidence)", c["CD0"])]
     if sst:
-        T["summary"] += [one("CD0_pressure", "pressure part of CD0 (SST state)", c["CD0_pressure"]), one("CD0_friction", "wall-function friction part of CD0 (SST state)", c["CD0_friction"])]
+        T["summary"] += [one("CD0_pressure", "pressure part of CD0 (RANS state)", c["CD0_pressure"]), one("CD0_friction", "wall-function friction part of CD0 (RANS state)", c["CD0_friction"])]
     T["summary"] += [one("CD", "total drag coefficient CDi + CD0", c["CD"]), one("L_over_D", "CL / CD", c["LD"]),
                      one("e", "span efficiency CL^2/(pi AR CDi); nan when CDi <= 0", c["e"]),
                      one("CM", "pitching moment coefficient about the root quarter chord, reference length MAC, nose up positive", c["CM"]),
                      one("strips_past_stall", "strips beyond their section's largest-c_l incidence", c["strips_past_stall"]),
+                     one("in_training_range", "1: every strip's incidence and Reynolds number at this incidence are inside the state's training range and no strip is past stall; 0: not (the numbers are extrapolated)", int(c.get("in_range", True))),
                      one("newton_iterations", "Newton steps of the lifting-line solution", res["newton"]["iterations"]),
                      one("newton_residual", "its residual, relative to the largest strip's lift", res["newton"]["residual"]),
-                     one("warnings", "range and convergence warnings, joined by ' | ' (the SST state's Reynolds-range sentence first)",
+                     one("warnings", "range and convergence warnings, joined by ' | ' (the RANS state's Reynolds-range sentence first)",
                          " | ".join(([range_message(res)] if range_message(res) else []) + res["warnings"]))]
     S0 = res["defn"]["stations"]
     T["stations"] = [("y_m", "spanwise position of the station on the right half (the left half mirrors it)", [t["y"] for t in S0]),
@@ -584,12 +610,14 @@ def _tables(res, k):
           ("cm", "section pitching moment about its quarter chord, nose up positive", s["cm"]),
           ("cl_c_over_cbar", "loading c c_l / c_bar, c_bar = S/b", s["cl_c_over_cbar"])]
     if sst:
-        sp += [("cd_pressure", "pressure part of cd (SST state)", s["cd_pressure"]), ("cd_friction", "wall-function friction part of cd (SST state)", s["cd_friction"])]
+        sp += [("cd_pressure", "pressure part of cd (RANS state)", s["cd_pressure"]), ("cd_friction", "wall-function friction part of cd (RANS state)", s["cd_friction"])]
     T["spanwise"] = sp + [("section", "the strip's section (blends between stations of different sections)", [sec["label"][i] for i in sec["index"]])]
     p = res["polar"]
     T["polar"] = [("alpha_deg", "incidence of the root chord", p["alpha"]), ("CL", "lift coefficient", p["CL"]), ("CDi", "induced drag coefficient", p["CDi"]),
                   ("CD0", "profile drag coefficient", p["CD0"]), ("CD", "total drag coefficient", p["CD"]), ("CM", "pitching moment about the root quarter chord (MAC), nose up positive", p["CM"]),
-                  ("L_over_D", "CL / CD", p["LD"]), ("e", "span efficiency", p["e"])]
+                  ("L_over_D", "CL / CD", p["LD"]), ("e", "span efficiency", p["e"]),
+                  ("in_training_range", "1: every strip's incidence and Reynolds number at this point are inside the state's training range and no strip is past stall; 0: not (extrapolated; the figure draws these points hollow)",
+                   np.asarray(p.get("in_range", np.ones(len(p["alpha"]), bool)), int))]
     U, L = res["surface"]["upper"], res["surface"]["lower"]
     m = len(res["surface"]["x_c"])
     qs = [q for q in U if q not in "XYZ"]
@@ -657,7 +685,7 @@ def export_csv(folder, res, parts=None, cut_index=None, name=None):
             wr.writerow([c[0] for c in T[part]])
             wr.writerows(zip(*[[_fmt(v) for v in c[2]] for c in T[part]]))
     s, w, sst = res["strips"], res["wing"], res["state"] == "sst"
-    txt = [f"VortFoil wing result: {name}, incidence {res['alpha']:g} deg of the root chord, speed {res['V']:g} m/s, " + ("SST state." if sst else "XFOIL state."),
+    txt = [f"VortFoil wing result: {name}, incidence {res['alpha']:g} deg of the root chord, speed {res['V']:g} m/s, " + ("RANS state." if sst else "XFOIL state."),
            "Sections: " + ("the RANS field decoder's wall values (trained on AirfRANS k-omega SST, fully turbulent): c_l and c_d from the wall pressure "
                            "and wall-function friction, c_m from the same wall data; the section tables may be interpolated in log10(Re) between tables "
                            "on a fixed Reynolds-number grid." if sst else

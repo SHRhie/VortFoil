@@ -76,7 +76,7 @@ def test_pick_wing(tmp_path):
 
 
 def test_resolve_sections():
-    """'current' becomes its NACA designation (the SST state knows those) or goes in as coordinates; 'uiuc:' is fetched once per name."""
+    """'current' becomes its NACA designation (the RANS state knows those) or goes in as coordinates; 'uiuc:' is fetched once per name."""
     loop, loaded = np.array([[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]]), []
     st = A.parse_stations("0 1 0 0 0 current\n1 1 0 0 0 uiuc:e387\n2 1 0 0 0 uiuc:e387\n3 1 0 0 0 4412")
     d = dict(WG.PRESETS[FULL], stations=st)
@@ -104,23 +104,29 @@ def test_wing_names_and_summary():
                coef=dict(CL=0.7234, CD=0.031234, CM=-0.0549), strips=dict(Re=np.array([6e6, 4e6, 2e6])), sst_range=dict(message=None))
     assert A.wing_base(res) == "vortfoil_wing_Kinked_wing_4415_to_2412_dihedral_a6_V60_sst"
     s = A.wing_summary(res, 18.84)
-    assert s == ("Kinked wing (4415 to 2412, dihedral), 6 deg, 60 m/s (SST state): C_L 0.723, C_D 0.0312, C_M -0.055, done in 18.8 s; "
+    assert s == ("Kinked wing (4415 to 2412, dihedral), 6 deg, 60 m/s (RANS state): C_L 0.723, C_D 0.0312, C_M -0.055, done in 18.8 s; "
                  "2 warning(s), listed in the figure.")                                   # no sentence on dragging: the figure's titles say it
     assert A.wing_summary(dict(res, warnings=[], state="xfoil"), 1.0).endswith("done in 1.0 s; no range warnings.")
+    out = A.wing_summary(dict(res, coef=dict(res["coef"], in_range=False)), 2.0)                  # the requested incidence is outside the state's training range
+    assert out.endswith("done in 2.0 s; 2 warning(s), listed in the figure. This incidence is outside the RANS state's training range: the numbers are extrapolated.")
+    assert A.wing_summary(dict(res, state="xfoil", coef=dict(res["coef"], in_range=False)), 2.0).endswith("outside the XFOIL state's training range: the numbers are extrapolated.")
+    assert "outside the" not in A.wing_summary(dict(res, coef=dict(res["coef"], in_range=True)), 2.0).split("done in")[1]
+    far = A.wing_summary(dict(res, coef=dict(res["coef"], in_range=False), sst_range=dict(message="RANS state outside the field decoder's Reynolds range")), 2.0)
+    assert far.startswith("RANS state outside the field decoder's Reynolds range. ") and "training range: the numbers are extrapolated" not in far   # its lead sentence says it
     assert A.naca_code("NACA 23012", "naca") == "23012" and A.naca_code("NACA 2412", None) is None and A.naca_code("clarky", "naca") is None
     assert A.wing_base(dict(res, wing=dict(name="직사각형 날개"))) == "vortfoil_wing_직사각형_날개_a6_V60_sst"      # a name in any script stays one
     assert A.wing_base(dict(res, wing=dict(name="테이퍼 날개"))) != A.wing_base(dict(res, wing=dict(name="직사각형 날개")))
 
 
 def test_the_summary_leads_with_what_makes_the_numbers_meaningless():
-    """The SST state far outside its decoder's Reynolds range, the XFOIL state far outside the surface model's, a result that is not
+    """The RANS state far outside its decoder's Reynolds range, the XFOIL state far outside the surface model's, a result that is not
     finite: the status line says so first; the run itself still ends as a result."""
     res = dict(wing=dict(name="Model wing"), alpha=6.0, V=20.0, state="sst", warnings=[], coef=dict(CL=-3.767, CD=2.0011, CM=3.157),
                strips=dict(Re=np.full(40, 3e5)))
-    lead = ("SST state outside the field decoder's Reynolds range (2e6-6e6) on 40 of 40 strips: the SST numbers are not meaningful here; "
+    lead = ("RANS state outside the field decoder's Reynolds range (2e6-6e6) on 40 of 40 strips: the RANS-state numbers are not meaningful here; "
             "use the XFOIL state")
     s = A.wing_summary(dict(res, sst_range=dict(message=lead)), 19.8)
-    assert s == lead + ". Model wing, 6 deg, 20 m/s (SST state): C_L -3.767, C_D 2.0011, C_M 3.157, done in 19.8 s; no range warnings."
+    assert s == lead + ". Model wing, 6 deg, 20 m/s (RANS state): C_L -3.767, C_D 2.0011, C_M 3.157, done in 19.8 s; no range warnings."
     x = A.wing_summary(dict(res, state="xfoil", strips=dict(Re=np.r_[np.full(21, 1e4), np.full(19, 3e6)])), 1.0)
     assert x.startswith("Reynolds number outside the surface model's range (5e4-1e7) on 21 of 40 strips: the numbers are not meaningful here. Model wing, ")
     assert A.wing_summary(dict(res, state="xfoil", strips=dict(Re=np.r_[np.full(20, 1e4), np.full(20, 3e6)])), 1.0).startswith("Model wing, ")   # half is not more than half
@@ -437,8 +443,8 @@ def texts(top):
     return {w.kw["text"]: w for w in top.walk() if "text" in w.kw}
 
 
-RELEASED_FLOW = {"Incidence (deg)", "Reynolds number", "Field detail",
-                 "Trained on: surface -10 to 18 deg, Re 5e4 to 1e7; field -5 to 15 deg, Re 2e6 to 6e6. Outside, the figure lists warnings."}
+FLOW_2D = {"Incidence (deg)", "Reynolds number", "Field detail", "Show", "XFOIL state", "RANS state",
+           "Trained on: XFOIL state -10 to 18 deg, Re 5e4 to 1e7; RANS state -5 to 15 deg, Re 2e6 to 6e6. Outside, drawn faded."}
 REXT = "Re-extended field decoder (experimental; NACA sections; field Re 1e6 to 1e7)"
 CREDIT = "UIUC coordinates: M. S. Selig, UIUC Applied Aerodynamics Group, downloaded from its site."
 
@@ -453,7 +459,12 @@ def test_window_builds_in_both_layouts(tk):
         # 3D off: the released window
         assert app.mode() == "section" and app.f2.mapped and not app.f3.mapped and app.f2.master is app.f3.master is app.flow
         assert app.f2.cell == app.f3.cell == dict(row=0, column=0, sticky="ew") and t["Flow"] is app.flow
-        assert set(texts(app.f2)) == RELEASED_FLOW | ({REXT} if app.rext_path else set())
+        assert set(texts(app.f2)) == FLOW_2D | ({REXT} if app.rext_path else set())
+        t2 = texts(app.f2)                                                    # the state boxes sit in the free third column of the first rows: no new row
+        assert t2["Show"].cell == dict(row=0, column=2, sticky="w", padx=(10, 0)) and isinstance(t2["XFOIL state"], Checkbutton)
+        assert t2["XFOIL state"].cell == dict(row=1, column=2, sticky="w", padx=(10, 0)) and t2["RANS state"].cell == dict(row=2, column=2, sticky="w", padx=(10, 0))
+        assert t2["XFOIL state"].kw["variable"] is app.show_x and t2["RANS state"].kw["variable"] is app.show_r and app.states() == ("xfoil", "rans")
+        assert app.show_x.get() is True and app.show_r.get() is True and t2["XFOIL state"].master is app.f2 is t2["Show"].master
         assert isinstance(t["3D wing"], Checkbutton) and t["3D wing"].master is t["Section"] is app.pname.master and app.chk is t["3D wing"]
         assert app.chk.kw["variable"] is app.wing and app.chk.kw["command"] == app.show and app.wing.get() is False and app.chk["state"] == "normal"
         assert app.lst.kw["height"] == (9 if tall else 14) and app.status.kw["wraplength"] == t[CREDIT].kw["wraplength"] == app.pname.kw["wraplength"] == 340
@@ -472,7 +483,7 @@ def test_window_builds_in_both_layouts(tk):
         # 3D on: the wing rows in the Flow box's cell, the table in its own window
         app.wing.set(True); app.show()
         assert app.mode() == "wing" and app.f3.mapped and not app.f2.mapped and app.flow.cell == cells[app.flow]
-        assert set(texts(app.f3)) == {"Planform", "Geometry ...", "Speed (m/s)", "Incidence (deg)", "Section model", "XFOIL state", "SST state",
+        assert set(texts(app.f3)) == {"Planform", "Geometry ...", "Speed (m/s)", "Incidence (deg)", "Section model", "XFOIL state", "RANS state",
                                       "Surface", "Spanwise", "Polar", "Open cut in 2D", "3D view"}
         assert set(texts(app.stw)) == {A.GEOMETRY_TEXT, "Scale x", "Strips", "Load ...", "Save ...", "Close"} and app.stw.name == "Wing geometry"
         assert A.GEOMETRY_TEXT.startswith("Each row is a spanwise station: the wing's shape at one position along the half-span, root (y = 0) first. "
@@ -805,7 +816,7 @@ def test_run_wing_hands_the_worker_what_it_needs(tk, monkeypatch):
 
 
 def test_progress_and_cancel(tk, monkeypatch):
-    """The SST state's bar is determinate and follows compute's progress (queued from the worker); Run reads Cancel, and Cancel stops
+    """The RANS state's bar is determinate and follows compute's progress (queued from the worker); Run reads Cancel, and Cancel stops
     the run at the next tick and keeps the last result; the XFOIL state's bar is the running kind."""
     app, root = tk()
     settle(app, lambda: app.section is not None)
@@ -824,7 +835,7 @@ def test_progress_and_cancel(tk, monkeypatch):
     assert app.bar["mode"] == "determinate" and not app.bar.running and app.run_btn["text"] == "Cancel" and app.run_btn["state"] == "normal"
     settle(app, lambda: "tables 1 of 4" in app.status.kw["text"])
     assert app.bar["value"] == 25
-    assert app.status.kw["text"] == "Computing Full-scale wing (span 10 m), NACA 2412 (SST state) at 6 deg, 45 m/s ... tables 1 of 4"
+    assert app.status.kw["text"] == "Computing Full-scale wing (span 10 m), NACA 2412 (RANS state) at 6 deg, 45 m/s ... tables 1 of 4"
     app.run_btn.kw["command"]()                                                # the second click of a double click on Run: too early, ignored
     assert not app.cancel.is_set()
     app.started -= 1
@@ -852,7 +863,7 @@ def test_2d_keeps_working(tk, tmp_path, monkeypatch):
     assert app.run_btn["state"] == app.chk["state"] == "disabled" and app.run_btn["text"] == "Run"
     assert app.status.kw["text"].startswith("Computing NACA 2412 at 4 deg, Re 3e+06 ...")
     settle(app, lambda: app.last is not None)
-    assert app.run_btn["state"] == app.chk["state"] == "normal" and len(app.fig.axes) == 11 and app.layout == "portrait"
+    assert app.run_btn["state"] == app.chk["state"] == "normal" and len(app.fig.axes) == 12 and app.layout == "portrait"
     assert app.status.kw["text"].startswith("NACA 2412, 4 deg, Re 3e+06: done in ") and app.status.kw["text"].endswith("; inside both training domains.")
     assert app.save_btn["state"] == app.csv_btn["state"] == "normal" and app.cut_btn["state"] == "disabled"
     with monkeypatch.context() as m:
@@ -860,7 +871,7 @@ def test_2d_keeps_working(tk, tmp_path, monkeypatch):
         app.wing.set(True); app.show()
         assert app.fig.texts[0].get_text() == A.HINTS["wing"] and not app.fig.axes and app.save_btn["state"] == app.csv_btn["state"] == "disabled"
         app.wing.set(False); app.show()
-        assert len(app.fig.axes) == 11 and app.save_btn["state"] == app.csv_btn["state"] == "normal"
+        assert len(app.fig.axes) == 12 and app.save_btn["state"] == app.csv_btn["state"] == "normal"
     saved = []
     monkeypatch.setattr(tk.fd, "asksaveasfilename", lambda **kw: saved.append(kw) or "")
     app.save()
@@ -869,8 +880,65 @@ def test_2d_keeps_working(tk, tmp_path, monkeypatch):
     app.export()
     settle(app, lambda: app.status.kw["text"].startswith("Wrote"))
     assert set(os.listdir(tmp_path / "csv2d")) == {f"vortfoil_NACA_2412_a4_Re3e+06_{s}" for s in (
-        "about.txt", "boundary_layer.csv", "coefficients.csv", "field.csv", "section.csv", "surface.csv", "wall.csv")}
-    assert len(os.listdir(tmp_path / "csv2d")) == 7 and app.csv_btn["state"] == "normal"
+        "about.txt", "boundary_layer.csv", "boundary_layer_rans.csv", "coefficients.csv", "field.csv", "section.csv", "surface.csv", "wall.csv")}
+    assert len(os.listdir(tmp_path / "csv2d")) == 8 and app.csv_btn["state"] == "normal"
+
+
+def test_state_boxes_choose_the_states_of_the_2d_figure(tk, monkeypatch):
+    """The XFOIL state and RANS state boxes (both ticked at first) choose the states the surface panels, the boundary layer and the
+    coefficients show: ticking or unticking redraws the figure from the last result without recomputing, the last tick cannot be taken
+    off (it says so), a new run keeps the choice, and with no result yet nothing is drawn."""
+    app, root = tk()
+    settle(app, lambda: app.section is not None)
+    boxes = {w.kw["text"]: w for w in app.f2.walk() if isinstance(w, Checkbutton)}
+    legend = lambda: [t.get_text() for t in app.fig.axes[8].get_legend().get_texts()]
+    app.show_r.set(False); boxes["RANS state"].kw["command"]()                  # no result yet: the hint stays
+    assert app.fig.texts[0].get_text() == A.HINTS["section"] and not app.fig.axes and app.states() == ("xfoil",)
+    app.show_r.set(True); boxes["RANS state"].kw["command"]()
+    app.run(); settle(app, lambda: app.last is not None)
+    assert app.states() == ("xfoil", "rans") and len(app.fig.axes) == 12 and legend() == ["XFOIL state", "RANS state"]
+    last = app.last
+    with monkeypatch.context() as m:
+        m.setattr(A.V, "compute", lambda *a: pytest.fail("recomputed"))
+        app.show_r.set(False); boxes["RANS state"].kw["command"]()
+        assert app.states() == ("xfoil",) and len(app.fig.axes) == 11 and legend() == ["XFOIL state"] and app.layout == "portrait"
+        assert "RANS state" not in "".join(t.get_text() for t in app.fig.axes[-1].texts)
+        app.show_r.set(True); app.show_x.set(False); boxes["XFOIL state"].kw["command"]()
+        assert app.states() == ("rans",) and len(app.fig.axes) == 12 and legend() == ["RANS state"]
+        assert "XFOIL" not in "".join(t.get_text() for t in app.fig.axes[-1].texts) and app.last is last
+        app.show_r.set(False); boxes["RANS state"].kw["command"]()              # the last tick: ticked again, with a word
+        assert app.show_r.get() is True and app.states() == ("rans",) and app.status.kw["text"] == "At least one state stays ticked."
+        assert legend() == ["RANS state"]
+        app.show_x.set(True); boxes["XFOIL state"].kw["command"]()
+        assert app.states() == ("xfoil", "rans") and len(app.fig.axes) == 12
+        app.wing.set(True); app.show()                                         # the 3D mode: the boxes are not its
+        app.show_x.set(False); boxes["XFOIL state"].kw["command"]()
+        assert app.mode() == "wing" and app.fig.texts[0].get_text() == A.HINTS["wing"] and not app.fig.axes
+        app.wing.set(False); app.show()
+        assert app.states() == ("rans",) and legend() == ["RANS state"]
+    app.run(); settle(app, lambda: app.last is not last)                      # a new run keeps the choice
+    assert app.states() == ("rans",) and legend() == ["RANS state"] and len(app.fig.axes) == 12
+
+
+def test_a_state_outside_its_training_range_is_drawn_faded_and_the_status_says_so(tk):
+    """17 deg is inside the surface model's training range and outside the field decoder's: the RANS state is drawn faded and the status
+    line says it; 20 deg is outside both; a case inside both says nothing of it."""
+    import view_airfoil as V
+    app, root = tk()
+    settle(app, lambda: app.section is not None)
+    status = lambda: app.status.kw["text"]
+    legend = lambda: [t.get_text() for t in app.fig.axes[8].get_legend().get_texts()]
+    for alpha, said, labels in (("17", " The RANS state is outside its training range: drawn faded.", ["XFOIL state", "RANS state (outside training range)"]),
+                                ("20", " The XFOIL state and the RANS state are outside their training range: drawn faded.",
+                                 ["XFOIL state (outside training range)", "RANS state (outside training range)"]),
+                                ("4", "", ["XFOIL state", "RANS state"])):
+        app.alpha.set(alpha); app.last = None
+        app.run(); settle(app, lambda: app.last is not None)
+        assert legend() == labels and (said in status() if said else status().endswith("; inside both training domains."))
+        if said:
+            assert "drawn faded." in status() and (status().endswith(said) or "listed in the figure." in status())
+            assert {ln.get_alpha() for ln in app.fig.axes[8].lines[3:5]} == {V.FADE}
+    assert status().startswith("NACA 2412, 4 deg, Re 3e+06: done in ")
 
 
 def test_selftest_runs_a_wing(tk, tmp_path, capsys, monkeypatch):
@@ -986,7 +1054,7 @@ def test_wing_files_load_and_save(tk, tmp_path, monkeypatch):
 
 
 def test_sst_state_through_the_app(tk, tmp_path, monkeypatch):
-    """The SST state end to end (a coarse incidence grid and a scratch table cache): the determinate bar follows compute's
+    """The RANS state end to end (a coarse incidence grid and a scratch table cache): the determinate bar follows compute's
     progress, the Surface choices become the state's, a leftover XFOIL-only choice falls back to C_p, and the SST figure draws."""
     monkeypatch.setattr(WG, "TABLE_S", np.arange(-8.0, 16.001, 4.0))
     monkeypatch.setattr(WG, "CACHE", str(tmp_path / "tables"))
@@ -1005,8 +1073,8 @@ def test_sst_state_through_the_app(tk, tmp_path, monkeypatch):
     res = app.wres
     assert res["state"] == "sst" and app.surface_box.kw["values"] == ["C_p", "C_f"] and app.surface.get() == "C_p" and app.view.surface == "C_p"
     assert bars[-1] == 100 and all(b >= a for a, b in zip(bars, bars[1:])) and len(bars) > 5 and app.bar["value"] == 0
-    lead = "SST state outside the field decoder's Reynolds range (2e6-6e6) on 8 of 8 strips: the SST numbers are not meaningful here; use the XFOIL state. "
-    assert app.status.kw["text"].startswith(lead + "Small test wing, 5 deg, 30 m/s (SST state): C_L 0.")      # Re 1.2e6 to 2e6: far outside, it says so first
+    lead = "RANS state outside the field decoder's Reynolds range (2e6-6e6) on 8 of 8 strips: the RANS-state numbers are not meaningful here; use the XFOIL state. "
+    assert app.status.kw["text"].startswith(lead + "Small test wing, 5 deg, 30 m/s (RANS state): C_L 0.")      # Re 1.2e6 to 2e6: far outside, it says so first
     assert res["sst_range"]["below"] == 8 and app.status.kw["text"].endswith("done in " + app.status.kw["text"].split("done in ")[1])
     app.surface.set("C_f"); app.wing_option("surface", "C_f")
     assert app.view.surface == "C_f" and app.wopts["surface"] == "C_f" and np.allclose(app.fig.get_size_inches(), (10, 12.5))
@@ -1023,7 +1091,7 @@ def test_selftest_runs_a_section_as_before(tk, tmp_path, capsys):
     app.finish_selftest()
     text = capsys.readouterr().out
     assert f"SELFTEST OK Saved {out / 'app_figure.png'}" in text and "layout portrait" in text and app.exit_code == 0
-    assert {"app_canvas.png", "app_figure.png", "csv"} == set(os.listdir(out)) and len(os.listdir(out / "csv")) == 7
+    assert {"app_canvas.png", "app_figure.png", "csv"} == set(os.listdir(out)) and len(os.listdir(out / "csv")) == 8
 
 
 # ------------------------------------------------------------------------------------------------ the section at the cut, files, odd numbers
@@ -1086,7 +1154,7 @@ def test_a_2d_figure_after_a_wing_figure_is_a_fresh_one(tk):
     small_wing(app); app.run_wing(); settle(app, lambda: app.wres is not None)
     assert app.view is not None and any(a.name == "3d" for a in app.fig.axes)
     app.wing.set(False); app.show()                                            # back to the 2D figure in the same Figure
-    assert app.view is None and not any(a.name == "3d" for a in app.fig.axes) and len(app.fig.axes) == 11
+    assert app.view is None and not any(a.name == "3d" for a in app.fig.axes) and len(app.fig.axes) == 12
     assert app.fig.wing_view._cids == [] and "draw" not in vars(app.fig.canvas)                      # no wing handler left on the canvas
     app.fig.canvas.draw()
     shown = np.asarray(app.fig.canvas.buffer_rgba()).copy()

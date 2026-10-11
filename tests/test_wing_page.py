@@ -134,7 +134,7 @@ def test_page_renders_without_a_flow_field_and_with_a_state(tmp_path):
     rec["cases"][0].update(CM=-0.0512, CD=0.0183, LD=28.0, CD0_pressure=0.003, CD0_friction=0.0052)
     dom = dump(fill(rec, None, str(tmp_path / "none.html")))
     assert re.search(r'data-view="(ready|no-webgl)"', dom)
-    assert 'class="v">−0.0512<' in dom and "C<sub>D,0</sub> pressure" in dom and "SST state" in dom
+    assert 'class="v">−0.0512<' in dom and "C<sub>D,0</sub> pressure" in dom and "RANS state" in dom
     assert re.search(r'id="opt-stream"[^>]*disabled', dom) and re.search(r'id="opt-sheet"[^>]*disabled', dom) and re.search(r'id="tog-planes"[^>]*hidden', dom)
 
 

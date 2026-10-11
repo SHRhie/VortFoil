@@ -12,19 +12,21 @@ The airfoil comes from one of three places:
            from the site when needed and cached on this computer; VortFoil does not redistribute them
            (DATA_LICENSES.md);
   file     any coordinate file (Selig or Lednicer .dat), for a section that is in no public database.
-Export data (CSV) writes every number of the result (coefficients, surface C_p, boundary layer, the field at every grid
-point, the section) as CSV files with a text file that explains their columns. The result is the figure of
-code/view_airfoil.py: the field of the decoder trained on AirfRANS (wind frame) and the
-surface results of the vortfoil package, with every range warning, side by side in a wide window and stacked in a
-tall one. Resizing the window zooms the figure, and Save figure writes it at 400 dpi (png, pdf or svg). It needs
-matplotlib and Tk (part of most Python installs).
+Export data (CSV) writes every number of the result (coefficients, surface C_p, the boundary layers, the field at every
+grid point, the section) as CSV files with a text file that explains their columns. The result is the figure of
+code/view_airfoil.py: the field of the decoder trained on AirfRANS (wind frame) and the surface pressure, boundary layer
+and coefficients in two states, with every range warning, side by side in a wide window and stacked in a tall one. The
+boxes XFOIL state (the vortfoil package: vortex sheet and boundary-layer operator, trained on XFOIL) and RANS state (the
+field decoder's wall values and the boundary layer read from its flow) choose which of them the figure shows, both by
+default; a state outside its training range is drawn faded and labelled. Resizing the window zooms the figure, and Save
+figure writes it at 400 dpi (png, pdf or svg). It needs matplotlib and Tk (part of most Python installs).
 
 Next to the section's name, the box "3D wing" turns the Flow box into a wing: a planform (presets, or the table of
 "Geometry ...": one station per row, with its span position y, chord, twist, quarter-chord x and z for sweep and dihedral,
 and a section: a NACA designation, `current` (the Airfoil box's section, which the one-section presets use),
 `uiuc:<name>` or a coordinate file; any size in metres, kinks at any station), a flow speed in m/s and an incidence. A
 nonlinear lifting line (code/wing_nll.py) carries the sections in one of two states: the surface model (XFOIL state, free
-transition) or the RANS field decoder (SST state, fully turbulent). The figure (code/view_wing.py) shows the wing in 3D at
+transition) or the RANS field decoder (RANS state, fully turbulent). The figure (code/view_wing.py) shows the wing in 3D at
 true scale (drag it to turn it, double-click to start over) coloured by C_p or another surface quantity, a
 spanwise quantity with a section cut that you move by dragging, the section at that cut, the wing polar, the coefficients
 and every warning. Each mode keeps its last result: Run, Save figure and Export data (CSV) act on the mode that is on (the
@@ -59,6 +61,8 @@ import wing_nll as WG  # noqa: E402
 UIUC = "https://m-selig.ae.illinois.edu/ads/"
 CACHE = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), ".cache"), "vortfoil", "uiuc")
 DETAIL = {"fast (0.01 c)": 0.01, "normal (0.005 c)": 0.005, "fine (0.0025 c)": 0.0025}
+TRAINED_ON = ("Trained on: XFOIL state -10 to 18 deg, Re 5e4 to 1e7; RANS state -5 to 15 deg, Re 2e6 to 6e6. "
+              "Outside, drawn faded.")
 
 
 def uiuc_index(html):
@@ -107,11 +111,11 @@ def run_case(loop, alpha, Re, h, name, family, decoder=None):
 
 
 # ---------------------------------------------------------------------------------------------- the 3D wing
-STATE_LABEL = {"xfoil": "XFOIL state", "sst": "SST state"}
+STATE_LABEL = {"xfoil": "XFOIL state", "sst": "RANS state"}
 HINTS = {"section": "Choose an airfoil, set the flow and press Run",
          "wing": "Choose a planform (Geometry ... edits it; one-section planforms use the Airfoil box's section),\n"
                  "set the speed and press Run. XFOIL state: surface model, free transition;\n"
-                 "SST state: RANS field decoder, fully turbulent. Then drag in the spanwise plot to\n"
+                 "RANS state: SST field decoder, fully turbulent. Then drag in the spanwise plot to\n"
                  "move the section cut; drag the wing to turn it, double-click to reset."}
 GEOMETRY_TEXT = ("Each row is a spanwise station: the wing's shape at one position along the half-span, root (y = 0) first. "
                  "Between rows the chord, twist, sweep, dihedral and section change linearly.\n"
@@ -194,7 +198,7 @@ def pick_wing(spec):
 def resolve_sections(defn, current=None, load=None):
     """(definition, sections) for wing_nll.compute: the stations' 'current' and 'uiuc:<name>' sections resolved. current =
     (coordinates, NACA designation or None[, name]) of the section in the Airfoil box: a designation goes into the stations
-    (the SST state knows NACA sections), other coordinates into `sections`; load(name) -> coordinates fetches a UIUC section."""
+    (the RANS state knows NACA sections), other coordinates into `sections`; load(name) -> coordinates fetches a UIUC section."""
     d, sections = WG.validate(defn), {}
     for k, s in enumerate(d["stations"], 1):
         tok = s["section"]
@@ -240,7 +244,7 @@ def reason(err, advice):
 
 
 def wing_summary(res, dt):
-    """the status line of a finished wing run, led by what makes its numbers mean nothing: the SST state far outside its decoder's
+    """the status line of a finished wing run, led by what makes its numbers mean nothing: the RANS state far outside its decoder's
     Reynolds range, no lifting-line solution, the XFOIL state far outside the surface model's Reynolds range, a result that is not finite"""
     c, n, Re = res["coef"], len(res["warnings"]), res["strips"]["Re"]
     lead, resid = WV.range_message(res), res.get("newton", {}).get("residual", 0.0)
@@ -258,7 +262,8 @@ def wing_summary(res, dt):
     return ((lead.rstrip(".") + ". " if lead else "") +
             f"{res['wing']['name']}, {res['alpha']:g} deg, {res['V']:g} m/s ({STATE_LABEL[res['state']]}): C_L {c['CL']:.3f}, "
             f"C_D {c['CD']:.4f}, C_M {c['CM']:.3f}, done in {dt:.1f} s; "
-            + (f"{n} warning(s), listed in the figure." if n else "no range warnings."))
+            + (f"{n} warning(s), listed in the figure." if n else "no range warnings.")
+            + (f" This incidence is outside the {STATE_LABEL[res['state']]}'s training range: the numbers are extrapolated." if lead is None and not c.get("in_range", True) else ""))
 
 
 class App:
@@ -333,8 +338,11 @@ class App:
             en = ttk.Entry(fl, textvariable=var, width=12); en.grid(row=i, column=1, sticky="w"); en.bind("<Return>", lambda ev: self.run())
         ttk.Label(fl, text="Field detail").grid(row=2, column=0, sticky="w")
         ttk.Combobox(fl, textvariable=self.detail, values=list(DETAIL), state="readonly", width=16).grid(row=2, column=1, sticky="w")
-        ttk.Label(fl, text="Trained on: surface -10 to 18 deg, Re 5e4 to 1e7; field -5 to 15 deg, Re 2e6 to 6e6. "
-                  "Outside, the figure lists warnings.", foreground="gray", wraplength=wrap).grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        self.show_x, self.show_r = tk.BooleanVar(value=True), tk.BooleanVar(value=True)      # the states the surface panels show
+        ttk.Label(fl, text="Show").grid(row=0, column=2, sticky="w", padx=(10, 0))
+        for i, (text, var) in enumerate((("XFOIL state", self.show_x), ("RANS state", self.show_r)), 1):
+            ttk.Checkbutton(fl, text=text, variable=var, command=lambda v=var: self.states_changed(v)).grid(row=i, column=2, sticky="w", padx=(10, 0))
+        ttk.Label(fl, text=TRAINED_ON, foreground="gray", wraplength=wrap).grid(row=3, column=0, columnspan=3, sticky="w", pady=(4, 0))
         self.rext = tk.BooleanVar(value=False)
         if self.rext_path:
             ttk.Checkbutton(fl, text="Re-extended field decoder (experimental; NACA sections; field Re 1e6 to 1e7)",
@@ -496,8 +504,11 @@ class App:
         self.draw(self.orientation())
         self.sync()
         n = len(surf_w) + len(meta["warnings"])
+        out_of = [s for s, k in (("XFOIL state", "xfoil_in_range"), ("RANS state", "rans_in_range")) if not meta.get(k, True)]
         self.status.configure(text=f"{name}, {alpha:g} deg, Re {Re:.3g}: done in {dt:.1f} s"
-                              + (f"; {n} warning(s), listed in the figure." if n else "; inside both training domains.") + self.cutof)
+                              + (f"; {n} warning(s), listed in the figure." if n else "; inside both training domains.")
+                              + (f" The {' and the '.join(out_of)} {'is' if len(out_of) == 1 else 'are'} outside {'its' if len(out_of) == 1 else 'their'} training range: drawn faded." if out_of else "")
+                              + self.cutof)
         if self.selftest:
             self.root.after(500, self.finish_selftest)
 
@@ -515,9 +526,21 @@ class App:
             self.view = WV.WingView(self.fig, self.wres, layout, dict(self.wopts))
             self.view.draw()
         else:
-            V.figure(*self.last, fig=self.fig, layout=layout)
+            V.figure(*self.last, fig=self.fig, layout=layout, states=self.states())
         self.on_resize = V.scale_with_window(self.fig)
         self.fit()
+
+    def states(self):
+        """The states the 2D figure's surface panels show (V.figure's `states`), from the two boxes."""
+        return tuple(s for s, v in (("xfoil", self.show_x), ("rans", self.show_r)) if v.get())
+
+    def states_changed(self, var):
+        """A state's box: the figure shows the ticked states (redrawn, nothing recomputed). One stays ticked: the last box is ticked again."""
+        if not (self.show_x.get() or self.show_r.get()):
+            var.set(True)
+            self.status.configure(text="At least one state stays ticked.")
+        elif self.last is not None and self.mode() == "section":
+            self.draw(self.orientation())
 
     def drop_view(self):
         """The wing figure's mouse handling goes before its figure is reused; its view (the turn) and cut are kept for the next one."""
@@ -633,7 +656,7 @@ class App:
     def done_export(self, args, res, err):
         self.sync()
         self.status.configure(text=f"Could not write the CSV files: {err}" if err else
-                              f"Wrote {len(res)} files to {args[0]}: coefficients, surface C_p, boundary layer, field, section, about")
+                              f"Wrote {len(res)} files to {args[0]}: coefficients, surface C_p, boundary layer, field, wall, RANS boundary layer, section, about")
 
     def save_to(self, path):
         """The figure at its design size and 400 dpi, whatever the window size."""
@@ -682,7 +705,7 @@ class App:
         c.pack(side="left", fill="x", expand=True, padx=(0, 6)); c.bind("<<ComboboxSelected>>", lambda ev: self.pick_planform())
         r = row(1); entry(r, "Speed (m/s)", self.speed); entry(r, "Incidence (deg)", self.walpha)
         r = row(2); label(r, "Section model")                             # read at Run: a shown result keeps its own state
-        for v, t in (("xfoil", "XFOIL state"), ("sst", "SST state")):
+        for v, t in (("xfoil", "XFOIL state"), ("sst", "RANS state")):
             ttk.Radiobutton(r, text=t, value=v, variable=self.wstate).pack(side="left", padx=(0, 10))
         r = row(3)
         self.surface_box = choice(r, "Surface", self.surface, WV.SURFACE_QUANTITIES["xfoil"], 8, "surface")
@@ -835,7 +858,7 @@ class App:
             return self.refuse(f"The wing cannot be computed: {e}")
         state = self.wstate.get()
         self.cancel.clear(); self.lock(True, wing=True); self.started = time.monotonic()
-        self.determinate = state == "sst"                     # the SST state reports its progress; the XFOIL state takes seconds
+        self.determinate = state == "sst"                     # the RANS state reports its progress; the XFOIL state takes seconds
         self.bar.configure(mode="determinate" if self.determinate else "indeterminate", value=0)
         if not self.determinate:
             self.bar.start(12)

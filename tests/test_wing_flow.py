@@ -44,8 +44,8 @@ def test_page_record_and_free_wake(res):
     assert all(c[k] == c0[k] for k in ("CL", "CDi", "CD0", "CD", "CM", "LD", "e")) and c["alpha"] == res["alpha"]
     assert rec["wing"]["section"] == "NACA 2412" and [s["section"] for s in rec["wing"]["stations"]] == ["NACA 2412"] * 2
     assert rec["wing"]["name"] == res["wing"]["name"] and rec["wing"]["state"] == "xfoil" and rec["warnings"] == res["warnings"]
-    lead = WF.view_data(dict(res, sst_range=dict(message="SST state outside ...")), "none")["wing"]["warnings"]
-    assert lead == ["SST state outside ..."] + res["warnings"]           # wing_nll's sst_range message (B4) leads the page's list
+    lead = WF.view_data(dict(res, sst_range=dict(message="RANS state outside ...")), "none")["wing"]["warnings"]
+    assert lead == ["RANS state outside ..."] + res["warnings"]           # wing_nll's sst_range message (B4) leads the page's list
     for side in ("upper", "lower"):
         assert all(np.shape(c["surface"][side][k]) == (n, WG.NX) for k in ("x", "y", "z", "cp"))
     assert len(c["trailing"]) == n + 1 and abs(sum(t["strength"] for t in c["trailing"])) < 1e-9
@@ -108,11 +108,11 @@ def test_inviscid_streamlines(res, monkeypatch, tmp_path):
 
 def test_viscous_guards(res, monkeypatch):
     """the viscous field is refused, before any work, below 3/4 of the decoder's Re range (the model wing at 20 m/s: Re 2e5-4e5,
-    where its streamlines end inside the wing); decoder messages the SST state's result lists already are not repeated"""
+    where its streamlines end inside the wing); decoder messages the RANS state's result lists already are not repeated"""
     with pytest.raises(ValueError, match=r"down to Re 2e5 .* Choose Inviscid streamlines, or a speed of at least 1\d\d m/s"):
         WF.view_data(res, "viscous", progress=lambda f, t: pytest.fail("work started"))
     monkeypatch.setattr(WF, "flow_field", lambda *a: dict(kind="inviscid", decoder_warnings=["a", "b"], cases=[]))
-    assert WF.view_data(dict(res, warnings=["SST decoder: a"]), "inviscid")["field"]["decoder_warnings"] == ["b"]
+    assert WF.view_data(dict(res, warnings=["RANS decoder: a"]), "inviscid")["field"]["decoder_warnings"] == ["b"]
 
 
 def test_write_page_round_trip(res, tmp_path):

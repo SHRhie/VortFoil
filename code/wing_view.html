@@ -10,7 +10,7 @@
 
   wing-data   {wing, cases, polar, focus, warnings, wake_model, [state], [coef], [field]}
     wing      name, section, span (or b), S, AR, V, Re_root, Re_tip, stations [{y, chord, twist, x, z, section}], [MAC], [c_root, c_tip],
-              [state: 'xfoil' | 'sst'] (or sections_state: 'XFOIL ...' | 'SST ...')
+              [state: 'xfoil' | 'sst'] (or sections_state: 'XFOIL ...' | 'RANS ...')
     cases[]   one per incidence; the page opens the one at `focus` and offers buttons when there are several:
               alpha, CL, CDi, CD0, e, [CD, LD, CM, CD0_pressure, CD0_friction], y[n], chord[n], cl[n], alpha_eff[n],
               surface {upper, lower}, each {x, y, z, cp} as n lists of NX points (wind frame: X along the wind, Y span, Z up),
@@ -242,12 +242,12 @@ html[data-view="error"] .layout { grid-template-columns: minmax(0, 1fr); }
   const rowsOf = o => (Array.isArray(o) ? o : o ? o.alpha.map((_, i) => Object.fromEntries(Object.keys(o).map(k => [k, o[k][i]]))) : []);
   const POLAR = rowsOf(REC.polar);                           // the lift curve: records, or columns as the application's result has them
   const FOCUS = first(REC.focus, CASES[0].alpha);            // the incidence the application computed (the field exists there only)
-  const SST = (REC.state || WING.state) === 'sst' || /^SST/i.test(WING.sections_state || '');
+  const SST = (REC.state || WING.state) === 'sst' || /^(SST|RANS)/i.test(WING.sections_state || '');
   const nice = s => (/^\d{4,5}$/.test(s) ? `NACA ${s}` : s);
   const names = (WING.stations || []).map(s => s.section).filter(s => s && s !== 'current').map(nice);
   const SECTIONS = names.filter((s, i) => !i || s !== names[i - 1]).join(' → ') || WING.section || '—';
   const NAME = WING.name || `VortFoil wing · ${SECTIONS}`;
-  const STATE = SST ? 'SST state · RANS field decoder, fully turbulent' : 'XFOIL state · VortFoil surface model, free transition';
+  const STATE = SST ? 'RANS state · SST field decoder, fully turbulent' : 'XFOIL state · VortFoil surface model, free transition';
   const FC = FLD && FLD.cases ? FLD.cases : [];
   const fieldAt = a => FC.find(s => Math.abs(s.alpha - a) < 1e-6) || (CASES.length === 1 && FC.length === 1 ? FC[0] : null) || {};
   const planesOf = (a, kind) => (fieldAt(a).planes || []).filter(p => p.kind === kind);
@@ -692,7 +692,7 @@ html[data-view="error"] .layout { grid-template-columns: minmax(0, 1fr); }
     const items = [['C<sub>L</sub>', fv(k.CL, 3), 'Lift coefficient (reference area S)'], ['C<sub>D,i</sub>', fv(k.CDi, 5), 'Induced drag coefficient (Trefftz plane)'],
       ['e', fv(k.e, 3), 'Span efficiency C_L² / (π AR C_D,i); it means little at small incidence'],
       ['C<sub>D,0</sub>', fv(k.CD0, 5), 'Profile drag of the sections at their effective incidence'],
-      ...(fin(k.CD0p) && fin(k.CD0f) ? [['C<sub>D,0</sub> pressure', fv(k.CD0p, 5), 'Pressure part of the profile drag (SST state)'], ['C<sub>D,0</sub> friction', fv(k.CD0f, 5), 'Skin-friction part of the profile drag (SST state)']] : []),
+      ...(fin(k.CD0p) && fin(k.CD0f) ? [['C<sub>D,0</sub> pressure', fv(k.CD0p, 5), 'Pressure part of the profile drag (RANS state)'], ['C<sub>D,0</sub> friction', fv(k.CD0f, 5), 'Skin-friction part of the profile drag (RANS state)']] : []),
       ['C<sub>D</sub>', fv(k.CD, 5), 'Total drag coefficient, C_D,i + C_D,0'], ['L/D', fv(k.LD, 1), 'Lift to drag ratio'],
       ['C<sub>M</sub>', fv(k.CM, 4), 'Pitching moment about the root quarter chord, reference length MAC, nose up positive']];
     $('coef').innerHTML = items.map(([n, v, t]) => `<div title="${t}"><span class="k">${n}</span><span class="v">${v}</span></div>`).join('');

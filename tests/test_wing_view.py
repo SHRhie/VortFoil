@@ -35,7 +35,7 @@ PARTS = list(VW.CSV_PARTS)
 
 @pytest.fixture(scope="module")
 def results(tmp_path_factory):
-    """small results of both states, built once: the XFOIL state on the full-scale wing (12 strips), the SST state on the
+    """small results of both states, built once: the XFOIL state on the full-scale wing (12 strips), the RANS state on the
     kinked wing (8 strips, a coarse incidence table, a scratch table cache)"""
     mp = pytest.MonkeyPatch()
     mp.setattr(WG, "CACHE", str(tmp_path_factory.mktemp("wing_tables")))
@@ -44,7 +44,14 @@ def results(tmp_path_factory):
     xf = WG.compute(dict(WG.PRESETS[FULL], n=12), 45.0, 6.0)
     ss = WG.compute(dict(WG.PRESETS[KINKED], n=8), 60.0, 6.0, "sst")
     mp.undo()
-    return {"xfoil": xf, "sst": ss}
+    far = {"xfoil": WG.compute(dict(WG.PRESETS[FULL], n=8), 45.0, 28.0)}                       # incidences far outside the states' training ranges
+    mp = pytest.MonkeyPatch()
+    mp.setattr(WG, "CACHE", str(tmp_path_factory.mktemp("wing_tables_far")))
+    mp.setattr(WG, "_MEM", {})
+    mp.setattr(WG, "TABLE_S", np.arange(-8.0, 16.001, 4.0))
+    far["sst"] = WG.compute(dict(WG.PRESETS[FULL], n=8), 45.0, 24.0, "sst")
+    mp.undo()
+    return {"xfoil": xf, "sst": ss, "far_xfoil": far["xfoil"], "far_sst": far["sst"]}
 
 
 @pytest.fixture(params=["xfoil", "sst"])
@@ -122,7 +129,7 @@ def test_layouts_at_design_size(res, layout, dpi):
     assert tuple(fig.get_size_inches()) == VA.DESIGNS[layout] and len(fig.axes) == N_AXES and view.ax3d.name == "3d"
     title = fig._suptitle.get_text()
     assert title.count("\n") == 1 and title.endswith("wind frame, true scale") and "×" not in title       # no exaggeration of the heights
-    assert ("SST state" if res["state"] == "sst" else "XFOIL state") in title
+    assert ("RANS state" if res["state"] == "sst" else "XFOIL state") in title
     assert text_problems(fig) == []
     assert max(len(line) for line in view._text.get_text().split("\n")) <= VW.WRAP == 56         # the numbers' line width
 
@@ -179,7 +186,7 @@ def test_every_option_draws(res):
     for q in VW.POLAR_PLOTS:
         view.set_option("polar", q)
         ax = fig.axes[6]
-        assert (ax.get_xlabel(), ax.get_ylabel()) == VW.POLAR[q][2:] and len(ax.lines) == 2                 # curve, the dot at this incidence
+        assert (ax.get_xlabel(), ax.get_ylabel()) == VW.POLAR[q][2:] and len(ax.lines) == (2 if res["polar"]["in_range"].all() else 5)   # curve, the dot at this incidence (+ the faded part, its hollow points, the legend's sample)
     view.set_option("span", "c_d")
     assert len(view.ax_span.lines) == (5 if state == "sst" else 3)                                           # the SST split adds two lines
     assert text_problems(fig) == []
@@ -612,7 +619,7 @@ def test_the_sst_numbers_are_flagged_outside_the_decoders_range(results, tmp_pat
     """More than half the strips outside the decoder's Reynolds range: the sentence leads the numbers (red), in every layout, and is the
     first of the CSV summary's warnings; the result's numbers are all still there."""
     ss = results["sst"]
-    msg = ("SST state outside the field decoder's Reynolds range (2e6-6e6) on 8 of 8 strips: the SST numbers are not meaningful here; "
+    msg = ("RANS state outside the field decoder's Reynolds range (2e6-6e6) on 8 of 8 strips: the RANS-state numbers are not meaningful here; "
            "use the XFOIL state")
     assert ss["sst_range"]["message"] is None and VW.range_message(ss) is None            # this wing is inside it
     bad = dict(ss, sst_range=dict(ss["sst_range"], message=msg))
@@ -624,7 +631,7 @@ def test_the_sst_numbers_are_flagged_outside_the_decoders_range(results, tmp_pat
         assert max(len(line) for line in txt.split("\n")) <= VW.WRAP and text_problems(fig) == []
         assert make(ss, layout)[1]._text.get_color() != VW.UP
     row = dict(zip(*read(VW.export_csv(tmp_path, bad, parts=["summary"])[0])))
-    assert row["warnings"].startswith(msg) and "SST decoder" not in msg
+    assert row["warnings"].startswith(msg) and "RANS decoder" not in msg
 
 
 def test_the_span_legend_covers_no_curve(res):
@@ -693,7 +700,9 @@ def test_export_all_parts(res, tmp_path):
     assert np.allclose(np.array(col("spanwise", "cl"), float), res["strips"]["cl"], atol=1e-7) and col("spanwise", "strip")[:2] == ["0", "1"]
     assert col("surface", "side")[0] == "upper" and col("surface", "side")[n * len(res["surface"]["x_c"])] == "lower"
     assert float(col("polar", "CL")[0]) == pytest.approx(res["polar"]["CL"][0], abs=1e-7)
-    assert ("SST state." if sst else "XFOIL state.") in about and "nose up" in about and "Wind frame" in about
+    assert ("RANS state." if sst else "XFOIL state.") in about and "nose up" in about and "Wind frame" in about
+    assert col("polar", "in_training_range") == [str(int(v)) for v in res["polar"]["in_range"]] and s["in_training_range"] == str(int(res["coef"]["in_range"]))     # the flags
+    assert "\n  in_training_range: 1: every strip's" in about and "the figure draws these points hollow" in about
 
 
 def test_export_chosen_parts_only(res, tmp_path):
@@ -712,6 +721,63 @@ def test_export_chosen_parts_only(res, tmp_path):
     with pytest.raises(ValueError, match="cut_index"):
         VW.export_csv(folder, res, parts=["cut"], cut_index=res["wing"]["n"])
     assert len(VW.export_csv(tmp_path / "one", res, parts=("stations",))) == 2
+
+
+# ------------------------------------------------------------------------------------------- the state's training range
+def test_polar_marks_the_points_outside_the_training_range(results):
+    """The polar's points that the backend flags outside the state's training range are drawn faded, dashed and hollow, named in a
+    legend; a polar inside it has no legend and the figure looks as before; the dot of this incidence is hollow when it is outside."""
+    for key in ("xfoil", "sst", "far_xfoil", "far_sst"):
+        res = results[key]
+        ok = np.asarray(res["polar"]["in_range"])
+        for q in VW.POLAR_PLOTS:
+            fig, view = make(res, options={"polar": q})
+            ax = fig.axes[6]
+            xk, yk = VW.POLAR[q][:2]
+            x, y = np.asarray(res["polar"][xk]), np.asarray(res["polar"][yk])
+            solid, dot = ax.lines[0], ax.lines[-1]
+            assert np.array_equal(np.isnan(solid.get_ydata()), ~ok) and solid.get_linestyle() == "-" and solid.get_alpha() is None   # solid where inside
+            assert dot.get_marker() == "o" and (dot.get_markerfacecolor() == "k") == bool(res["coef"]["in_range"])
+            if ok.all():
+                assert ax.get_legend() is None and len(ax.lines) == 2
+                continue
+            faded, hollow, sample = ax.lines[1], ax.lines[2], ax.lines[3]
+            assert faded.get_alpha() == VA.FADE and faded.get_linestyle() == "--" and np.allclose(faded.get_xdata(), x) and np.allclose(faded.get_ydata(), y)
+            assert hollow.get_markerfacecolor() == "white" and np.allclose(hollow.get_xdata(), x[~ok]) and np.allclose(hollow.get_ydata(), y[~ok])
+            assert [t.get_text() for t in ax.get_legend().get_texts()] == ["inside the training range", "outside the training range"]
+            assert text_problems(fig) == [], (key, q)
+    for key, state in (("xfoil", "xfoil"), ("sst", "sst")):                        # the polar spans the state's training incidences
+        a = results[key]["polar"]["alpha"]
+        assert (a[0], a[-1]) == ((-10.0, 18.0) if state == "xfoil" else (-5.0, 15.0))
+    old = dict(results["xfoil"], polar={k: v for k, v in results["xfoil"]["polar"].items() if k != "in_range"})      # a result without flags
+    assert make(old)[0].axes[6].get_legend() is None
+    xf = results["xfoil"]                                                          # no point inside: one entry, the outside one
+    none = dict(xf, polar=dict(xf["polar"], in_range=np.zeros(len(xf["polar"]["alpha"]), bool)), coef=dict(xf["coef"], in_range=False))
+    fig, view = make(none)
+    assert [t.get_text() for t in fig.axes[6].get_legend().get_texts()] == ["outside the training range"] and text_problems(fig) == []
+
+
+@pytest.mark.parametrize("layout", list(VA.DESIGNS))
+def test_numbers_say_when_the_requested_incidence_is_outside_the_training_range(results, layout):
+    """Outside the state's training range (a strip's incidence or Reynolds number outside it, or a strip past stall) the numbers say so
+    right after the incidence, with the ranges; inside it they say nothing; the RANS state's lead sentence about a Reynolds number far
+    outside covers that case alone."""
+    for key, name, rng in (("far_xfoil", "XFOIL", "strip incidence -10 to 18 deg, Re 5e4 to 1e7"), ("far_sst", "RANS", "strip incidence -5 to 15 deg, Re 2e6 to 6e6")):
+        res = results[key]
+        assert not res["coef"]["in_range"]
+        fig, view = make(res, layout)
+        said = f"Outside the {name} state's training range ({rng}, no strip past stall): the numbers are extrapolated."
+        lines = view._text.get_text().split("\n")
+        i = [j for j, s in enumerate(lines) if s.startswith("Outside the")][0]
+        assert lines[i - 1].startswith("V ") and " ".join(s.strip() for s in lines[i:i + 4])[:len(said)] == said and max(map(len, lines)) <= VW.WRAP
+        assert text_problems(fig) == []
+    for key in ("xfoil", "sst"):
+        assert results[key]["coef"]["in_range"] and "Outside the" not in make(results[key], layout)[1]._text.get_text()
+    ss = results["sst"]
+    covered = dict(ss, coef=dict(ss["coef"], in_range=False), sst_range=dict(ss["sst_range"], message="RANS state outside the field decoder's Reynolds range (2e6-6e6) on 8 of 8 strips: the RANS-state numbers are not meaningful here; use the XFOIL state"))
+    fig, view = make(covered, layout)
+    assert "Outside the" not in view._text.get_text() and view._text.get_text().startswith("RANS state outside the field decoder's Reynolds range")
+    assert text_problems(fig) == []
 
 
 def test_option_tables():
