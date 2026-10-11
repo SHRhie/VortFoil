@@ -280,6 +280,31 @@ def test_input_ranges_bound_the_strip_reynolds_warnings(state, cache, monkeypatc
     assert re_warnings(lo) == re_warnings(hi) == [] and len(re_warnings(0.99 * lo)) == len(re_warnings(1.01 * hi)) == 1
 
 
+def test_newton_restarts_from_zero_circulation(cache, monkeypatch):
+    """The NACA 0009 full-scale wing at 1 deg (XFOIL state): from the usual start Newton drifted to a non-physical root at the tip
+    strips (71 deg after 60 steps) and the polar point read 'outside the training range'; it now restarts from zero circulation
+    and converges. A lifting line that does not converge is never a result in range."""
+    import warnings
+    d = dict(WG.PRESETS["Full-scale wing (span 10 m)"]); d["stations"] = [dict(st, section="0009") for st in d["stations"]]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = WG.compute(d, 45.0, 1.0, "xfoil")
+    c, ae = r["coef"], np.asarray(r["strips"]["alpha_eff_deg"])
+    assert c["in_range"] and c["strips_past_stall"] == 0 and abs(c["CL"] - 0.0122) < 5e-4 and -1.0 < ae.min() and ae.max() < 1.0
+    p = r["polar"]
+    assert p["in_range"][list(p["alpha"]).index(1.0)]
+    orig = WG.solve
+    def failing(w, V, a, pol, *args, **kw):                   # one polar point that does not converge
+        s = orig(w, V, a, pol, *args, **kw)
+        return dict(s, residual=1.0) if a == 5.0 else s
+    monkeypatch.setattr(WG, "solve", failing)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        p = WG.compute(d, 45.0, 1.0, "xfoil")["polar"]
+    al = list(p["alpha"])
+    assert not p["in_range"][al.index(5.0)] and p["in_range"][al.index(4.0)] and p["in_range"][al.index(6.0)]
+
+
 @pytest.mark.skipif(not os.environ.get("VORTFOIL_SLOW"), reason="research regression, minutes: set VORTFOIL_SLOW=1")
 def test_research_regression(cache):
     WG.check(regression=True)

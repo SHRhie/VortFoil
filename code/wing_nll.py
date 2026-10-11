@@ -412,28 +412,32 @@ def solve(w, V, alpha_deg, polar, tol=1e-10, it_max=60, v=None):
         v = horseshoe_v(w.P, w.A, w.B, u)                                             # (n, n, 3)
     dA = w.c * w.ds
     al0 = np.arctan2(w.un @ u, w.ua @ u)
-    G = 0.5 * V * w.c * polar(al0)[0] * 0.7
-    for k in range(it_max):
-        Vi = V * u + np.einsum("ijk,j->ik", v, G)
-        wv = np.cross(Vi, w.dl); nw = np.linalg.norm(wv, axis=1)
-        va, vn = np.sum(Vi * w.ua, 1), np.sum(Vi * w.un, 1)
-        ai = np.arctan2(vn, va)
-        cl, dcl, cd, cm = polar(ai)
-        F = nw * G - 0.5 * V ** 2 * dA * cl
-        if np.max(np.abs(F)) / (0.5 * V ** 2 * np.max(dA)) < tol:
-            break
-        dw = np.cross(v, w.dl[:, None, :])                                              # d(w_i)/dG_j = v_ij x dl_i
-        J = np.einsum("ik,ijk->ij", wv, dw) * (G / nw)[:, None] + np.diag(nw)
-        dai = (va[:, None] * np.einsum("ijk,ik->ij", v, w.un) - vn[:, None] * np.einsum("ijk,ik->ij", v, w.ua)) / (va ** 2 + vn ** 2)[:, None]
-        J -= (0.5 * V ** 2 * dA * dcl)[:, None] * dai
-        step = np.linalg.solve(J, -F); f0 = np.max(np.abs(F))
-        for om in (1.0, 0.5, 0.25, 0.125, 0.0625):                                       # backtracking: accept a decrease
-            Gt = G + om * step
-            Vt = V * u + np.einsum("ijk,j->ik", v, Gt)
-            Ft = np.linalg.norm(np.cross(Vt, w.dl), axis=1) * Gt - 0.5 * V ** 2 * dA * polar(np.arctan2(np.sum(Vt * w.un, 1), np.sum(Vt * w.ua, 1)))[0]
-            if np.max(np.abs(Ft)) < f0:
+    # the usual start; when Newton fails from it (near zero lift it can drift to a non-physical root at the tip strips, e.g. a
+    # NACA 0009 wing at 1 deg: tip incidence 71 deg), once more from zero circulation
+    for G in (0.5 * V * w.c * polar(al0)[0] * 0.7, np.zeros(w.n)):
+        for k in range(it_max):
+            Vi = V * u + np.einsum("ijk,j->ik", v, G)
+            wv = np.cross(Vi, w.dl); nw = np.linalg.norm(wv, axis=1)
+            va, vn = np.sum(Vi * w.ua, 1), np.sum(Vi * w.un, 1)
+            ai = np.arctan2(vn, va)
+            cl, dcl, cd, cm = polar(ai)
+            F = nw * G - 0.5 * V ** 2 * dA * cl
+            if np.max(np.abs(F)) / (0.5 * V ** 2 * np.max(dA)) < tol:
                 break
-        G = Gt
+            dw = np.cross(v, w.dl[:, None, :])                                              # d(w_i)/dG_j = v_ij x dl_i
+            J = np.einsum("ik,ijk->ij", wv, dw) * (G / nw)[:, None] + np.diag(nw)
+            dai = (va[:, None] * np.einsum("ijk,ik->ij", v, w.un) - vn[:, None] * np.einsum("ijk,ik->ij", v, w.ua)) / (va ** 2 + vn ** 2)[:, None]
+            J -= (0.5 * V ** 2 * dA * dcl)[:, None] * dai
+            step = np.linalg.solve(J, -F); f0 = np.max(np.abs(F))
+            for om in (1.0, 0.5, 0.25, 0.125, 0.0625):                                       # backtracking: accept a decrease
+                Gt = G + om * step
+                Vt = V * u + np.einsum("ijk,j->ik", v, Gt)
+                Ft = np.linalg.norm(np.cross(Vt, w.dl), axis=1) * Gt - 0.5 * V ** 2 * dA * polar(np.arctan2(np.sum(Vt * w.un, 1), np.sum(Vt * w.ua, 1)))[0]
+                if np.max(np.abs(Ft)) < f0:
+                    break
+            G = Gt
+        if np.max(np.abs(F)) / (0.5 * V ** 2 * np.max(dA)) < 1e-6:   # the residual compute() calls converged
+            break
     Vi = V * u + np.einsum("ijk,j->ik", v, G); ai = np.arctan2(np.sum(Vi * w.un, 1), np.sum(Vi * w.ua, 1))
     cl, _, cd, cm = polar(ai)
     Fs = G[:, None] * np.cross(Vi, w.dl)                                                # strip forces, rho = 1
@@ -626,7 +630,8 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
 
     def in_range(p):                                    # a solution's strips inside the state's training ranges, none past stall
         ae = np.asarray(p["alpha_eff"]) - off
-        return bool(np.all((ae >= alim[0]) & (ae <= alim[1]) & (Re >= relim[0]) & (Re <= relim[1])) and p["strips_past_stall"] == 0)
+        return bool(np.all((ae >= alim[0]) & (ae <= alim[1]) & (Re >= relim[0]) & (Re <= relim[1])) and p["strips_past_stall"] == 0
+                    and p["residual"] <= 1e-6)                  # (a lifting line that did not converge is no result in range)
     if s["residual"] > 1e-6:                            # e.g. far past stall: no lifting-line solution
         warn.append(f"the lifting line did not converge at {alpha:g} deg (residual {s['residual']:.0e} after {s['iterations']} Newton steps)")
 
