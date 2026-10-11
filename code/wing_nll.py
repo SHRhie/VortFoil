@@ -693,6 +693,72 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
                 timing=dict(tables=t2 - t1, solve=t3 - t2, strips=t4 - t3, total=t4 - t0, built=tab["built"], reused=tab["reused"]))
 
 
+def _sig3(v, up):
+    """v at 3 significant digits, rounded up or down: a speed bound that is shown, then typed in, stays inside"""
+    e = 10.0 ** (int(np.floor(np.log10(v))) - 2)
+    return float((np.ceil(v / e - 1e-6) if up else np.floor(v / e + 1e-6)) * e)
+
+
+def input_ranges(defn, scale=1.0, V=None, decoder=None, current_is_naca=False):
+    """What a wing's inputs must respect in each section state, for the application's 3D Flow box; numbers only, no model call.
+    defn: a wing definition (validate; its n strips, default 40) whose lengths are multiplied by `scale`; V: a speed (m/s) to judge,
+    or None; decoder: the RANS state's weights file (default predict_field.DECODER); current_is_naca: whether 'current' (the
+    Airfoil box's section) is a NACA 4/5-digit designation. ValueError (validate's, or naming Scale x, the chords or Speed) for
+    inputs that are not a wing. Returns
+      xfoil, sst: label; alpha (lo, hi) deg and Re (lo, hi), the state's training ranges of strip incidence and Reynolds number;
+        V (lo, hi) m/s, the speeds that keep every strip's Re = V c / NU_AIR inside: compute()'s own strips (their chords at the
+        control points, which never reach a station's), so compute() gives no strip-Re warning at these speeds and one just
+        outside them; possible, False when no speed does (V lo > V hi); Re_at_V (lo, hi) over the strips and inside (bool) at
+        the given V, else None
+      chord (lo, hi) m, the strips'; naca: every station is a NACA 4/5-digit designation, the RANS decoder's training family
+      sentences: speeds, incidence, at_V (None without V) and family (None when naca), one short English sentence each;
+      text: those sentences in that order, the line the 3D Flow box shows"""
+    import predict_field as PF
+    from vortfoil.api import TRAIN_ALPHA_DEG, TRAIN_RE
+    d = validate(defn)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")                 # (aspect-ratio and sweep warnings are compute()'s to give; an overflow is checked below)
+        w = Wing(stations=d["stations"], n=d["n"])      # compute()'s strips: geometry only, no section is resolved
+        c = w.c * _num("Scale x", scale, lambda v: v > 0, "positive")
+    c0, c1 = float(c.min()), float(c.max())
+    if V is not None:
+        V = _num("Speed", V, lambda v: v > 0, "positive (m/s)")
+    near = lambda m: ("at the inboard strips", "at the mid-span strips", "at the outboard strips")[min(int(3 * w.eta[m].mean()), 2)]
+    out, why, tol = {}, {}, 1e-9                        # tol: a speed at a bound, typed or computed, is inside
+    for st, label, (a0, a1), (r0, r1) in (("xfoil", "XFOIL state", TRAIN_ALPHA_DEG, TRAIN_RE),
+                                          ("sst", "RANS state", PF.FIELD_ALPHA, PF.FIELD_RE_OF.get(decoder or PF.DECODER, PF.FIELD_RE))):
+        # 1e-12 inside: at an exact bound, compute()'s rounded Re = V c / NU_AIR fails the models' strict range checks up to 1 time in 10
+        v0, v1 = (r0 * NU_AIR / c0 if c0 > 0 else np.inf) * (1 + 1e-12), r1 * NU_AIR / c1 * (1 - 1e-12)
+        if not (v0 < np.inf and v1 > 0):                # also NaN: lengths no float carries into a speed (Scale x 1e-320)
+            raise ValueError(f"chord: {c0:.3g} to {c1:.3g} m after Scale x, too small or too large for any speed")
+        e = out[st] = dict(label=label, alpha=(float(a0), float(a1)), Re=(float(r0), float(r1)), V=(v0, v1),
+                           possible=bool(v0 <= v1 * (1 + tol)), Re_at_V=None, inside=None)
+        if V is not None:
+            R0, R1 = V * c0 / NU_AIR, V * c1 / NU_AIR
+            below, above = R0 < r0 * (1 - tol), R1 > r1 * (1 + tol)
+            e.update(Re_at_V=(R0, R1), inside=not (below or above))
+            why[st] = " and ".join(f"{side} its Re range " + ("on every strip" if every else near(m))
+                                   for side, bad, every, m in (("below", below, R1 < r0, c == c0), ("above", above, R0 > r1, c == c1)) if bad)
+
+    def speeds(e):
+        if not e["possible"]:
+            return f"{e['label']} no speed (strip chord ratio {c1 / c0:.3g} > its Re ratio {e['Re'][1] / e['Re'][0]:.3g})"
+        a, b = _sig3(e["V"][0], True), _sig3(e["V"][1], False)
+        return f"{e['label']} " + (f"{a:g}-{b:g} m/s" if a < b else f"about {0.5 * sum(e['V']):.3g} m/s only")
+    x, s = out["xfoil"], out["sst"]
+    say = dict(speeds=f"Speeds that keep every strip inside the training Re: {speeds(x)}, {speeds(s)}.",
+               incidence=f"Strip incidence: XFOIL {x['alpha'][0]:g} to {x['alpha'][1]:g} deg, RANS {s['alpha'][0]:g} to {s['alpha'][1]:g} deg.",
+               at_V=None, family=None)
+    if V is not None:
+        fit, bad = [out[k]["label"] for k in out if out[k]["inside"]], [f"{out[k]['label']} {why[k]}" for k in out if not out[k]["inside"]]
+        say["at_V"] = f"{V:g} m/s: " + ("inside both." if not bad else (f"{fit[0]} only; " if fit else "") + "; ".join(bad) + ".")
+    naca = all(is_naca(t["section"]) or (t["section"] == "current" and current_is_naca) for t in d["stations"])
+    if not naca:
+        say["family"] = ("RANS state: trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; "
+                         "prefer the XFOIL state.")
+    return dict(xfoil=x, sst=s, chord=(c0, c1), naca=naca, sentences=say, text=" ".join(t for t in say.values() if t))
+
+
 # ------------------------------------------------------------------------------------------- checks
 REGRESSION = (      # research results (wing_viz3d free wake; matrix 60 m/s: exact planform area), C_L at 2/6/10 deg, C_D or None
     ("Full-scale wing (span 10 m)", 45.0, "xfoil", (0.2817, 0.6265, 1.0001), None, 3e-3),

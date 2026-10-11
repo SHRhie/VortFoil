@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """VortFoil as a desktop application: choose an airfoil, set the incidence and the Reynolds number, press Run, and
-read the flow field and the surface results in the same window; or build a wing from sections and read its loads.
+read the flow field and the surface results in the same window. With --experimental (the vortfoil_exp command) the window
+also builds a wing from sections and reads its loads: an experimental quasi-3D wing, not part of the paper's validated results.
 
     vortfoil                       (installed with `uv tool install --python 3.12 --managed-python vortfoil`)
     python code/vortfoil_app.py    (from a checkout)
+    vortfoil_exp                   (the same with the experimental 3D wing; from a checkout: add --experimental)
 
 The airfoil comes from one of three places:
   NACA     a 4- or 5-digit designation, generated exactly as the AirfRANS sections were;
@@ -21,7 +23,8 @@ field decoder's wall values and the boundary layer read from its flow) choose wh
 default; a state outside its training range is drawn faded and labelled. Resizing the window zooms the figure, and Save
 figure writes it at 400 dpi (png, pdf or svg). It needs matplotlib and Tk (part of most Python installs).
 
-Next to the section's name, the box "3D wing" turns the Flow box into a wing: a planform (presets, or the table of
+Experimental, in the window of vortfoil_exp (or --experimental) only: next to the section's name, the box "3D wing" turns
+the Flow box into a wing: a planform (presets, or the table of
 "Geometry ...": one station per row, with its span position y, chord, twist, quarter-chord x and z for sweep and dihedral,
 and a section: a NACA designation, `current` (the Airfoil box's section, which the one-section presets use),
 `uiuc:<name>` or a coordinate file; any size in metres, kinks at any station), a flow speed in m/s and an incidence. A
@@ -30,7 +33,11 @@ transition) or the RANS field decoder (RANS state, fully turbulent). The figure 
 true scale (drag it to turn it, double-click to start over) coloured by C_p or another surface quantity, a
 spanwise quantity with a section cut that you move by dragging, the section at that cut, the wing polar, the coefficients
 and every warning. Each mode keeps its last result: Run, Save figure and Export data (CSV) act on the mode that is on (the
-wing's export lets you tick the parts to write), and Open cut in 2D analyses the section at the cut as an airfoil.
+wing's export lets you tick the parts to write), and Open cut in 2D analyses the section at the cut as an airfoil. A gray
+line below the Section model row gives the speeds that keep every strip inside each state's training Reynolds number, the
+strips' incidence limits, whether the speed typed fits, and a note when a section is not NACA 4/5-digit (the RANS state was
+trained on those only). In the Geometry window, Selected row(s) and All rows put the Airfoil box's section (a NACA
+designation, a UIUC section picked from its list, or your file) on rows of the table.
 
 3D view (next to Open cut in 2D) opens the shown wing result in your web browser as a standalone page (code/wing_flow.py
 writes it from code/wing_view.html; WebGL, nothing is fetched): the wing coloured by C_p, streamlines of a flow field (the RANS
@@ -44,7 +51,9 @@ model-scale wing takes the inviscid one (the viscous choice is greyed out for it
   --selftest DIR   run one case without a person (--airfoil naca:2412 | uiuc:<name> | file:<path>), save the figure
                    and a capture of the window in DIR, and exit; with --wing PRESET_OR_JSON (a preset name or a wing
                    definition file; --V speed in m/s, --state xfoil|sst, --alpha incidence) a wing instead, its CSV
-                   files included
+                   files included (with --experimental)
+  --experimental   the window with the experimental 3D wing (what vortfoil_exp opens; the vortfoil command refuses it);
+                   with --shortcut, a separate launcher, "VortFoil (experimental)"
 """
 import os, re, sys, time, queue, threading, argparse, traceback, subprocess, urllib.request
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")    # before numpy: OpenBLAS threads beside TF's made a panel solve 0.35 s on Windows, 1.5 ms single
@@ -122,8 +131,11 @@ GEOMETRY_TEXT = ("Each row is a spanwise station: the wing's shape at one positi
                  "Columns: y chord twist x z section. Lengths in m, twist in deg (nose up); x and z of the quarter chord give the "
                  "sweep and the dihedral. The left half mirrors the right.\n"
                  "section: a NACA 4/5-digit designation, current (the Airfoil box's section), uiuc:<name> or a file.")
+SECTION_HINT = ("Pick a section in the Airfoil box (UIUC: search its list), click a row here and press Selected row(s), or press All rows. "
+                "A one-section planform already uses the Airfoil box's section (current).")
 STATIONS_HEADER = "# y_m  chord_m  twist_deg  x_c4_m  z_c4_m  section"
 COLUMNS = ("y", "chord", "twist", "x", "z")
+STATION = re.compile(r"(\s*(?:[-+.\d][^\s,]*[,\s]+){4}[-+.\d][^\s,]*)([,\s]+)?.*")    # a row: five numbers as typed, their separator, then the section (the rest)
 
 
 def section_name(token):
@@ -145,9 +157,10 @@ def format_stations(stations):
 
 def parse_stations(text):
     """the stations (dicts as wing_nll takes them) of the Wing geometry window's text: per line y chord twist x z and the section, which
-    is the rest of the line (a NACA designation, 'current', 'uiuc:<name>' or a file path); blank and '#' lines are skipped"""
+    is the rest of the line (a NACA designation, 'current', 'uiuc:<name>' or a file path); blank and '#' lines are skipped. Lines end at
+    newlines only, as Tk's Text counts them (the line numbers of the messages are the window's)"""
     out = []
-    for n, line in enumerate(text.splitlines(), 1):
+    for n, line in enumerate(text.split("\n"), 1):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -159,6 +172,18 @@ def parse_stations(text):
         except ValueError:
             raise ValueError(f"stations, line {n}: y, chord, twist, x and z must be numbers (got '{' '.join(f[:5])}')") from None
         out.append(dict(zip(COLUMNS, v), section=os.path.expanduser(f[5].strip("\"' "))))
+    return out
+
+
+def section_rows(text, token, first=None, last=None):
+    """{line number: the row with its section set to `token`} for the station rows of the geometry table `text` from line `first` to `last`
+    (every row when None): only the section column changes (the five numbers keep their text and separators); comments and blank lines are
+    not rows, and a line without five numbers is left alone; lines are numbered as Tk's Text numbers them (at newlines only)"""
+    out = {}
+    for n, line in enumerate(text.split("\n"), 1):
+        m = None if line.lstrip().startswith("#") or (first is not None and not first <= n <= last) else STATION.fullmatch(line)
+        if m:
+            out[n] = m.group(1) + (m.group(2) or "  ") + token
     return out
 
 
@@ -270,7 +295,7 @@ class App:
     TASKS = {"index": load_index, "section": load_section, "run": run_case, "export": V.export_csv,
              "wing": wing_case, "wing_export": WV.export_csv}
 
-    def __init__(self, root, selftest=None):
+    def __init__(self, root, selftest=None, experimental=False):
         import tkinter as tk
         from tkinter import ttk
         from matplotlib.figure import Figure
@@ -289,10 +314,10 @@ class App:
         self.wopts = dict(surface="C_p", span="c_l", polar=WV.POLAR_PLOTS[0], cut_eta=0.5)
         self.wname, self.wdesc, self.cancel = "Full-scale wing (span 10 m)", "", threading.Event()
         self.started, self.cutof, self.cutlabel = 0.0, "", None
-        self.selftest, self.exit_code = selftest, 0
+        self.selftest, self.exit_code, self.experimental = selftest, 0, experimental     # experimental: the 3D wing (vortfoil_exp)
         self.rext_path = PF.DECODER_REXT if os.path.exists(PF.DECODER_REXT) else None   # experimental (branch exp/rext-decoder)
         dpi = root.winfo_fpixels("1i")                       # the screen's real resolution: a sharp figure
-        root.title("VortFoil")
+        root.title("VortFoil (experimental)" if experimental else "VortFoil")
         sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
         root.geometry(f"{int(0.92 * sw)}x{int(0.86 * sh)}+{int(0.04 * sw)}+{int(0.03 * sh)}")
         tall = sh > sw                                        # an upright screen: the controls go above the figure
@@ -327,7 +352,8 @@ class App:
         self.pax = self.pfig.add_axes([0.02, 0.05, 0.96, 0.9]); self.pax.axis("off")
         self.pcan = FigureCanvasTkAgg(self.pfig, master=prev); self.pcan.get_tk_widget().pack()
         self.wing = tk.BooleanVar(value=False)
-        self.chk = ttk.Checkbutton(prev, text="3D wing", variable=self.wing, command=self.show); self.chk.pack(side="right")
+        if experimental:                                      # vortfoil's window has no 3D: nothing of the wing is built
+            self.chk = ttk.Checkbutton(prev, text="3D wing", variable=self.wing, command=self.show); self.chk.pack(side="right")
         self.pname = ttk.Label(prev, text="no airfoil loaded", wraplength=wrap); self.pname.pack(anchor="w")
 
         self.flow = ttk.LabelFrame(panel, text="Flow", padding=6); self.flow.columnconfigure(0, weight=1)
@@ -347,10 +373,12 @@ class App:
         if self.rext_path:
             ttk.Checkbutton(fl, text="Re-extended field decoder (experimental; NACA sections; field Re 1e6 to 1e7)",
                             variable=self.rext).grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
-        self.f3 = ttk.Frame(self.flow); self.f3.grid(row=0, column=0, sticky="ew")     # the 3D rows: same cell, one mapped at a time
-        self.wing_rows(self.f3); self.f3.grid_remove()
-        self.stations_window()
-        self.fill_wing(WG.PRESETS[self.wname])
+        if experimental:
+            self.origin = None                                # how a station names the Airfoil box's section when it is no NACA designation: uiuc:<name> or the file
+            self.f3 = ttk.Frame(self.flow); self.f3.grid(row=0, column=0, sticky="ew")     # the 3D rows: same cell, one mapped at a time
+            self.wing_rows(self.f3, wrap); self.f3.grid_remove()
+            self.stations_window()
+            self.fill_wing(WG.PRESETS[self.wname])
 
         act = ttk.Frame(panel)
         self.run_btn = ttk.Button(act, text="Run", command=self.run); self.run_btn.pack(side="left")
@@ -460,7 +488,10 @@ class App:
         self.section = res
         loop, name, family = res
         self.code, self.cutlabel = naca_code(name, family), None
-        self.cur.set(f"current = {name} (the Airfoil box's section)")
+        if self.experimental:
+            self.origin = f"uiuc:{args[1]}" if args[0] == "uiuc" else args[1] if args[0] == "file" else None
+            self.cur.set(f"current = {name} (the Airfoil box's section)")
+            self.ranges()                                     # 'current' may be a NACA designation now, or no longer one
         self.pax.clear(); self.pax.axis("off")
         self.pax.fill(loop[:, 0], loop[:, 1], color="0.75", lw=0.8, ec="0.2"); self.pax.set_aspect("equal")
         self.pcan.draw_idle()
@@ -570,8 +601,9 @@ class App:
         # ponytail: this also switches Export data (CSV) on while an export is being written, when the mode is switched or a case ends
         # meanwhile (a second or two, the same files); an `exporting` flag here if that ever matters. lock() leaves Export alone.
         self.save_btn.configure(state=state); self.csv_btn.configure(state=state)
-        self.cut_btn.configure(state="normal" if self.wres is not None else "disabled")
-        self.sync3d()
+        if self.experimental:
+            self.cut_btn.configure(state="normal" if self.wres is not None else "disabled")
+            self.sync3d()
 
     def sync3d(self):
         """The 3D view button is on with a wing result, and off while a wing or a page is made (Run reads Cancel then)."""
@@ -582,12 +614,15 @@ class App:
         last result (nothing is recomputed), or its hint when it has none yet."""
         on = self.mode() == "wing"
         (self.f3 if on else self.f2).grid(); (self.f2 if on else self.f3).grid_remove()
+        # the wing's rows and their gray line need the height (a 14-inch Mac: the credit line would be cut off): in 3D the list is as short as on an upright screen
+        self.lst.configure(height=9 if on or self.root.winfo_screenheight() > self.root.winfo_screenwidth() else 14)
         if not on:
             if self.v3win is not None:                        # the options of the 3D view belong to the 3D mode
                 self.v3win.withdraw()
             self.stw.withdraw()
         else:
             self.status.configure(text=self.sections_note())
+            self.ranges()                                     # (the Airfoil box's section may have changed while the box was off)
         self.sync()
         if self.result() is None:
             self.blank(HINTS[self.mode()])
@@ -596,10 +631,11 @@ class App:
 
     def lock(self, on, wing=False):
         """A case runs (on): the 3D box is off limits, and Run is disabled, or for a wing it reads Cancel."""
-        self.chk.configure(state="disabled" if on else "normal")
         self.run_btn.configure(text="Cancel" if on and wing else "Run", command=self.cancel_run if on and wing else self.run,
                                state="disabled" if on and not wing else "normal")
-        self.sync3d()                                         # (not sync(): that would switch Export data (CSV) back on while an export is written)
+        if self.experimental:
+            self.chk.configure(state="disabled" if on else "normal")
+            self.sync3d()                                     # (not sync(): that would switch Export data (CSV) back on while an export is written)
 
     def cancel_run(self):
         """Run reads Cancel while a wing runs. Not in its first 0.6 s: the second click of a double click on Run lands on Cancel."""
@@ -669,12 +705,14 @@ class App:
         self.status.configure(text=f"Saved {path}")
 
     # ------------------------------------------------------------------ 3D wing
-    def wing_rows(self, f):
-        """The Flow box in 3D: planform (and its geometry table), speed and incidence, section state, what the figure shows (redrawn,
-        never recomputed), polar and Open cut in 2D."""
+    def wing_rows(self, f, wrap):
+        """The Flow box in 3D: planform (and its geometry table), speed and incidence, section state, the gray line of what these inputs must
+        respect (ranges(); wrapped at `wrap` like the 2D box's note, wider where the box is), what the figure shows (redrawn, never
+        recomputed), polar and Open cut in 2D."""
         tk, ttk = self.tk, self.ttk
         self.planform, self.speed, self.walpha = tk.StringVar(value=self.wname), tk.StringVar(), tk.StringVar(value="6")
-        self.wstate = tk.StringVar(value="xfoil")
+        self.wstate, self.range_note = tk.StringVar(value="xfoil"), tk.StringVar()
+        self.speed.trace_add("write", self.ranges); self.wstate.trace_add("write", self.ranges)       # the line follows the speed and the chosen state
         self.surface, self.span, self.polar = (tk.StringVar(value=self.wopts[k]) for k in ("surface", "span", "polar"))
         f.columnconfigure(0, weight=1)
 
@@ -708,9 +746,12 @@ class App:
         for v, t in (("xfoil", "XFOIL state"), ("sst", "RANS state")):
             ttk.Radiobutton(r, text=t, value=v, variable=self.wstate).pack(side="left", padx=(0, 10))
         r = row(3)
+        note = ttk.Label(r, textvariable=self.range_note, foreground="gray", wraplength=wrap, justify="left"); note.pack(fill="x")
+        note.bind("<Configure>", lambda ev: note.configure(wraplength=max(wrap, ev.width - 8)))     # the box's width where it is wider than 3.4 in (a 14-inch Mac: 373 px, not 287)
+        r = row(4)
         self.surface_box = choice(r, "Surface", self.surface, WV.SURFACE_QUANTITIES["xfoil"], 8, "surface")
         choice(r, "Spanwise", self.span, WV.SPAN_QUANTITIES, 11, "span")
-        r = row(4); choice(r, "Polar", self.polar, WV.POLAR_PLOTS, 12, "polar")
+        r = row(5); choice(r, "Polar", self.polar, WV.POLAR_PLOTS, 12, "polar")
         self.cut_btn = ttk.Button(r, text="Open cut in 2D", command=self.open_cut, state="disabled"); self.cut_btn.pack(side="left")
         self.view3d_btn = ttk.Button(r, text="3D view", command=self.open_view3d, state="disabled"); self.view3d_btn.pack(side="left", padx=(6, 0))
         self.v3win, self.pages, self.pages_of = None, {}, None   # its options window (built at the first click); the pages made for one result
@@ -720,18 +761,27 @@ class App:
         wing's stations (Run reads it); typing in it makes the planform Custom."""
         tk, ttk = self.tk, self.ttk
         top = self.stw = tk.Toplevel(self.root); top.withdraw(); top.title("Wing geometry"); top.transient(self.root)
-        top.geometry("+0+0")                                  # the screen's top-left: over the Airfoil box, not over the figure
+        tall = self.root.winfo_screenheight() > self.root.winfo_screenwidth()   # over the figure's far corner: the Airfoil box, whose
+        top.geometry("+0-0" if tall else "-0+0")                                  # section the buttons below copy, stays in view
         top.protocol("WM_DELETE_WINDOW", top.withdraw); top.bind("<Escape>", lambda ev: top.withdraw())
         body = ttk.Frame(top, padding=8); body.pack(fill="both", expand=True)
-        ttk.Label(body, justify="left", text=GEOMETRY_TEXT, wraplength=int(4.2 * self.root.winfo_fpixels("1i"))).pack(anchor="w")
+        wl = int(4.2 * self.root.winfo_fpixels("1i"))
+        ttk.Label(body, justify="left", text=GEOMETRY_TEXT, wraplength=wl).pack(anchor="w")
         self.cur = tk.StringVar(value="current = (no airfoil loaded yet)")
         ttk.Label(body, textvariable=self.cur, foreground="gray").pack(anchor="w", pady=(4, 0))
         f = ttk.Frame(body); f.pack(fill="both", expand=True, pady=(4, 0))
-        self.stations = tk.Text(f, width=56, height=6, wrap="none", font="TkFixedFont")
+        self.stations = tk.Text(f, width=56, height=6, wrap="none", font="TkFixedFont", undo=True)   # Ctrl+Z takes back a section button
         sb = ttk.Scrollbar(f, orient="vertical", command=self.stations.yview); self.stations.configure(yscrollcommand=sb.set)
         self.stations.pack(side="left", fill="both", expand=True); sb.pack(side="right", fill="y")
         self.stations.bind("<<Modified>>", self.edit_stations)
+        ttk.Label(body, justify="left", foreground="gray", text=SECTION_HINT, wraplength=wl).pack(anchor="w", pady=(4, 0))
+        sec = ttk.Frame(body); sec.pack(fill="x", pady=(4, 0))                  # the Airfoil box's section on rows of the table
+        ttk.Label(sec, text="Airfoil box's section on:").pack(side="left", padx=(0, 6))
+        ttk.Button(sec, text="Selected row(s)", command=lambda: self.set_sections(False)).pack(side="left")
+        ttk.Button(sec, text="All rows", command=lambda: self.set_sections(True)).pack(side="left", padx=6)
         self.scale, self.strips = tk.StringVar(value="1"), tk.StringVar(value="40")
+        for v in (self.scale, self.strips):                   # (the speeds scale with the size, and are the strips')
+            v.trace_add("write", self.ranges)
         bt = ttk.Frame(body); bt.pack(fill="x", pady=(6, 0))
         for text, var, width in (("Scale x", self.scale, 5), ("Strips", self.strips, 4)):
             ttk.Label(bt, text=text).pack(side="left", padx=(0, 4))
@@ -752,12 +802,14 @@ class App:
         if cur:
             st = [dict(s, section="current") for s in st]
         self.stations.delete("1.0", "end"); self.stations.insert("1.0", format_stations(st))
+        self.stations.mark_set("insert", "1.0")               # (the cursor is on the header, not on the last row: Selected row(s) takes the row that was clicked)
         self.stations.edit_modified(False)                    # filling is not editing (the <<Modified>> event comes later)
         self.planform.set(d["name"] if preset else "Custom")
         self.wname, self.wdesc = d.get("name", "Custom wing"), d.get("description", "")
         self.scale.set("1"); self.strips.set(str(int(d.get("n", 40))))
         if "V" in d:
             self.speed.set(f"{d['V']:g}")
+        self.ranges()
         return cur
 
     def pick_planform(self):
@@ -785,10 +837,57 @@ class App:
         return self.cutlabel or (self.section[1] if self.section else None)
 
     def edit_stations(self, event=None):
-        """Typing in the stations makes the wing a custom one."""
+        """Typing in the stations makes the wing a custom one (and its ranges follow)."""
         if self.stations.edit_modified():
             self.stations.edit_modified(False)
             self.planform.set("Custom"); self.wname, self.wdesc = "Custom wing", ""
+            self.ranges()
+
+    def ranges(self, *args):
+        """The gray line of the 3D Flow box: what the wing's inputs must respect, from wing_nll.input_ranges (numbers only, no model runs) on
+        the wing Run computes (wing_definition: its strips, its size). It follows the planform, the geometry table, Scale x, Strips, the
+        speed, the Airfoil box's section and the chosen state (a Tk trace passes arguments, ignored here). Inputs that cannot be read give
+        a short note, never an exception (it runs in Tk traces and in done_section); a speed that is not a number is not judged."""
+        try:
+            V = float(self.speed.get())
+        except ValueError:
+            V = None
+        V = V if V is not None and 0 < V < float("inf") else None
+        try:
+            r = WG.input_ranges(wing_definition(self.stations.get("1.0", "end"), self.scale.get(), self.strips.get()), V=V,
+                                current_is_naca=self.code is not None)
+        except ValueError as e:
+            return self.range_note.set(f"Ranges not shown ({e}).")
+        except ArithmeticError:                               # lengths no float carries (Scale x 1e-320): Run says the same
+            return self.range_note.set("Ranges not shown (the size is out of range).")
+        say, s = dict(r["sentences"]), r["sst" if self.wstate.get() == "sst" else "xfoil"]
+        if s["inside"] is False:                              # the state Run will use, said right after the speed's verdict
+            say["at_V"] += f" The {s['label']} you chose does not fit this speed."
+        self.range_note.set(" ".join(t for t in say.values() if t))
+
+    def set_sections(self, everywhere):
+        """The Airfoil box's section on rows of the geometry table: the selected rows (the cursor's row when none is selected), or every row. It
+        writes the section's own name (a NACA designation, uiuc:<name> or the file's path, never 'current'), and only in the section column."""
+        token, t = self.code or self.origin, self.stations
+        if token is None:
+            return self.status.configure(text="Load a section in the Airfoil box first (NACA, UIUC or your file)." if self.section is None else
+                                         f"The Airfoil box's section ({self.section[1]}) is a wing's cut: no name a station can use. Load a NACA, UIUC or file section.")
+        first = last = None
+        if not everywhere:
+            sel = t.tag_ranges("sel")
+            a, b = (str(sel[0]), str(sel[-1])) if sel else (str(t.index("insert")),) * 2
+            first, last = int(a.split(".")[0]), int(b.split(".")[0])
+            if last > first and b.endswith(".0"):             # a selection that ends at the start of a line does not take that line
+                last -= 1
+        rows = section_rows(t.get("1.0", "end"), token, first, last)
+        if not rows:
+            return self.status.configure(text="No station row there: click a row of the table (or select several), then press Selected row(s).")
+        cursor = t.index("insert")
+        for n, line in rows.items():                          # only these lines change: the view and the other rows stay
+            t.delete(f"{n}.0", f"{n}.end"); t.insert(f"{n}.0", line)
+        t.mark_set("insert", cursor)
+        self.edit_stations()                                  # the wing is a custom one now; Tk delivers its <<Modified>> later
+        self.status.configure(text=f"Set the section of {len(rows)} row{'s' if len(rows) > 1 else ''} to {token}. {self.sections_note()}")
 
     def load_wing(self):
         from tkinter import filedialog
@@ -1129,31 +1228,33 @@ def wing3d_page(res, field, free_wake, path, progress=None, cancel=None):
 App.TASKS["wing3d"] = wing3d_page
 
 
-def make_shortcut():
+def make_shortcut(experimental=False):
     """A launcher for this Python environment and this checkout; returns what was done. On macOS nothing is written:
-    the application is started from the terminal, and the command (and a shell alias for it) is returned."""
+    the application is started from the terminal, and the command (and a shell alias for it) is returned. experimental: a
+    separate launcher, "VortFoil (experimental)", whose window has the 3D wing (--experimental, the vortfoil_exp command)."""
     app = os.path.abspath(__file__)
     root = os.path.dirname(HERE)
+    name, flag, cmd_name = ("VortFoil (experimental)", " --experimental", "vortfoil_exp") if experimental else ("VortFoil", "", "vortfoil")
     if sys.platform == "win32":                               # VortFoil.lnk on the desktop, through pythonw (no console)
         pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
         pyw = pyw if os.path.exists(pyw) else sys.executable
-        ps = ("$s = (New-Object -ComObject WScript.Shell).CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), 'VortFoil.lnk')); "
-              f"$s.TargetPath = '{pyw}'; $s.Arguments = '\"{app}\"'; $s.WorkingDirectory = '{root}'; $s.IconLocation = '{pyw},0'; "
+        ps = (f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), '{name}.lnk')); "
+              f"$s.TargetPath = '{pyw}'; $s.Arguments = '\"{app}\"{flag}'; $s.WorkingDirectory = '{root}'; $s.IconLocation = '{pyw},0'; "
               "$s.Description = 'VortFoil: airfoil field and surface results'; $s.Save(); $s.FullName")
         return subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, check=True).stdout.strip()
     if sys.platform == "darwin":                              # the terminal is the launcher: print, write nothing
         import shutil
-        if shutil.which("vortfoil"):
-            return "no file written on macOS; the vortfoil command is installed: type vortfoil in a terminal"
-        cmd = f'"{sys.executable}" "{app}"'
+        if shutil.which(cmd_name):
+            return f"no file written on macOS; the {cmd_name} command is installed: type {cmd_name} in a terminal"
+        cmd = f'"{sys.executable}" "{app}"{flag}'
         return (f"no file written on macOS; start it from the terminal with\n  {cmd}\n"
-                f"or add this line to ~/.zshrc and type vortfoil:\n  alias vortfoil='{cmd}'")
+                f"or add this line to ~/.zshrc and type {cmd_name}:\n  alias {cmd_name}='{cmd}'")
     else:                                                     # an entry in the applications menu
-        path = os.path.expanduser("~/.local/share/applications/vortfoil.desktop")
+        path = os.path.expanduser(f"~/.local/share/applications/{'vortfoil-exp' if experimental else 'vortfoil'}.desktop")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
-            f.write(f'[Desktop Entry]\nType=Application\nName=VortFoil\nComment=Airfoil field and surface results\n'
-                    f'Exec="{sys.executable}" "{app}"\nPath={root}\nTerminal=false\nCategories=Science;Education;\n')
+            f.write(f'[Desktop Entry]\nType=Application\nName={name}\nComment=Airfoil field and surface results\n'
+                    f'Exec="{sys.executable}" "{app}"{flag}\nPath={root}\nTerminal=false\nCategories=Science;Education;\n')
     os.chmod(path, 0o755)
     return path
 
@@ -1165,17 +1266,27 @@ def make_parser():
     ap.add_argument("--airfoil", default="naca:2412", help="for --selftest: naca:<digits>, uiuc:<name> or file:<path>")
     ap.add_argument("--alpha", type=float, default=4.0, help="for --selftest: the incidence in deg (the airfoil's, or the wing's)")
     ap.add_argument("--Re", type=float, default=3e6, help="for --selftest: the airfoil's Reynolds number")
-    ap.add_argument("--wing", metavar="PRESET_OR_JSON", help="for --selftest: run this wing (a preset name, or part of one, or a wing "
+    ap.add_argument("--wing", metavar="PRESET_OR_JSON", help="for --selftest with --experimental: run this wing (a preset name, or part of one, or a wing "
                     "definition .json) instead of the airfoil; the CSV files of all its parts are written")
     ap.add_argument("--V", type=float, help="for --selftest --wing: the flow speed in m/s (default: the wing's own)")
     ap.add_argument("--state", choices=("xfoil", "sst"), default="xfoil", help="for --selftest --wing: the section state (default %(default)s)")
+    ap.add_argument("--experimental", action="store_true", help="the window with the experimental 3D wing (what vortfoil_exp opens; "
+                    "the vortfoil command refuses it); with --shortcut, a separate launcher for it")
     return ap
 
 
-def main(argv=None):
-    a = make_parser().parse_args(argv)
+def main(argv=None, experimental=None):
+    """experimental: None from a checkout (--experimental decides), False for the vortfoil command (2D only: it refuses
+    --experimental, however abbreviated), True for vortfoil_exp"""
+    ap = make_parser()
+    a = ap.parse_args(argv)
+    if experimental is False and a.experimental:
+        ap.error("--experimental: the vortfoil command is 2D only; the experimental 3D wing is vortfoil_exp")
+    a.experimental = a.experimental or bool(experimental)
+    if a.wing and not a.experimental:                         # vortfoil's window is 2D only
+        ap.error("--wing: the 3D wing is experimental; run it with vortfoil_exp" + ("" if experimental is False else ", or add --experimental"))
     if a.shortcut:
-        print("shortcut:", make_shortcut())
+        print("shortcut:", make_shortcut(a.experimental))
         return 0
     if sys.stdout is None or sys.stderr is None:              # pythonw (no console): keep messages in a log file
         os.makedirs(os.path.dirname(CACHE), exist_ok=True)
@@ -1189,7 +1300,7 @@ def main(argv=None):
             pass
     import tkinter as tk
     root = tk.Tk()
-    app = App(root, selftest=(a.selftest, a.airfoil, a.alpha, a.Re, a.wing, a.V, a.state) if a.selftest else None)
+    app = App(root, selftest=(a.selftest, a.airfoil, a.alpha, a.Re, a.wing, a.V, a.state) if a.selftest else None, experimental=a.experimental)
     root.mainloop()
     return app.exit_code
 

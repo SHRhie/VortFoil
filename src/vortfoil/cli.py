@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Command line: ``vortfoil`` (the application window), ``vortfoil app | view | predict | sweep | about | selfcheck``."""
+"""Command line: ``vortfoil`` (the application window), ``vortfoil app | view | predict | sweep | about | selfcheck``;
+``vortfoil_exp`` is the same with the experimental 3D wing in the application window."""
 import argparse
 import json
 import sys
@@ -19,14 +20,15 @@ def _load_cst(args):
     raise SystemExit("give --cst or --coords")
 
 
-def main(argv=None):
+def main(argv=None, prog="vortfoil"):
     argv = sys.argv[1:] if argv is None else list(argv)
     if not argv or argv[0] in ("app", "view"):          # the windows: their own options, passed through
         from . import app
         return (app.view if argv and argv[0] == "view" else app.app)(argv[1:])
-    p = argparse.ArgumentParser(prog="vortfoil", description="Deployed VortFoil surface model",
+    p = argparse.ArgumentParser(prog=prog, description="Deployed VortFoil surface model",
                                 epilog="vortfoil alone opens the application window (vortfoil app --help for its options); "
-                                       "vortfoil view --help: the one-window viewer.")
+                                       "vortfoil view --help: the one-window viewer; vortfoil_exp: the same, with the "
+                                       "experimental 3D wing in the window.")
     p.add_argument("--mode", default="graph", choices=["graph", "eager"])
     p.add_argument("--device", default="cpu", choices=["cpu", "gpu", "auto"])
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -74,6 +76,15 @@ def main(argv=None):
         for i, a in enumerate(np.atleast_1d(alphas)):
             print(f"{float(a):8.2f} {r.cl[i]:9.4f} {r.cd[i]:10.5f} {r.cm[i]:9.4f} {r.stagnation[i]:8.4f}")
     return 0
+
+
+def main_exp(argv=None):
+    """``vortfoil_exp``: ``vortfoil`` with the experimental 3D wing in the application window (``vortfoil`` refuses it)."""
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if not argv or argv[0] == "app":
+        from . import app
+        return app.app(argv[1:], experimental=True)
+    return main(argv, "vortfoil_exp")
 
 
 if __name__ == "__main__":

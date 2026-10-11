@@ -132,6 +132,20 @@ The same command has these subcommands; each takes `--help`:
 
 `uv tool upgrade vortfoil` updates it. On Linux the window needs a desktop session (a display).
 
+### Two commands: `vortfoil` and `vortfoil_exp`
+
+- `vortfoil` runs the paper's 2D models: the surface model (XFOIL state) and the RANS field decoder (RANS state) for one
+  section, in the application window and in the subcommands above. Its window has no 3D wing (`vortfoil app --experimental` is refused).
+- `vortfoil_exp` is the same with one addition in the application window, the **experimental** quasi-3D wing (the box
+  "3D wing" next to the section's name): a classical nonlinear lifting line (Phillips and Snyder, 2000) that carries VortFoil
+  sections in either state, for straight to moderately swept planforms of any size, with kinks, dihedral and NACA, UIUC or
+  file sections. It is not part of the paper's validated claims. `vortfoil_exp view`, `predict`, `sweep`, `about` and `selfcheck` are
+  `vortfoil`'s. From a checkout: `python code/vortfoil_app.py --experimental`.
+  A gray line below the Section model row says what the inputs must respect: the speeds that keep every strip inside each
+  state's training Reynolds range (they follow the strips' chords: the table, Scale x and Strips), the strips' incidence limits, whether the speed you
+  typed fits, and that the RANS state was trained on NACA 4/5-digit sections only when a section is not one. To put a UIUC section
+  on the wing, pick it in the Airfoil box (search its list) and press **Selected row(s)** or **All rows** in the Geometry window.
+
 ### Uninstall
 
 1. Remove the program.
@@ -139,7 +153,7 @@ The same command has these subcommands; each takes `--help`:
    - A pip install: `pip uninstall vortfoil`.
    - An environment made for a checkout: `conda env remove -n vortfoil`, or delete its venv folder; then delete the repository folder.
 2. Delete what the application keeps: the UIUC list, the sections you opened and its log. They are in `%LOCALAPPDATA%\vortfoil` on Windows and in `~/.cache/vortfoil` on macOS and Linux.
-3. Delete a launcher made with `--shortcut`: **VortFoil** on the Windows desktop, or `~/.local/share/applications/vortfoil.desktop` on Linux. macOS has none.
+3. Delete a launcher made with `--shortcut`: **VortFoil** on the Windows desktop, or `~/.local/share/applications/vortfoil.desktop` on Linux (with `--experimental`: **VortFoil (experimental)**, or `vortfoil-exp.desktop`). macOS has none.
 4. If no other uv tool uses them, remove uv's Python and its download cache: `uv python uninstall 3.12`, then `uv cache clean`.
 5. If you installed uv only for VortFoil, remove it last, after step 4 (which needs uv):
    - Windows: `winget uninstall --id=astral-sh.uv -e`
@@ -353,13 +367,16 @@ python code/vortfoil_app.py
 - on Linux, an entry in the applications menu;
 - on macOS nothing is written, since the terminal is the launcher (`vortfoil`).
 
+With `--experimental` (`vortfoil_exp app --shortcut`) it adds a second launcher, **VortFoil (experimental)**
+(`vortfoil-exp.desktop` on Linux; `vortfoil_exp` on macOS), whose window has the 3D wing; the first one stays as it is.
+
 **Notes.**
 - The first run loads the models, which takes a few seconds; later runs take about 1–5 s at the normal field detail. A run needs about 1.5 GB of memory.
 - The UIUC list needs an internet connection the first time.
 - The list and the sections you open are cached in `%LOCALAPPDATA%\vortfoil\uiuc` on Windows and in `~/.cache/vortfoil/uiuc` elsewhere.
 - When the application is started without a console, as from the Windows shortcut, its messages go to `app.log` next to that folder.
 - To uninstall, see [Uninstall](#uninstall).
-- `python code/vortfoil_app.py --selftest DIR` runs one case without a person and saves the figure and a capture of the window in DIR, as a quick check of an installation.
+- `python code/vortfoil_app.py --selftest DIR` runs one case without a person and saves the figure and a capture of the window in DIR, as a quick check of an installation; `--experimental --selftest DIR --wing PRESET` does the same for a wing.
 
 ## Execution conditions
 

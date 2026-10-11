@@ -51,6 +51,14 @@ generation; it does not follow a prior 1.x package.
   RANS state. `predict_field.boundary_layer()` reads the RANS state's boundary layer from the decoder's flow (validated on the
   200 AirfRANS test cases, `code/field/validate_field_boundary_layer.py`, `results/field_boundary_layer_validation.json`). The CSV
   export adds `_boundary_layer_rans.csv`, and `_coefficients.csv` gains the RANS state's C_m and 1/0 flags for each state's range.
+- `vortfoil_exp` (from a checkout, `python code/vortfoil_app.py --experimental`): the application window with an
+  experimental quasi-3D wing, a classical nonlinear lifting line that carries VortFoil sections in the XFOIL or the RANS state
+  (`code/wing_nll.py`, `code/view_wing.py`, `code/wing_flow.py`). It is not part of the paper's validated claims; `vortfoil`
+  keeps the paper's 2D models only (it refuses `--experimental`), and `vortfoil_exp`'s other subcommands are `vortfoil`'s. `--shortcut --experimental` adds a separate
+  launcher, VortFoil (experimental). `wing_nll.input_ranges()` gives the speeds that keep every strip inside each state's
+  training Reynolds range; the window shows them in a gray line below the Section model row (with the strip incidence limits, what the speed
+  typed fits, and a note that the RANS state is trained on NACA 4/5-digit sections only), and the Geometry window's **Selected
+  row(s)** and **All rows** put the Airfoil box's section (a NACA designation, a UIUC section or your file) on the wing's rows.
 - `LICENSE` (GNU GPL v3 or later; `xfoil_closures.py` translates XFOIL, which is GPL v2 or later), `NOTICE` and
   `DATA_LICENSES.md`.
 

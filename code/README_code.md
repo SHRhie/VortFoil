@@ -162,3 +162,20 @@ wall-function C_f). `figure(..., states=...)` draws either or both; a state outs
 (`meta["xfoil_in_range"]`, `meta["rans_in_range"]` from `compute`) is drawn faded and labelled. `export_csv` writes every number
 (`--csv DIR`; the RANS state's boundary layer is `_boundary_layer_rans.csv`). `--save` writes the figure, `--no-show` skips
 the window.
+
+## `code/vortfoil_app.py` and the experimental 3D wing
+
+The application window: `vortfoil` (or `python code/vortfoil_app.py`) runs the paper's 2D models of `view_airfoil.py`.
+`vortfoil_exp` (or `--experimental`) adds the experimental quasi-3D wing, which is not part of the paper's validated claims:
+
+| file | purpose |
+|---|---|
+| `wing_nll.py` | A nonlinear lifting line (Phillips and Snyder, 2000) on VortFoil sections in the XFOIL state (surface model) or the RANS state (field decoder): presets and wing definitions (JSON), `compute()`, `input_ranges()` (for the 3D Flow box: the speeds that keep every strip inside each state's training Reynolds range, the strip incidence ranges, the decoder's section family, as sentences) and `--check`. |
+| `view_wing.py` | The wing figure (3D surface, spanwise quantity with a draggable section cut, the section at the cut, the polar, the coefficients) and its CSV export. |
+| `wing_flow.py`, `wing_view.html` | The browser 3D view: the wing, streamlines, the viscous wake and the trailing vortices in a standalone WebGL page. |
+
+In the 3D window the gray line below the Section model row is `wing_nll.input_ranges()` on the wing Run computes (numbers only, no
+model runs; its speeds are those of `compute()`'s strips; it follows the planform, the geometry table, Scale x, Strips, the speed, the
+Airfoil box's section and the chosen state). The Geometry window's
+**Selected row(s)** and **All rows** write the Airfoil box's section (a NACA designation, `uiuc:<name>` or the file's path, never
+`current`) into the table's section column (`section_rows()`), so a UIUC section is picked in the Airfoil box and placed on rows.

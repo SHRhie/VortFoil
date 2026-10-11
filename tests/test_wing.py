@@ -196,6 +196,90 @@ def test_sst_moment_against_the_xfoil_state():
     assert np.all(np.abs(cm_s - cm_x) < 0.02), (cm_s, cm_x)
 
 
+def test_input_ranges():
+    """The 3D Flow box's ranges, without a model call: the speeds that keep every strip inside each state's training Re (compute()'s own
+    strips: their chords at the control points times the scale, NU_AIR 1.5e-5, so they follow the strip count), the states' strip
+    incidences, a typed speed judged per state, the RANS decoder's family (NACA 4/5-digit; 'current' is the Airfoil box's section) and
+    the sentences the box shows."""
+    import re
+    import predict_field as PF
+    strips = lambda d: WG.Wing(stations=WG.validate(d)["stations"], n=WG.validate(d)["n"]).c          # compute()'s strip chords
+    r = WG.input_ranges(WG.PRESETS[FULL])                                           # stations 1.5 to 0.75 m; its 40 strips 1.471 to 0.751 m
+    x, s, c = r["xfoil"], r["sst"], strips(WG.PRESETS[FULL])
+    assert r["chord"] == (c.min(), c.max()) and 0.75 < c.min() < 0.751 and 1.47 < c.max() < 1.471 and r["naca"] and x["possible"] and s["possible"]
+    assert np.allclose(x["V"], (5e4 * 1.5e-5 / c.min(), 1e7 * 1.5e-5 / c.max()), rtol=1e-11, atol=0)
+    assert np.allclose(s["V"], (2e6 * 1.5e-5 / c.min(), 6e6 * 1.5e-5 / c.max()), rtol=1e-11, atol=0)
+    assert (x["label"], x["alpha"], x["Re"], s["label"], s["alpha"], s["Re"]) == (
+        "XFOIL state", (-10.0, 18.0), (5e4, 1e7), "RANS state", (-5.0, 15.0), (2e6, 6e6))
+    assert x["Re_at_V"] is x["inside"] is s["Re_at_V"] is s["inside"] is r["sentences"]["at_V"] is r["sentences"]["family"] is None
+    assert r["text"] == ("Speeds that keep every strip inside the training Re: XFOIL state 1-102 m/s, RANS state 40-61.2 m/s. "
+                         "Strip incidence: XFOIL -10 to 18 deg, RANS -5 to 15 deg.")
+    at = lambda V, d=WG.PRESETS[FULL], **kw: WG.input_ranges(d, V=V, **kw)
+    r = at(45)
+    assert r["xfoil"]["inside"] and r["sst"]["inside"] and np.allclose(r["sst"]["Re_at_V"], (45 * c.min() / 1.5e-5, 45 * c.max() / 1.5e-5))
+    assert r["sentences"]["at_V"] == "45 m/s: inside both." and r["text"].endswith("RANS -5 to 15 deg. 45 m/s: inside both.")
+    for V, said in ((30, "30 m/s: XFOIL state only; RANS state below its Re range at the outboard strips."),
+                    (61, "61 m/s: inside both."),                                   # above the stations' 60 m/s: no strip reaches the root chord
+                    (61.3, "61.3 m/s: XFOIL state only; RANS state above its Re range at the inboard strips."),
+                    (70, "70 m/s: XFOIL state only; RANS state above its Re range at the inboard strips."),
+                    (10, "10 m/s: XFOIL state only; RANS state below its Re range on every strip."),
+                    (0.5, "0.5 m/s: XFOIL state below its Re range on every strip; RANS state below its Re range on every strip.")):
+        assert at(V)["sentences"]["at_V"] == said
+    for V, state in ((1.0, "xfoil"), (102.0, "xfoil"), (40.0, "sst"), (61.2, "sst"), (x["V"][0], "xfoil"), (s["V"][1], "sst")):
+        assert at(V)[state]["inside"], (V, state)                                  # a bound, as typed or as computed, is inside
+    assert WG.input_ranges(dict(WG.PRESETS[FULL], n=16))["sentences"]["speeds"].endswith("XFOIL state 0.996-105 m/s, RANS state 39.9-63 m/s.")
+    m = at(20, WG.PRESETS["Model wing (span 2 m)"])                                 # stations 0.3 to 0.15 m
+    assert m["sentences"]["speeds"] == "Speeds that keep every strip inside the training Re: XFOIL state 5-510 m/s, RANS state 200-306 m/s."
+    assert m["sentences"]["at_V"] == "20 m/s: XFOIL state only; RANS state below its Re range on every strip." and m["xfoil"]["inside"]
+    h = WG.input_ranges(WG.PRESETS[FULL], scale=0.5)                               # half the size: twice the speeds
+    assert h["chord"] == (c.min() / 2, c.max() / 2) and np.allclose(h["xfoil"]["V"], 2 * np.array(x["V"])) and np.allclose(h["sst"]["V"], 2 * np.array(s["V"]))
+    assert "XFOIL state 2-204 m/s, RANS state 80-122 m/s." in h["text"]
+    st = WG.PRESETS[KINKED]["stations"]                                             # a kinked wing with a UIUC section at its kink
+    k = at(60, dict(WG.PRESETS[KINKED], stations=[st[0], dict(st[1], section="uiuc:e387"), st[2]]))
+    assert not k["naca"] and WG.input_ranges(WG.PRESETS[KINKED])["naca"] and k["sentences"]["family"] == (
+        "RANS state: trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; prefer the XFOIL state.")
+    assert k["text"].endswith(k["sentences"]["family"]) and k["sst"]["inside"] and "RANS state 59.9-60.7 m/s." in k["text"]
+    near3 = WG.input_ranges(dict(stations=[dict(y=0, chord=1.5, section="2412"), dict(y=5, chord=0.487, section="2412")]))
+    assert near3["sst"]["possible"] and "RANS state about 61.6 m/s only." in near3["text"]                    # strip chord ratio just under 3
+    cur = dict(WG.PRESETS[FULL], stations=[dict(t, section="current") for t in WG.PRESETS[FULL]["stations"]])
+    assert not WG.input_ranges(cur)["naca"] and WG.input_ranges(cur, current_is_naca=True)["naca"]
+    assert WG.input_ranges(dict(cur, stations=[dict(t, section="NACA 4412") for t in cur["stations"]]))["naca"]
+    imp = at(60, dict(stations=[dict(y=0, chord=1.5, section="2412"), dict(y=5, chord=0.4, section="2412")]))   # stations' chord ratio 3.75
+    assert imp["xfoil"]["possible"] and not imp["sst"]["possible"] and imp["sst"]["V"][0] > imp["sst"]["V"][1]
+    assert imp["sentences"]["speeds"].endswith("XFOIL state 1.88-102 m/s, RANS state no speed (strip chord ratio 3.63 > its Re ratio 3).")
+    assert imp["sentences"]["at_V"] == "60 m/s: XFOIL state only; RANS state below its Re range at the outboard strips."
+    for d, said in (((1.0, 1.5, 0.5), "80 m/s: XFOIL state only; RANS state above its Re range at the mid-span strips."),   # the widest chord at y = 2 of 5
+                    ((1.5, 1.5, 0.75), "80 m/s: XFOIL state only; RANS state above its Re range at the inboard strips.")):  # a constant-chord inboard panel
+        wing = dict(stations=[dict(y=y, chord=ch, section="2412") for y, ch in zip((0, 2, 5), d)])
+        assert at(80, wing)["sentences"]["at_V"] == said
+    assert np.allclose(WG.input_ranges(WG.PRESETS[FULL], decoder=PF.DECODER_REXT)["sst"]["V"], (1e6 * 1.5e-5 / c.min(), 1e7 * 1.5e-5 / c.max()))
+    for c0, c1 in ((1.2, 0.9), (1.3, 0.7), (0.37, 0.13)):                         # a shown bound, typed back in, is inside
+        d = dict(stations=[dict(y=0, chord=c0, section="2412"), dict(y=4, chord=c1, section="2412")])
+        for state, label in (("xfoil", "XFOIL"), ("sst", "RANS")):
+            lo, hi = re.search(label + r" state ([0-9.]+)-([0-9.]+) m/s", WG.input_ranges(d)["text"]).groups()
+            assert at(float(lo), d)[state]["inside"] and at(float(hi), d)[state]["inside"], (c0, c1, state, lo, hi)
+    for kw, message in ((dict(scale=0), "Scale x"), (dict(scale="x"), "Scale x"), (dict(V=-1), "Speed"), (dict(V="fast"), "Speed"),
+                        (dict(scale="1e-320"), "too small or too large")):                                           # no OverflowError
+        with pytest.raises(ValueError, match=message):
+            WG.input_ranges(WG.PRESETS[FULL], **kw)
+    with pytest.raises(ValueError, match="chord: inf to inf m after Scale x, too small or too large"):                          # 1e300 m x 1e10
+        WG.input_ranges(dict(stations=[dict(y=0, chord=1e300, section="2412"), dict(y=1, chord=1e300, section="2412")]), scale=1e10)
+    with pytest.raises(ValueError, match="at least two"):
+        WG.input_ranges(dict(stations=[dict(y=0, chord=1, section="2412")]))
+
+
+@pytest.mark.parametrize("state", ["xfoil", "sst"])
+def test_input_ranges_bound_the_strip_reynolds_warnings(state, cache, monkeypatch):
+    """At the speeds input_ranges gives for a state, compute() has no strip Reynolds-number warning in it; 1% below the lower one and 1%
+    above the upper one it has one (16 strips, coarse tables: the warnings come from the strips' own states, not the tables)"""
+    monkeypatch.setattr(WG, "TABLE_X", np.arange(-10.0, 18.001, 2.0))
+    monkeypatch.setattr(WG, "TABLE_S", np.arange(-8.0, 16.001, 2.0))
+    d = dict(WG.PRESETS[FULL], n=16)
+    lo, hi = WG.input_ranges(d)[state]["V"]
+    re_warnings = lambda V: [m for m in WG.compute(d, V, 4.0, state)["warnings"] if "Reynolds numbers lie outside" in m or " at Re " in m]
+    assert re_warnings(lo) == re_warnings(hi) == [] and len(re_warnings(0.99 * lo)) == len(re_warnings(1.01 * hi)) == 1
+
+
 @pytest.mark.skipif(not os.environ.get("VORTFOIL_SLOW"), reason="research regression, minutes: set VORTFOIL_SLOW=1")
 def test_research_regression(cache):
     WG.check(regression=True)

@@ -148,16 +148,19 @@ def test_section_names_and_cut_names():
 # ------------------------------------------------------------------------------------------------ a recording stand-in for Tk
 class Var:
     def __init__(self, master=None, value=None):
-        self.v = "" if value is None else value
+        self.v, self.traces = "" if value is None else value, []
 
     def get(self):
         return self.v
 
     def set(self, v):
         self.v = v
+        for callback in self.traces:                                                              # a write trace runs at every set, as in Tk
+            callback("PY_VAR0", "", "write")
 
     def trace_add(self, mode, callback):
-        pass
+        assert mode == "write"
+        self.traces.append(callback)
 
 
 COMMON = {"style", "takefocus", "cursor", "class_"}
@@ -285,20 +288,56 @@ class Listbox(Widget):
 
 
 class Text(Widget):
+    """a Text with Tk's indices ('L.C', 'L.end', 'end', 'insert'), the insert mark and a selection (select()); the text is kept without
+    the final newline Tk's Text always has"""
     OPTS = {"width", "height", "wrap", "font", "yscrollcommand", "xscrollcommand", "undo", "state", "padx", "pady", "background", "foreground"}
 
     def __init__(self, master=None, **kw):
         super().__init__(master, **kw)
-        self.s, self.mod = "", False
+        self.s, self.mod, self.cursor, self.sel = "", False, 0, ()                            # sel: the selection's (first, last) offsets
+
+    def offset(self, index):
+        index = str(index)
+        if index in ("end", "insert"):
+            return len(self.s) if index == "end" else self.cursor
+        line, col = index.split(".")
+        lines = self.s.split("\n")
+        n = min(int(line), len(lines))
+        return sum(len(x) + 1 for x in lines[:n - 1]) + (len(lines[n - 1]) if col == "end" else min(int(col), len(lines[n - 1])))
+
+    def at(self, o):
+        """the Tk index 'L.C' of offset o"""
+        return f"{self.s.count(chr(10), 0, o) + 1}.{o - (self.s.rfind(chr(10), 0, o) + 1)}"
+
+    def index(self, index):
+        return self.at(self.offset(index))
 
     def insert(self, index, text):
-        self.s, self.mod = (text + self.s if index == "1.0" else self.s + text), True        # any change sets the modified flag
+        o = self.offset(index)
+        self.s, self.mod, self.sel = self.s[:o] + text + self.s[o:], True, ()                # any change sets the modified flag
+        self.cursor += len(text) if self.cursor >= o else 0                                  # the insert mark has right gravity
 
     def delete(self, first, last=None):
-        self.s, self.mod = "", True
+        a = self.offset(first)
+        b = self.offset(last) if last is not None else a + 1
+        self.s, self.mod, self.sel = self.s[:a] + self.s[b:], True, ()
+        self.cursor = a if a < self.cursor <= b else self.cursor - (b - a) if self.cursor > b else self.cursor
 
     def get(self, first, last=None):
-        return self.s + "\n"                                                                  # Tk's Text always ends in a newline
+        full = self.s + "\n"                                                                  # Tk's Text always ends in a newline
+        return full[self.offset(first):len(full) if str(last) == "end" else self.offset(last) if last is not None else self.offset(first) + 1]
+
+    def mark_set(self, name, index):
+        assert name == "insert"
+        self.cursor = self.offset(index)
+
+    def tag_ranges(self, tag):
+        assert tag == "sel"
+        return tuple(self.at(o) for o in self.sel)
+
+    def select(self, first, last):
+        """what a person dragging over the text does: the selection tag on first..last"""
+        self.sel = (self.offset(first), self.offset(last))
 
     def edit_modified(self, flag=None):
         if flag is None:
@@ -355,7 +394,7 @@ class Root(Widget):
         return self.screen[1]
 
     def title(self, text):
-        pass
+        self.name = text
 
     def geometry(self, spec):
         pass
@@ -404,7 +443,8 @@ class Toolbar(NavigationToolbar2):
 
 @pytest.fixture
 def tk(monkeypatch):
-    """make(screen=(1728, 1117), selftest=None, canvas=(1000, 1250)) -> (app, root): the application on the stand-in for Tk"""
+    """make(screen=(1728, 1117), selftest=None, canvas=(1000, 1250), experimental=True) -> (app, root): the application on the stand-in
+    for Tk; experimental: the window of vortfoil_exp (the 3D wing this file tests), else vortfoil's (2D only)"""
     ttk, fd, tkm, be = (types.ModuleType(n) for n in ("tkinter.ttk", "tkinter.filedialog", "tkinter", "matplotlib.backends.backend_tkagg"))
     for c in (Frame, LabelFrame, Label, Entry, Combobox, Button, Radiobutton, Checkbutton, Progressbar, Scrollbar):
         setattr(ttk, c.__name__, c)
@@ -420,9 +460,9 @@ def tk(monkeypatch):
     monkeypatch.setitem(A.App.TASKS, "index", lambda: [])                      # no network
     monkeypatch.setitem(A.DETAIL, "normal (0.005 c)", 0.05)                    # a coarse field: the 2D run takes seconds
 
-    def make(screen=(1728, 1117), selftest=None, canvas=(1000, 1250)):
+    def make(screen=(1728, 1117), selftest=None, canvas=(1000, 1250), experimental=True):
         root = Root(screen)
-        app = A.App(root, selftest=selftest)
+        app = A.App(root, selftest=selftest, experimental=experimental)
         app.can.size = canvas
         return app, root
     make.fd = fd
@@ -485,7 +525,9 @@ def test_window_builds_in_both_layouts(tk):
         assert app.mode() == "wing" and app.f3.mapped and not app.f2.mapped and app.flow.cell == cells[app.flow]
         assert set(texts(app.f3)) == {"Planform", "Geometry ...", "Speed (m/s)", "Incidence (deg)", "Section model", "XFOIL state", "RANS state",
                                       "Surface", "Spanwise", "Polar", "Open cut in 2D", "3D view"}
-        assert set(texts(app.stw)) == {A.GEOMETRY_TEXT, "Scale x", "Strips", "Load ...", "Save ...", "Close"} and app.stw.name == "Wing geometry"
+        assert set(texts(app.stw)) == {A.GEOMETRY_TEXT, A.SECTION_HINT, "Airfoil box's section on:", "Selected row(s)", "All rows",
+                                       "Scale x", "Strips", "Load ...", "Save ...", "Close"} and app.stw.name == "Wing geometry"
+        assert app.lst.kw["height"] == 9                                       # 3D: the list is as short as on an upright screen (room for the gray line)
         assert A.GEOMETRY_TEXT.startswith("Each row is a spanwise station: the wing's shape at one position along the half-span, root (y = 0) first. "
                                           "Between rows the chord, twist, sweep, dihedral and section change linearly.")
         assert all(c.bound.get("<MouseWheel>") and c.bound["<MouseWheel>"](None) == "break" for c in app.f3.walk() if isinstance(c, Combobox))
@@ -495,7 +537,7 @@ def test_window_builds_in_both_layouts(tk):
         assert box[app.polar].kw["values"] == WV.POLAR_PLOTS and box[app.surface] is app.surface_box and len(box) == 4
         assert [w.kw["value"] for w in app.f3.walk() if isinstance(w, Radiobutton)] == ["xfoil", "sst"]
         assert [e.kw["textvariable"] for e in app.f3.walk() if type(e) is Entry] == [app.speed, app.walpha] and app.walpha is not app.alpha
-        assert app.speed is not app.re and app.stations.kw["width"] == 56 and app.stw.spec == "+0+0" and not app.stw.visible
+        assert app.speed is not app.re and app.stations.kw["width"] == 56 and app.stw.spec == ("+0-0" if tall else "-0+0") and not app.stw.visible
         lines = app.stations.get("1.0", "end").splitlines()
         assert lines[0] == A.STATIONS_HEADER and len(lines) == 3 and all(ln.endswith("current") for ln in lines[1:])
         assert (app.planform.get(), app.speed.get(), app.walpha.get(), app.wstate.get(), app.strips.get(), app.scale.get()) == (
@@ -511,6 +553,7 @@ def test_window_builds_in_both_layouts(tk):
         app.open_stations()
         app.wing.set(False); app.show()                                       # unticking: the released window again, the table hidden
         assert app.f2.mapped and not app.f3.mapped and not app.stw.visible and app.fig.texts[0].get_text() == A.HINTS["section"]
+        assert app.lst.kw["height"] == (9 if tall else 14)                     # the released list again
         assert app.cut_btn["state"] == "disabled" and app.f2.cell == dict(row=0, column=0, sticky="ew")
 
 
@@ -1082,10 +1125,12 @@ def test_sst_state_through_the_app(tk, tmp_path, monkeypatch):
     assert app.surface_box.kw["values"] == ["C_p", "C_f"]
 
 
-def test_selftest_runs_a_section_as_before(tk, tmp_path, capsys):
-    """Without --wing the self-test is the 2D one: its run, the canvas and figure files, the 2D CSV files, 'SELFTEST OK Saved ...'."""
+@pytest.mark.parametrize("experimental", [True, False])
+def test_selftest_runs_a_section_as_before(tk, tmp_path, capsys, experimental):
+    """Without --wing the self-test is the 2D one, in both windows: its run, the canvas and figure files, the 2D CSV files,
+    'SELFTEST OK Saved ...'."""
     out = tmp_path / "st2d"
-    app, root = tk(selftest=(str(out), "naca:2412", 4.0, 3e6, None, None, "xfoil"))
+    app, root = tk(selftest=(str(out), "naca:2412", 4.0, 3e6, None, None, "xfoil"), experimental=experimental)
     settle(app, lambda: any(f == app.finish_selftest for _, f in root.after_calls))
     assert app.mode() == "section" and app.re.get() == "3e+06" and app.alpha.get() == "4"
     app.finish_selftest()
@@ -1275,3 +1320,356 @@ def test_a_failing_selftest_write_ends_the_selftest(tk, tmp_path, capsys, monkey
     app.finish_selftest()
     assert "SELFTEST FAILED: disk full" in capsys.readouterr().out and app.exit_code == 1
     assert any(f == root.destroy for _, f in root.after_calls)
+
+
+# ------------------------------------------------------------------------------------------------ the gray row of ranges; the Airfoil box's section on rows
+SPEEDS = "Speeds that keep every strip inside the training Re: XFOIL state 1-102 m/s, RANS state 40-61.2 m/s. "     # the 40 strips' chords
+INCIDENCE = "Strip incidence: XFOIL -10 to 18 deg, RANS -5 to 15 deg."
+FAMILY = "RANS state: trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; prefer the XFOIL state."
+
+
+def test_the_gray_row_of_ranges(tk, monkeypatch):
+    """The 3D Flow box has one gray row of wrapping text after the Section model row. It says what the wing's inputs must respect
+    (wing_nll.input_ranges: no model runs) and follows every input at once: the planform, the geometry table, Scale x, the speed, the
+    Airfoil box's section, the chosen state and Strips (the speeds are those of the strips Run computes). In range, below range, no speed
+    fits, the UIUC family note, and a table, Scale x or Strips that cannot be read (a note, never an exception, also for a size no float
+    holds: the section load that calls it still completes)."""
+    app, root = tk()
+    settle(app, lambda: app.section is not None)
+    for owner, name in ((A.WG, "compute"), (A.WG, "_model"), (A.V, "compute")):                   # nothing here may run a model
+        monkeypatch.setattr(owner, name, lambda *a, **k: pytest.fail("a model ran"))
+    app.wing.set(True); app.show()
+    row = app.range_note.get
+    # where it is and how it looks: the fourth row of the wing rows, gray, wrapped like the 2D box's note, wider where the box is
+    label, = [w for w in app.f3.walk() if isinstance(w, Label) and w.kw.get("textvariable") is app.range_note]
+    rows = app.f3.children
+    assert len(rows) == 6 and rows[3].children == [label] and label.master is rows[3]
+    assert [r.cell for r in rows] == [dict(row=i, column=0, sticky="ew", pady=(0 if i == 0 else 3, 0)) for i in range(6)]
+    assert any(isinstance(w, Radiobutton) for w in rows[2].walk()) and any(w is app.surface_box for w in rows[4].walk())      # after Section model, before Surface
+    assert label.kw["foreground"] == "gray" and label.kw["wraplength"] == app.status.kw["wraplength"] == 340 and label.kw["justify"] == "left"
+    for width, wrap in ((1, 340), (300, 340), (373, 365), (500, 492)):                            # the Flow box's width minus a margin, never below 3.4 in
+        label.bound["<Configure>"](types.SimpleNamespace(width=width))
+        assert label.kw["wraplength"] == wrap
+    # the Full-scale wing at its own 45 m/s (NACA 2412 in the Airfoil box: a NACA section, so no family note)
+    assert row() == SPEEDS + INCIDENCE + " 45 m/s: inside both."
+    at30 = "30 m/s: XFOIL state only; RANS state below its Re range at the outboard strips."
+    app.speed.set("30")                                                                           # typing a speed
+    assert row() == SPEEDS + INCIDENCE + " " + at30
+    app.wstate.set("sst")                                                                         # the chosen state that does not fit says so
+    assert row() == SPEEDS + INCIDENCE + " " + at30 + " The RANS state you chose does not fit this speed."
+    app.speed.set("70")
+    assert row().endswith(" 70 m/s: XFOIL state only; RANS state above its Re range at the inboard strips. The RANS state you chose does not fit this speed.")
+    app.speed.set("45")
+    assert row() == SPEEDS + INCIDENCE + " 45 m/s: inside both."
+    app.wstate.set("xfoil")
+    app.speed.set("70")
+    assert row().endswith("RANS state above its Re range at the inboard strips.")                 # the XFOIL state fits: nothing more
+    for junk in ("", "fast", "-3", "0", "nan", "inf", "4,5"):                                     # a speed that is not a number (yet) is not judged
+        app.speed.set(junk)
+        assert row() == SPEEDS + INCIDENCE, junk
+    app.speed.set("45")
+    app.scale.set("2")                                                                            # twice the size: half the speeds
+    assert row() == ("Speeds that keep every strip inside the training Re: XFOIL state 0.5-51 m/s, RANS state 20-30.6 m/s. " + INCIDENCE
+                      + " 45 m/s: XFOIL state only; RANS state above its Re range at the inboard strips.")
+    for bad, note in (("x", "Scale x: 'x' is not a number"), ("0", "Scale x: must be positive (got 0)")):    # Run's own words (wing_definition)
+        app.scale.set(bad)
+        assert row() == f"Ranges not shown ({note})."
+    app.scale.set("1")
+    assert row() == SPEEDS + INCIDENCE + " 45 m/s: inside both."
+    app.strips.set("16")                                                                          # fewer strips: the innermost one has less chord
+    assert row() == ("Speeds that keep every strip inside the training Re: XFOIL state 0.996-105 m/s, RANS state 39.9-63 m/s. " + INCIDENCE
+                     + " 45 m/s: inside both.")
+    app.strips.set("4")
+    assert row() == "Ranges not shown (Strips: must be a whole number from 8 to 200 (got 4))."
+    app.strips.set("40")
+    app.speed.set("61")                                                                           # above the stations' 60 m/s, but no strip reaches the root chord
+    assert row() == SPEEDS + INCIDENCE + " 61 m/s: inside both."
+    for tiny in ("1e-320", "1e200"):                                                              # a size no float holds: a note, and the section still loads
+        app.scale.set(tiny)
+        assert row() == "Ranges not shown (the size is out of range)."
+    app.choose("naca", "23012"); settle(app, lambda: app.section[1] == "NACA 23012")
+    assert app.pname.kw["text"].startswith("NACA 23012") and app.code == "23012"
+    app.scale.set("1"); app.speed.set("45")
+    assert row() == SPEEDS + INCIDENCE + " 45 m/s: inside both."
+    # the planform: the Model wing's own 20 m/s is far below the RANS state's Re range
+    app.planform.set("Model wing (span 2 m)"); app.pick_planform()
+    assert row() == ("Speeds that keep every strip inside the training Re: XFOIL state 5-510 m/s, RANS state 200-306 m/s. " + INCIDENCE
+                     + " 20 m/s: XFOIL state only; RANS state below its Re range on every strip.")
+    # the geometry table: half a row typed, then the impossible wing (chord ratio 3.75 against the RANS state's Re ratio 3)
+    app.planform.set(FULL); app.pick_planform()
+    app.stations.type("\n3 0.5 0 0")
+    assert row() == "Ranges not shown (stations, line 4: expected y, chord, twist, x, z and a section (found 4 of 6 fields))." and app.planform.get() == "Custom"
+    app.stations.delete("1.0", "end"); app.stations.insert("1.0", "0 1.5 0 0 0 2412\n5 0.4 0 0 0 2412")
+    app.stations.bound["<<Modified>>"](None)
+    assert row() == ("Speeds that keep every strip inside the training Re: XFOIL state 1.88-102 m/s, RANS state no speed (strip chord ratio 3.63 > its Re ratio 3). "
+                     + INCIDENCE + " 45 m/s: XFOIL state only; RANS state below its Re range at the outboard strips.")
+    # a section that is not NACA 4/5-digit: a UIUC station, then a 'current' that is not NACA, then NACA again
+    app.planform.set(KINKED); app.pick_planform()
+    assert row() == ("Speeds that keep every strip inside the training Re: XFOIL state 1.5-101 m/s, RANS state 59.9-60.7 m/s. " + INCIDENCE
+                     + " 60 m/s: inside both.")
+    lines = app.stations.get("1.0", "end").splitlines()
+    app.stations.delete("1.0", "end"); app.stations.insert("1.0", "\n".join(lines[:2] + [lines[2].replace("4415", "uiuc:e387")] + lines[3:]))
+    app.stations.bound["<<Modified>>"](None)
+    assert row().endswith(" 60 m/s: inside both. " + FAMILY) and "RANS state 59.9-60.7 m/s" in row()
+    app.planform.set(FULL); app.pick_planform()
+    assert FAMILY not in row()
+    app.done_section(("file", "/x/clarky.dat"), (np.array([[1.0, 0.0], [0.0, 0.0], [1.0, 0.0]]), "clarky", None), None)    # the Airfoil box's section changes
+    assert row() == SPEEDS + INCIDENCE + " 45 m/s: inside both. " + FAMILY
+    app.speed.set("30"); app.wstate.set("sst")                                                    # the chosen state's clause follows the verdict, before the family note
+    assert row() == SPEEDS + INCIDENCE + " " + at30 + " The RANS state you chose does not fit this speed. " + FAMILY
+    app.wstate.set("xfoil"); app.speed.set("45")
+    app.wing.set(False); app.show()
+    app.choose("naca", "4412"); settle(app, lambda: app.section[1] == "NACA 4412")
+    app.wing.set(True); app.show()                                                                # the section changed while the box was off
+    assert row() == SPEEDS + INCIDENCE + " 45 m/s: inside both."
+
+
+def test_section_rows_change_only_the_section_column():
+    """The table text with the section column of station rows set: the five numbers keep their text and separators; comments, blank lines
+    and lines without five numbers (words too) are not rows; first and last choose lines; a row with no section gets one; lines are
+    numbered at newlines only, as Tk's Text numbers them."""
+    text = ("# y chord twist x z section\n0 1.5 0 0 0 current\n\n  # a note 1 2 3 4 5 6\n2, 1.3, -1, 0, 0, NACA 4415\n"
+            "3\t1.0\t-2\t0\t0\t/my foils/e 387.dat\n5 0.5 -3 0 0\nnot a row\n7 0.3 0 0 0 4412 \n"
+            "y chord twist x z section\nthis is my note about the wing\n")
+    assert A.section_rows(text, "uiuc:e387") == {2: "0 1.5 0 0 0 uiuc:e387", 5: "2, 1.3, -1, 0, 0, uiuc:e387", 6: "3\t1.0\t-2\t0\t0\tuiuc:e387",
+                                                  7: "5 0.5 -3 0 0  uiuc:e387", 9: "7 0.3 0 0 0 uiuc:e387"}
+    assert A.section_rows(text, "2412", 5, 6) == {5: "2, 1.3, -1, 0, 0, 2412", 6: "3\t1.0\t-2\t0\t0\t2412"} and A.section_rows(text, "2412", 5, 5).keys() == {5}
+    assert A.section_rows(text, "2412", 3, 4) == {} and A.section_rows(text, "2412", 8, 8) == {} and A.section_rows("", "2412") == {}
+    assert A.section_rows("0 1 0 0 0 2412\x0c\n5 1 0 0 0 2412\u2028", "4412") == {1: "0 1 0 0 0 4412", 2: "5 1 0 0 0 4412"}
+    assert [s["section"] for s in A.parse_stations("0 1 0 0 0 2412\x0c\n5 1 0 0 0 4412\u2028")] == ["2412", "4412"]
+    with pytest.raises(ValueError, match="stations, line 2: expected"):                         # the window's line, not splitlines()' third
+        A.parse_stations("0 1 0 0 0 2412\x0c\n3 0.5 0 0")
+
+
+def test_the_airfoil_boxs_section_goes_on_rows(tk, tmp_path, monkeypatch):
+    """The Wing geometry window's Selected row(s) and All rows put the Airfoil box's section on the table's rows with its own name (a NACA
+    designation, uiuc:<name> or the file's path, never 'current'), in the section column only: the selected rows, else the cursor's row, else
+    every row; numbers, separators, comments and blank lines stay; the wing becomes Custom and its ranges follow; refusals say why."""
+    import predict_field as PF
+    clark = tmp_path / "clarky.dat"
+    np.savetxt(clark, PF.naca_coords("4412"), header="Clark Y stand-in", comments="")
+    monkeypatch.setattr(A, "fetch", lambda url, path: str(clark))
+    app, root = tk()
+    settle(app, lambda: app.section is not None)
+    app.wing.set(True); app.show()
+    t, status, rows = app.stations, (lambda: app.status.kw["text"]), (lambda: app.stations.get("1.0", "end").splitlines())
+    btn = {k: v for k, v in texts(app.stw).items() if k in ("Selected row(s)", "All rows")}
+    assert set(btn) == {"Selected row(s)", "All rows"} and all(isinstance(b, Button) for b in btn.values())
+    btn["Selected row(s)"].kw["command"]()                                                                         # nothing was clicked: the cursor is on the header
+    assert rows() == [A.STATIONS_HEADER, "0  1.5  0  0  0  current", "5  0.75  -2  0  0  current"]
+    assert status().startswith("No station row there: click a row of the table (or select several), then press Selected row(s).")
+    assert A.SECTION_HINT in texts(app.stw) and "(current)" in A.SECTION_HINT                                    # the hint says what 'current' does
+    # a NACA section on the cursor's row
+    app.choose("naca", "4412"); settle(app, lambda: app.section[1] == "NACA 4412")
+    t.mark_set("insert", "3.5"); t.edit_modified(False)
+    btn["Selected row(s)"].kw["command"]()
+    assert rows() == [A.STATIONS_HEADER, "0  1.5  0  0  0  current", "5  0.75  -2  0  0  4412"] and t.index("insert") == "3.5"
+    assert status() == "Set the section of 1 row to 4412. Custom wing: NACA 4412 (its own sections; 'current' is the Airfoil box's NACA 4412)"
+    assert app.planform.get() == "Custom" and app.wname == "Custom wing" and t.edit_modified() is False
+    # a UIUC section on the selected rows: a selection that ends at the start of a line does not take that line
+    app.choose("uiuc", "clarky"); settle(app, lambda: app.section[1] == "clarky")
+    assert app.origin == "uiuc:clarky" and app.code is None
+    t.select("2.0", "3.0")
+    btn["Selected row(s)"].kw["command"]()
+    assert rows() == [A.STATIONS_HEADER, "0  1.5  0  0  0  uiuc:clarky", "5  0.75  -2  0  0  4412"]
+    assert status() == "Set the section of 1 row to uiuc:clarky. Custom wing: clarky to NACA 4412 (its own sections)"
+    assert app.range_note.get().endswith(FAMILY)                                                                   # the table has a UIUC section now
+    t.select("2.0", "3.end")                                                                                       # both rows
+    btn["Selected row(s)"].kw["command"]()
+    assert rows()[1:] == ["0  1.5  0  0  0  uiuc:clarky", "5  0.75  -2  0  0  uiuc:clarky"] and status().startswith("Set the section of 2 rows to uiuc:clarky.")
+    # a file: its path; every row
+    app.choose("file", str(clark)); settle(app, lambda: app.section[1] == "clarky" and app.origin == str(clark))
+    btn["All rows"].kw["command"]()
+    assert rows()[1:] == [f"0  1.5  0  0  0  {clark}", f"5  0.75  -2  0  0  {clark}"] and status().startswith(f"Set the section of 2 rows to {clark}.")
+    assert [s["section"] for s in A.parse_stations(t.get("1.0", "end"))] == [str(clark)] * 2                      # a path with no quotes parses back
+    # a preset's 'current' becomes the digits; comments, blank lines, commas and tabs stay
+    app.planform.set(FULL); app.pick_planform()
+    app.choose("naca", "23012"); settle(app, lambda: app.section[1] == "NACA 23012")
+    btn["All rows"].kw["command"]()
+    assert rows() == [A.STATIONS_HEADER, "0  1.5  0  0  0  23012", "5  0.75  -2  0  0  23012"] and "current" not in t.get("1.0", "end")
+    t.delete("1.0", "end"); t.insert("1.0", "# my wing\n0, 1.5, 0, 0, 0, current\n\n# the tip\n5\t0.75\t-2\t0\t0\tuiuc:e387\n")
+    btn["All rows"].kw["command"]()
+    assert rows() == ["# my wing", "0, 1.5, 0, 0, 0, 23012", "", "# the tip", "5\t0.75\t-2\t0\t0\t23012", ""]
+    before = t.get("1.0", "end")
+    t.select("3.0", "4.end")                                                                                       # a selection with no row in it
+    btn["Selected row(s)"].kw["command"]()
+    assert t.get("1.0", "end") == before and status().startswith("No station row there")
+    # refusals: no section yet, a wing's cut (no name a station can use)
+    keep = app.section
+    app.section, app.code, app.origin = None, None, None
+    btn["All rows"].kw["command"]()
+    assert status() == "Load a section in the Airfoil box first (NACA, UIUC or your file)." and t.get("1.0", "end") == before
+    app.section = (keep[0], "blend 0.5, 2y/b 0.51", "naca")
+    btn["All rows"].kw["command"]()
+    assert status() == ("The Airfoil box's section (blend 0.5, 2y/b 0.51) is a wing's cut: no name a station can use. "
+                        "Load a NACA, UIUC or file section.") and t.get("1.0", "end") == before
+
+
+def test_a_uiuc_section_put_on_the_wing_by_the_helper_runs(tk, tmp_path, monkeypatch):
+    """A UIUC section picked in the Airfoil box and put on the rows by the Wing geometry window is fetched in the worker when Run
+    resolves its uiuc: token (the network is a local file here), and reaches the lifting line as coordinates."""
+    import predict_field as PF
+    clark = tmp_path / "clarky.dat"
+    np.savetxt(clark, PF.naca_coords("4412"), header="Clark Y stand-in", comments="")
+    fetched = []
+    monkeypatch.setattr(A, "fetch", lambda url, path: fetched.append(url) or str(clark))
+    app, root = tk()
+    settle(app, lambda: app.section is not None)
+    small_wing(app)
+    app.choose("uiuc", "clarky"); settle(app, lambda: app.section[1] == "clarky")
+    url = A.UIUC + "coord/clarky.dat"
+    assert fetched == [url]                                                                                        # the Airfoil box's own load
+    texts(app.stw)["All rows"].kw["command"]()
+    assert [s["section"] for s in A.parse_stations(app.stations.get("1.0", "end"))] == ["uiuc:clarky"] * 2
+    app.run_wing()
+    settle(app, lambda: app.wres is not None)
+    assert fetched == [url, url]                                                                                   # and Run's, once for both rows
+    res = app.wres
+    assert res["wing"]["name"] == "Custom wing" and all("clarky" in lb for lb in res["loops"]["label"]) and set(res["loops"]["family"]) == {None}
+    assert res["coef"]["CL"] > 0.3 and app.range_note.get().endswith(FAMILY)
+
+
+# ------------------------------------------------------------------------------------------------ vortfoil (2D) and vortfoil_exp (+ 3D)
+def describe(w, skip=()):
+    """a widget subtree as nested tuples (class, options, grid cell, mapped, children) that compare across two windows: a variable by
+    its value, a command by its name; widgets whose id is in `skip` are left out"""
+    def val(v):
+        return ("var", v.get()) if isinstance(v, Var) else getattr(v, "__name__", v) if callable(v) else v
+    return (type(w).__name__, sorted((k, repr(val(v))) for k, v in w.kw.items()), repr(w.cell), w.mapped,
+            [describe(c, skip) for c in w.children if id(c) not in skip])
+
+
+def test_vortfoil_window_is_2d_only(tk):
+    """`vortfoil` (App without experimental) builds nothing of the 3D wing: no '3D wing' box, no wing rows, no Wing geometry window, so
+    the wing mode cannot be reached. Widget for widget (options, cells, mapping) it is the experimental window without them, in both
+    layouts, with the released 2D Flow box; only the experimental window's title says so."""
+    for screen in ((1728, 1117), (1080, 1920)):
+        two, r2 = tk(screen, experimental=False)
+        exp, rx = tk(screen)
+        for app in (two, exp):
+            settle(app, lambda: app.section is not None)
+        assert "3D wing" not in texts(r2) and not any(hasattr(two, k) for k in ("chk", "f3", "stw", "cur", "cut_btn", "view3d_btn", "range_note", "origin"))
+        assert describe(r2) == describe(rx, skip={id(exp.chk), id(exp.f3), id(exp.stw)}) and len(r2.children) == len(rx.children) - 1
+        assert set(texts(two.f2)) == FLOW_2D | ({REXT} if two.rext_path else set()) and two.f2.mapped and two.mode() == "section"
+        assert (r2.name, rx.name) == ("VortFoil", "VortFoil (experimental)") and two.status.kw["text"] == "NACA 2412 loaded. Set the flow and press Run."
+
+
+def test_vortfoil_runs_2d_as_the_experimental_window(tk, tmp_path, monkeypatch):
+    """The 2D case in vortfoil's window: Run greys out while it runs; the figure (pixel for pixel, at its design size), Save figure's
+    name, the CSV files (byte for byte) and the status line are those of the experimental window."""
+    import re
+    from matplotlib.image import imread
+    got = {}
+    for exp in (False, True):
+        app, root = tk(experimental=exp)
+        settle(app, lambda: app.section is not None)
+        app.run()
+        assert app.run_btn["state"] == "disabled" and app.save_btn["state"] == "disabled"
+        settle(app, lambda: app.last is not None)
+        assert app.run_btn["state"] == app.save_btn["state"] == app.csv_btn["state"] == "normal" and len(app.fig.axes) == 12
+        status = re.sub(r"done in [0-9.]+ s", "done in t s", app.status.kw["text"])
+        app.save_to(str(tmp_path / f"{exp}.png"))
+        saved = []
+        monkeypatch.setattr(tk.fd, "asksaveasfilename", lambda **kw: saved.append(kw["initialfile"]) or "")
+        app.save()
+        monkeypatch.setattr(tk.fd, "askdirectory", lambda **kw: str(tmp_path / f"csv{exp}"))
+        app.export()
+        settle(app, lambda: app.status.kw["text"].startswith("Wrote"))
+        files = sorted(os.listdir(tmp_path / f"csv{exp}"))
+        got[exp] = (status, saved, files, [open(tmp_path / f"csv{exp}" / f, "rb").read() for f in files], imread(str(tmp_path / f"{exp}.png")))
+    (s0, n0, f0, b0, p0), (s1, n1, f1, b1, p1) = got[False], got[True]
+    assert s0 == s1 and s0.startswith("NACA 2412, 4 deg, Re 3e+06: done in t s") and n0 == n1 == ["vortfoil_NACA_2412_a4_Re3e+06.png"]
+    assert f0 == f1 and len(f0) == 8 and b0 == b1 and p0.shape == p1.shape and np.array_equal(p0, p1)
+
+
+def test_vortfoil_exp_command(monkeypatch, capsys):
+    """vortfoil_exp (cli.main_exp): no arguments and `app ...` open the window as experimental; view, predict, sweep, about and
+    selfcheck are vortfoil's (the same calls, the same output, its own name in the usage); vortfoil's window is the 2D one."""
+    from vortfoil import app as P, cli
+    import vortfoil.selfcheck as SC
+    seen = []
+    monkeypatch.setattr(P, "app", lambda argv, experimental=False: seen.append(("app", argv, experimental)) or 0)
+    monkeypatch.setattr(P, "view", lambda argv: seen.append(("view", argv)) or 0)
+    monkeypatch.setattr(SC, "run", lambda **kw: seen.append(("selfcheck", kw)) or 0)
+    monkeypatch.setattr(sys, "argv", ["vortfoil_exp"])
+    for f, argv in ((cli.main_exp, None), (cli.main_exp, ["app", "--selftest", "out", "--wing", "kinked"]), (cli.main, []),
+                    (cli.main, ["app", "--shortcut"]), (cli.main_exp, ["view", "--airfoil", "2412"]), (cli.main, ["view", "--airfoil", "2412"]),
+                    (cli.main_exp, ["selfcheck", "--data", "x.npz"]), (cli.main, ["selfcheck", "--data", "x.npz"])):
+        assert f(argv) == 0
+    assert seen == [("app", [], True), ("app", ["--selftest", "out", "--wing", "kinked"], True), ("app", [], False),
+                    ("app", ["--shortcut"], False)] + [("view", ["--airfoil", "2412"])] * 2 + [("selfcheck", dict(mode="graph", device="cpu", data="x.npz"))] * 2
+    capsys.readouterr()
+    for f, prog in ((cli.main, "vortfoil"), (cli.main_exp, "vortfoil_exp")):
+        with pytest.raises(SystemExit):
+            f(["predict", "--help"])
+        assert capsys.readouterr().out.startswith(f"usage: {prog} predict ")
+    cst = "0.17,0.16,0.18,0.15,0.17,0.12,0.13,0.11,-0.12,-0.08,-0.09,-0.05,-0.07,-0.04,-0.05,-0.02"
+    for argv in (["about"], ["predict", "--cst", cst, "--alpha", "4", "--Re", "3e6"], ["sweep", "--cst", cst, "--alpha-range", "0,8,3"]):
+        assert cli.main(argv) == 0
+        out = capsys.readouterr().out
+        assert cli.main_exp(argv) == 0 and capsys.readouterr().out == out and out.strip(), argv
+
+
+def test_the_wing_needs_experimental(monkeypatch, capsys):
+    """--selftest DIR --wing without --experimental stops before any window with the reason; with it (or without --wing) the window is
+    made with the matching experimental flag. The vortfoil command (main(..., experimental=False)) is 2D only: it refuses --experimental,
+    abbreviated too, before any window; vortfoil_exp (True) is experimental without the option."""
+    monkeypatch.setitem(sys.modules, "tkinter", None)                             # a window would need tkinter: none may open
+    with pytest.raises(SystemExit) as e:
+        A.main(["--selftest", "out", "--wing", "kinked"])
+    assert e.value.code == 2 and "the 3D wing is experimental; run it with vortfoil_exp, or add --experimental" in capsys.readouterr().err
+    made = []
+    monkeypatch.setitem(sys.modules, "tkinter", types.SimpleNamespace(Tk=lambda: types.SimpleNamespace(mainloop=lambda: None)))
+    monkeypatch.setattr(A, "App", lambda root, selftest=None, experimental=False: made.append((selftest, experimental)) or types.SimpleNamespace(exit_code=0))
+    assert A.main(["--selftest", "out", "--wing", "kinked", "--experimental"]) == A.main(["--selftest", "out"]) == A.main([]) == 0
+    assert made == [(("out", "naca:2412", 4.0, 3e6, "kinked", None, "xfoil"), True), (("out", "naca:2412", 4.0, 3e6, None, None, "xfoil"), False),
+                    (None, False)]
+    made.clear()
+    assert A.main(["--selftest", "out", "--wing", "kinked"], True) == A.main([], True) == A.main([], False) == A.main([], None) == 0
+    assert made == [(("out", "naca:2412", 4.0, 3e6, "kinked", None, "xfoil"), True), (None, True), (None, False), (None, False)]
+    from vortfoil import cli
+    for main, argv in [(A.main, (a, False)) for a in (["--experimental"], ["--exp"], ["--shortcut", "--experimental"])] + [(cli.main, (["app", "--experimental"],))]:
+        with pytest.raises(SystemExit) as e:
+            main(*argv)
+        assert e.value.code == 2 and "--experimental: the vortfoil command is 2D only; the experimental 3D wing is vortfoil_exp" in capsys.readouterr().err
+    with pytest.raises(SystemExit) as e:
+        A.main(["--selftest", "out", "--wing", "kinked"], False)
+    assert e.value.code == 2 and capsys.readouterr().err.rstrip().endswith("--wing: the 3D wing is experimental; run it with vortfoil_exp")
+    assert len(made) == 4                                                       # no window for any of these
+
+
+@pytest.mark.parametrize("experimental", [False, True])
+def test_shortcuts(monkeypatch, tmp_path, capsys, experimental):
+    """--shortcut makes the 2D launcher as released; with --experimental a separate one, 'VortFoil (experimental)', that passes
+    --experimental: the Windows desktop shortcut (the PowerShell it runs), the Linux menu entry (under a stand-in home), the macOS
+    terminal command. Nothing is written to this computer's desktop or menus."""
+    import shutil
+    app, flag = os.path.abspath(A.__file__), " --experimental" if experimental else ""
+    name, cmd = ("VortFoil (experimental)", "vortfoil_exp") if experimental else ("VortFoil", "vortfoil")
+    ran = []
+    monkeypatch.setattr(A.subprocess, "run", lambda c, **kw: ran.append(c) or types.SimpleNamespace(stdout="C:\\Desktop\\made.lnk\n"))
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert A.make_shortcut(experimental) == "C:\\Desktop\\made.lnk" and ran[0][:3] == ["powershell", "-NoProfile", "-Command"]
+    assert f"GetFolderPath('Desktop'), '{name}.lnk'));" in ran[0][3] and f"$s.Arguments = '\"{app}\"{flag}';" in ran[0][3]
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    path = A.make_shortcut(experimental)
+    assert path == str(tmp_path / ".local" / "share" / "applications" / ("vortfoil-exp.desktop" if experimental else "vortfoil.desktop"))
+    entry = open(path).read()
+    assert f"\nName={name}\n" in entry and f'\nExec="{sys.executable}" "{app}"{flag}\n' in entry and len(os.listdir(os.path.dirname(path))) == 1
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(shutil, "which", lambda c: None)
+    line = f'"{sys.executable}" "{app}"{flag}'
+    assert A.make_shortcut(experimental) == (f"no file written on macOS; start it from the terminal with\n  {line}\n"
+                                             f"or add this line to ~/.zshrc and type {cmd}:\n  alias {cmd}='{line}'")
+    monkeypatch.setattr(shutil, "which", lambda c: "/usr/local/bin/" + c)
+    assert A.make_shortcut(experimental) == f"no file written on macOS; the {cmd} command is installed: type {cmd} in a terminal"
+    monkeypatch.setattr(A, "make_shortcut", lambda e=False: f"made, experimental {e}")
+    assert A.main(["--shortcut"] + flag.split()) == 0 and capsys.readouterr().out == f"shortcut: made, experimental {experimental}\n"
+
+
+def test_console_scripts():
+    """pyproject.toml: vortfoil and vortfoil_exp are the command line's main and main_exp"""
+    toml = pytest.importorskip("tomllib" if sys.version_info >= (3, 11) else "tomli")
+    with open(os.path.join(ROOT, "pyproject.toml"), "rb") as f:
+        assert toml.load(f)["project"]["scripts"] == {"vortfoil": "vortfoil.cli:main", "vortfoil_exp": "vortfoil.cli:main_exp"}
