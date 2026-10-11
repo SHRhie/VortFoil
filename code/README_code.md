@@ -83,9 +83,10 @@ paths explicitly or run from a tree that has them.
 | `step2_eval_f0c.py` | Step 2b: evaluate the operator-conditioned decoder runs (default `--weights-tag f0cm`, rule `teH`), seed-pooled and paired against the three sealed XFOIL-conditioned runs; `results/step2_eval_f0cm_20260925T213247Z/` is its record. |
 | `step2_store_preds.py` | Store full-field predictions of an operator-conditioned decoder for the figure cases (rule `teH`); Fig. 6 uses `--weights-tag f0cm --seed 1 --cases 128`. |
 | `vf_field_fast.py` | Faster kernels for the field pathway with the same arithmetic; `verify()` checks them against the originals on `field_decoder_f0cm_s1.npz`. |
-| `predict_field.py` | The deployed operator-conditioned decoder for any section, incidence and Reynolds number, from coordinates alone (no AirfRANS files, no XFOIL): `--coords section.dat` or `--naca 2412`, `--alpha`, `--Re`, a grid (`--window`, `--h`) or `--points`, in the wind or chord frame; writes the field (AirfRANS units and normalized) to an npz and, with `--png`, a quick-look figure. Warns (`FieldRangeWarning`) outside the decoder's training domain (AirfRANS: NACA 4/5-digit sections, incidence −5 to 15°, Re 2×10⁶ to 6×10⁶) or for a section whose shape code lies far from every training section. |
+| `predict_field.py` | The deployed operator-conditioned decoder for any section, incidence and Reynolds number, from coordinates alone (no AirfRANS files, no XFOIL): `--coords section.dat` or `--naca 2412`, `--alpha`, `--Re`, a grid (`--window`, `--h`) or `--points`, in the wind or chord frame; writes the field (AirfRANS units and normalized) to an npz and, with `--png`, a quick-look figure. Warns (`FieldRangeWarning`) outside the decoder's training domain (AirfRANS: NACA 4/5-digit sections, incidence −5 to 15°, Re 2×10⁶ to 6×10⁶) or for a section whose shape code lies far from every training section. `surface()` gives the decoder's RANS state at the wall (C_p, wall-function C_f, lift, drag, moment) and `boundary_layer()` its boundary layer (θ, δ*, H, edge speed on wall-normal rays through its flow). |
 | `naca_generator.py` | The NACA 4/5-digit generator the AirfRANS sections were built with, copied verbatim from the airfrans package 0.1.5.1 (MIT License; see `NOTICE`); `predict_field.py --naca` uses it. |
 | `validate_predict_field.py` | Checks `predict_field.py` on AirfRANS full_test (200 cases) against the deployed evaluation: the same inputs reproduce the recorded errors; the coordinates-only route, from the case's 441-node section and from a sparse 161-node one, is scored against RANS; writes `results/predict_field_validation.json` and `_per_case.npz`. Needs `AIRFRANS_ROOT`. |
+| `validate_field_boundary_layer.py` | Checks `predict_field.boundary_layer()` on AirfRANS full_test (200 cases): the same extraction (wall-normal rays, edge criterion, θ, δ*, H) applied to the RANS field and to the decoder's field from the coordinates alone, scored per surface, region (leading edge, aft, trailing edge) and attached or separated station against the bound set beforehand (median relative error ≤ 0.20 on attached stations at x/c 0.1–0.95); writes `results/field_boundary_layer_validation.json`. Needs `AIRFRANS_ROOT` and pyvista; `--workers` runs cases in parallel. |
 
 ### `code/field/supervised_field/`
 
@@ -155,5 +156,9 @@ with 11 pt titles and labels and 10 pt ticks and legends. Without it, they draw 
 ## `code/view_airfoil.py`
 
 One window for one airfoil: asks for (or takes) the airfoil, incidence and Reynolds number and shows the field decoder's
-four field panels next to the surface model's C_p, boundary-layer thicknesses and coefficients, with every range warning
-(`--save` writes the figure, `--no-show` skips the window).
+four field panels next to the surface pressure, boundary-layer thicknesses and coefficients in two states, with every range
+warning: the XFOIL state (the surface model) and the RANS state (the field decoder's wall values, boundary layer and
+wall-function C_f). `figure(..., states=...)` draws either or both; a state outside its training range
+(`meta["xfoil_in_range"]`, `meta["rans_in_range"]` from `compute`) is drawn faded and labelled. `export_csv` writes every number
+(`--csv DIR`; the RANS state's boundary layer is `_boundary_layer_rans.csv`). `--save` writes the figure, `--no-show` skips
+the window.

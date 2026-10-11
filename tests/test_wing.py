@@ -116,7 +116,7 @@ def test_wing_warnings():
 
 
 def test_sst_state(cache, monkeypatch):
-    """SST state on a small kinked wing (coarse incidence grid): drag split, wall values on the surface, grouped decoder
+    """RANS state on a small kinked wing (coarse incidence grid): drag split, wall values on the surface, grouped decoder
     warnings, the disk cache, progress and cancel."""
     monkeypatch.setattr(WG, "TABLE_S", np.arange(-8.0, 16.001, 2.0))
     d = dict(WG.PRESETS[KINKED], n=8)
@@ -137,30 +137,62 @@ def test_sst_state(cache, monkeypatch):
     monkeypatch.setattr(PF, "FIELD_RE", (7e6, 1e7))                     # every strip below the range: said first, and still computed
     r3 = WG.compute(d, 60.0, 6.0, "sst")
     assert r3["sst_range"]["below"] == 8 and r3["sst_range"]["message"].startswith(
-        "SST state outside the field decoder's Reynolds range (7e6-1e7) on 8 of 8 strips: the SST numbers are not meaningful here")
-    assert r3["coef"]["CL"] == c["CL"] and "SST decoder: 8 of 8 strips at Re below its training range 7e6-1e7" in r3["warnings"]
+        "RANS state outside the field decoder's Reynolds range (7e6-1e7) on 8 of 8 strips: the RANS-state numbers are not meaningful here")
+    assert r3["coef"]["CL"] == c["CL"] and "RANS decoder: 8 of 8 strips at Re below its training range 7e6-1e7" in r3["warnings"]
     with pytest.raises(RuntimeError, match="cancelled"):
         WG.compute(d, 60.0, 6.0, "sst", cancel=lambda: True)
+
+
+def test_polar_follows_the_state_training_range(cache, monkeypatch):
+    """The wing polar spans the state's training incidences (XFOIL -10..18 deg, SST -5..15 deg, widened to the requested
+    incidence). The coefficients and every polar point carry in_range: every strip's incidence and Re inside the state's
+    training ranges and no strip past its section's stall."""
+    d = dict(WG.PRESETS[FULL], n=12)
+    r = WG.compute(d, 45.0, 6.0)
+    p = r["polar"]
+    assert list(p["alpha"]) == list(np.arange(-10.0, 18.5, 1.0)) and r["coef"]["in_range"] is True
+    assert p["in_range"].dtype == bool and p["in_range"].shape == p["alpha"].shape and p["in_range"][p["alpha"] == 6.0][0]
+    hi = WG.compute(d, 45.0, 22.0)
+    assert hi["polar"]["alpha"][-1] == 22.0 and not hi["coef"]["in_range"] and not hi["polar"]["in_range"][-1]
+    orig = WG.table_polar
+
+    def early_stall(tab, deg=12):                       # every section stalls at 3 deg: the stall rule alone decides
+        f = orig(tab, deg)
+        f.alpha_stall = np.full_like(f.alpha_stall, np.radians(3.0))
+        return f
+    monkeypatch.setattr(WG, "table_polar", early_stall)
+    st = WG.compute(d, 45.0, 6.0)
+    a, ok = st["polar"]["alpha"], st["polar"]["in_range"]
+    assert ok[(a >= -8) & (a <= 1)].all() and not ok[a >= 5].any() and not st["coef"]["in_range"]
+    monkeypatch.setattr(WG, "table_polar", orig)
+    monkeypatch.setattr(WG, "TABLE_S", np.arange(-8.0, 16.001, 2.0))
+    k = dict(WG.PRESETS[KINKED], n=8)
+    s = WG.compute(k, 60.0, 6.0, "sst")
+    assert list(s["polar"]["alpha"]) == list(np.arange(-5.0, 15.5, 1.0)) and s["coef"]["in_range"] and s["polar"]["in_range"][5:].all()
+    import predict_field as PF
+    monkeypatch.setattr(PF, "FIELD_RE", (7e6, 1e7))                     # every strip below the decoder's Re range
+    s = WG.compute(k, 60.0, 6.0, "sst")
+    assert not s["coef"]["in_range"] and not s["polar"]["in_range"].any()
 
 
 def test_sst_warnings_are_grouped():
     import predict_field as PF
     lo = "Reynolds number 1e+06 lies outside the decoder's training range 2e+06 to 6e+06"
     out = WG._sst_warnings([[lo], [lo, PF.FAMILY_NOTE], [], ["incidence 15.50 deg lies outside ..."]], [1e6, 1e6, 3e6, 7e6], 2e6, 6e6)
-    assert out == ["SST decoder: 2 of 4 strips at Re below its training range 2e6-6e6",
-                   "SST decoder: 1 of 4 strips are not NACA 4/5-digit sections (the decoder's training family): read their values as indicative",
-                   "SST decoder: 1 of 4 strips at incidences outside its training range -5 to 15 deg"]
+    assert out == ["RANS decoder: 2 of 4 strips at Re below its training range 2e6-6e6",
+                   "RANS decoder: 1 of 4 strips are not NACA 4/5-digit sections (the decoder's training family): read their values as indicative",
+                   "RANS decoder: 1 of 4 strips at incidences outside its training range -5 to 15 deg"]
 
 
 def test_sst_moment_against_the_xfoil_state():
-    """The SST state's c_m from the decoder's wall pressure and friction is close to the surface model's for NACA 2412."""
+    """The RANS state's c_m from the decoder's wall pressure and friction is close to the surface model's for NACA 2412."""
     import warnings
     import predict_field as PF
     loop, al = PF.naca_coords("2412"), np.arange(0.0, 8.001, 2.0)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         cm_x = np.asarray(WG._model().predict(coords=loop, alpha=al, Re=3e6).cm).ravel()
-        cm_s = np.array([WG.sst_cm(PF.surface(loop, a, 3e6, family="naca")) for a in al])
+        cm_s = np.array([PF.surface(loop, a, 3e6, family="naca")["cm"] for a in al])
     assert np.all(np.abs(cm_s - cm_x) < 0.02), (cm_s, cm_x)
 
 

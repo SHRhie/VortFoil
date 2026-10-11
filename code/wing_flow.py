@@ -575,13 +575,13 @@ def flow_field(field, w, V, case, secs, sid, loops, decoder, tick=None):
     lines, pl = streamlines(fl, tick), planes(fl, tick)
     if tick is not None:
         tick("wake sheet")
-    msgs = W._sst_warnings([o[2] for o in out], Re, *PF.FIELD_RE_OF.get(decoder, PF.FIELD_RE))   # grouped as the SST state's
-    return dict(kind="viscous", decoder=os.path.basename(decoder), decoder_warnings=[m.replace("SST decoder: ", "", 1) for m in msgs],
+    msgs = W._sst_warnings([o[2] for o in out], Re, *PF.FIELD_RE_OF.get(decoder, PF.FIELD_RE))   # grouped as the RANS state's
+    return dict(kind="viscous", decoder=os.path.basename(decoder), decoder_warnings=[m.replace("RANS decoder: ", "", 1) for m in msgs],
                 cases=[dict(alpha=case["alpha"], lines=lines, planes=pl, sheet=sheet(fl, U, Vv))])
 
 
 def decoder_of(res):
-    """the field decoder's weights file of a wing result: the SST state's own, else the released one"""
+    """the field decoder's weights file of a wing result: the RANS state's own, else the released one"""
     import predict_field as PF
     return os.path.join(os.path.dirname(PF.DECODER), res["decoder"]) if res.get("decoder") else PF.DECODER
 
@@ -635,8 +635,8 @@ def view_data(res, field="viscous", free_wake=False, progress=None, cancel=None)
         wake_model = (f"relaxed free wake (rolled up); the flow field uses its solution: C_L {f['CL']:.5f} "
                       f"(straight trailing legs: {c['CL']:.5f})")
     fld = None if field == "none" else flow_field(field, w, V, case, *strip_sections(res), L, dec, tick)
-    if fld is not None:                                                  # the SST state's result lists the same ones already
-        fld["decoder_warnings"] = [m for m in fld["decoder_warnings"] if f"SST decoder: {m}" not in res["warnings"]]
+    if fld is not None:                                                  # the RANS state's result lists the same ones already
+        fld["decoder_warnings"] = [m for m in fld["decoder_warnings"] if f"RANS decoder: {m}" not in res["warnings"]]
 
     label = lambda t: f"NACA {t}" if W.is_naca(t) else os.path.splitext(os.path.basename(t.replace("uiuc:", "")))[0]
     names = [label(st["section"]) for st in d["stations"]]               # no local paths in the page
@@ -653,12 +653,12 @@ def view_data(res, field="viscous", free_wake=False, progress=None, cancel=None)
                               for k in range(n + 1)])
     if free_wake:
         rec_case["wake"] = _r(case["wake"], 5)
-    lead = (res.get("sst_range") or {}).get("message")                  # SST state mostly outside the decoder's Re range (B4)
+    lead = (res.get("sst_range") or {}).get("message")                  # RANS state mostly outside the decoder's Re range (B4)
     P, pk = res["polar"], ("CL", "CDi", "CD0", "CD", "CM", "LD", "e")
     polar = [dict(alpha=float(a), **{q: num(P[q][i]) for q in pk}) for i, a in enumerate(P["alpha"]) if a != alpha]
     polar.append(dict(alpha=alpha, **{q: rec_case[q] for q in pk}, y=rec_case["y"], cl=rec_case["cl"]))   # this incidence: the result's
     rec = dict(wing=dict(name=wg["name"], section=" to ".join(dict.fromkeys(names)), state=res["state"],
-                         sections_state="SST (RANS field decoder: wall pressure, wall-function friction)" if sst else "XFOIL (VortFoil surface model)",
+                         sections_state="RANS (field decoder: wall pressure, wall-function friction)" if sst else "XFOIL (VortFoil surface model)",
                          V=V, span=wg["b"], S=wg["S"], AR=wg["AR"], MAC=wg["MAC"], taper=wg["taper"], c_root=wg["c_root"], c_tip=wg["c_tip"],
                          Re_root=wg["Re_root"], Re_tip=wg["Re_tip"], n=n,
                          stations=[dict({k: st[k] for k in ("y", "chord", "twist", "x", "z")}, section=nm) for st, nm in zip(d["stations"], names)]),

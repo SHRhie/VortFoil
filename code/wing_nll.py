@@ -37,8 +37,8 @@ vortfoil_paths.add_paths()            # this checkout's vortfoil package (src) a
 NU_AIR = 1.5e-5                 # m^2/s, air at about 20 C
 AR_MIN, SWEEP_MAX_DEG = 4.0, 10.0      # lifting-line validity: aspect ratio; quarter-chord sweep (its effects are not modelled)
 TABLE_X = np.arange(-10.0, 18.001, 0.25)  # XFOIL state: section incidences tabulated (deg), the surface model's training range
-TABLE_S = np.arange(-8.0, 16.001, 1.0)    # SST state: section incidences tabulated (deg; research 0.5)
-RE_GRID = 0.05                  # SST state: per shape, tables on this log10(Re) grid (decades) where that needs fewer tables
+TABLE_S = np.arange(-8.0, 16.001, 1.0)    # RANS state: section incidences tabulated (deg; research 0.5)
+RE_GRID = 0.05                  # RANS state: per shape, tables on this log10(Re) grid (decades) where that needs fewer tables
                                 # than the strips' own Re values, linear in log10(Re); None: every table at a strip's Re.
 # Why (Mac M5 Pro, serial, 0.088 s per decoder call): the research tables (0.5 deg, every strip's Re) took 88 s for the
 # 'Full-scale wing' and 89 s for the 'Kinked wing'; TABLE_S and RE_GRID take 19 s and 43 s (the kinked wing's 15 lofted strip
@@ -321,23 +321,6 @@ def strip_loops(w, coords, names, labels=None):
     return loops, np.array(index), fam, lab
 
 
-def sst_cm(r):
-    """c_m about the quarter chord (nose up positive, as the surface model's cm) of predict_field.surface's wall values: its
-    wall pressure and wall-function friction integrated as predict_field._wall integrates the forces (pressure on the
-    segments, friction at the nodes along the wall toward the trailing edge; the same integration rebuilds surface()'s C_l and
-    C_d exactly). Against the XFOIL state's cm, NACA 2412 at 0-8 deg: within 0.0095 at Re 3e6 and 0.0092 at Re 4.5e6
-    (tests/test_wing.py holds it to 0.02)."""
-    P = np.c_[r["x"], r["y"]]; Q = np.r_[P, P[:1]]; t = np.diff(Q, axis=0)
-    ccw = np.sum(Q[:-1, 0] * Q[1:, 1] - Q[1:, 0] * Q[:-1, 1]) > 0
-    cq = np.r_[r["cp"], r["cp"][:1]]
-    fp = -0.5 * (cq[1:] + cq[:-1])[:, None] * np.c_[t[:, 1], -t[:, 0]] * (1.0 if ccw else -1.0)    # pressure force / (q c)
-    L = np.linalg.norm(t, axis=1); tu = t / L[:, None]
-    tn = tu + np.roll(tu, 1, axis=0); tn /= np.linalg.norm(tn, axis=1, keepdims=True)
-    ff = (np.asarray(r["cf"]) * np.sign(tn[:, 0]) * 0.5 * (L + np.roll(L, 1)))[:, None] * tn       # friction force / (q c)
-    arm = lambda p, f: np.sum((p[:, 0] - 0.25) * f[:, 1] - p[:, 1] * f[:, 0])                     # counterclockwise: nose down
-    return float(-(arm(0.5 * (Q[1:] + Q[:-1]), fp) + arm(P, ff)))
-
-
 def _hash(*parts):
     return hashlib.sha1("|".join(map(str, parts)).encode()).hexdigest()[:24]
 
@@ -366,7 +349,7 @@ def _plan(keys, Re, grid):
 
 def section_tables(state, keys, payload, Re, dec, tick, grid=None):
     """per strip (n, m) C_l, C_d, C_m (+ the SST drag split) over the state's incidence grid. One table per shape and Re
-    (strips sharing both share it), kept for the process and, in the SST state, on disk (CACHE); xfoil: one VortFoil sweep
+    (strips sharing both share it), kept for the process and, in the RANS state, on disk (CACHE); xfoil: one VortFoil sweep
     per table; sst: predict_field.surface per incidence (no process pools: the application runs under pythonw).
     payload(i) -> (cst, rotation) or (loop, family) of strip i; tick(text) before each unit of work (progress, cancel)."""
     import predict_field as PF
@@ -398,9 +381,9 @@ def section_tables(state, keys, payload, Re, dec, tick, grid=None):
             continue
         loop, family = payload(i); rows = []
         for a in grid_deg:
-            tick(f"SST-state section tables: {built} of {len(todo)} (field decoder at {len(grid_deg)} incidences)")
+            tick(f"RANS-state section tables: {built} of {len(todo)} (field decoder at {len(grid_deg)} incidences)")
             r = PF.surface(loop, float(a), R, decoder=dec, family=family)
-            rows.append((r["cl"], r["cd"], sst_cm(r), r["cd_pressure"], r["cd_friction"]))
+            rows.append((r["cl"], r["cd"], r["cm"], r["cd_pressure"], r["cd_friction"]))
         _MEM[k] = dict(zip(SST_COLS, np.array(rows).T))
         try:
             os.makedirs(CACHE, exist_ok=True)
@@ -521,7 +504,7 @@ def _sst_warnings(msgs, Re, re_lo, re_hi):
             else:
                 k = next((t for p, t in SST_KINDS if m.startswith(p)), m)
             kinds[k] = kinds.get(k, 0) + 1
-    return [f"SST decoder: {k}" if k.startswith("experimental") else f"SST decoder: {c} of {len(msgs)} strips {k}"
+    return [f"RANS decoder: {k}" if k.startswith("experimental") else f"RANS decoder: {c} of {len(msgs)} strips {k}"
             for k, c in kinds.items()]
 
 
@@ -554,14 +537,17 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
     (arrays are coordinates: family None for the field decoder; put a NACA section's designation in its station instead).
     labels: {section: display name} (e.g. {'current': 'clarky'}) for the loops' labels and the returned defn's stations.
     progress(fraction, text) is called from the calling thread; cancel() returning True stops between units of work with
-    RuntimeError('cancelled'). decoder: the field decoder's weights file (SST state; default predict_field.DECODER).
+    RuntimeError('cancelled'). decoder: the field decoder's weights file (RANS state; default predict_field.DECODER).
     Returns a plain dict of numbers and numpy arrays (n strips, m tabulated incidences, NX chordwise points):
       defn (validated; its sections as labelled), V, alpha, state, nu, decoder (file name, sst) | sst_range (sst, else
       None): n, below, above (strips with Re outside the decoder's training range lo-hi), lo, hi, message (None unless more
       than half the strips lie outside: then the sentence to lead the figure text and the status line with) | wing: name n b
-      S AR MAC taper c_root c_tip Re_root Re_tip x_ref z_ref | coef: CL CDi CD0 CD LD e CM strips_past_stall (+ CD0_pressure
-      CD0_friction, sst) | strips (n,): y eta chord twist_deg x_c4 z_c4 Re alpha_geo_deg alpha_eff_deg alpha_ind_deg gamma
-      cl cd cm cl_c_over_cbar (+ cd_pressure cd_friction, sst) | polar (k,): alpha CL CDi CD0 CD CM LD e | tables: alpha_deg
+      S AR MAC taper c_root c_tip Re_root Re_tip x_ref z_ref | coef: CL CDi CD0 CD LD e CM strips_past_stall in_range (+
+      CD0_pressure CD0_friction, sst) | strips (n,): y eta chord twist_deg x_c4 z_c4 Re alpha_geo_deg alpha_eff_deg alpha_ind_deg
+      gamma cl cd cm cl_c_over_cbar (+ cd_pressure cd_friction, sst) | polar (k,): alpha (1 deg steps over the state's training
+      incidences, xfoil -10..18, sst -5..15, widened to alpha) CL CDi CD0 CD CM LD e in_range; in_range (coef and each polar
+      point): every strip's incidence (as its model reads it: less the chord rotation it measures) and Re inside the state's
+      training ranges and no strip past its section's stall | tables: alpha_deg
       (m,), cl cd cm (n, m) (+ cd_pressure cd_friction), cl_fit_max_err | surface: x_c (NX,), upper/lower: X Y Z (wind
       frame, m) and C_p, plus theta/c delta*/c H (xfoil) or C_f (sst), each (n, NX) | strip_detail: xfoil x_cp cp (n, 240;
       panels 0-119 upper TE->LE, 120-239 lower LE->TE), BL_X (121,), theta dstar (n, 2, 121; upper, lower); sst lists of n
@@ -590,12 +576,16 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
             cst, rot = w.cst(), w.chord_rotation()
         n, Re = w.n, V * w.c / NU_AIR
         loops, li, fam, lab = strip_loops(w, coords, names, labels)
-        if sst:
+        if sst:                     # table keys and inputs; the state's training ranges, and the incidence offset of each strip's model
             keys = [_shape_key(loops[j]) + str(fam[j]) for j in li]
             payload = lambda i: (loops[li[i]], fam[li[i]])
+            alim, relim = PF.FIELD_ALPHA, PF.FIELD_RE_OF.get(dec, PF.FIELD_RE)
+            off = np.array([PF.field_frame(L)[1] for L in loops])[li]
         else:
             keys = [_shape_key(cst[i], rot[i]) for i in range(n)]
             payload = lambda i: (cst[i], rot[i])
+            from vortfoil.api import TRAIN_ALPHA_DEG as alim, TRAIN_RE as relim
+            off = rot
         tick.add(len({(k, f"{R:.4g}") for k, R in zip(keys, Re)}) if sst else 1)      # the strips' states (estimate)
         t1 = time.perf_counter()
         with warnings.catch_warnings():
@@ -603,7 +593,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
             tab = section_tables(state, keys, payload, Re, dec, tick, RE_GRID)   # fits' rotation; polar points may pass stall
             t2 = time.perf_counter()
             pol = table_polar(tab)
-            al = np.arange(min(-6.0, np.floor(alpha)), max(12.0, np.ceil(alpha)) + 0.5, 1.0)
+            al = np.arange(min(alim[0], np.floor(alpha)), max(alim[1], np.ceil(alpha)) + 0.5, 1.0)
             curve = [solve(w, V, a, pol) for a in al]
         s = solve(w, V, alpha, pol)
         t3 = time.perf_counter()
@@ -613,7 +603,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
             for i in range(n):
                 k = (keys[i], f"{Re[i]:.4g}", round(float(ae[i]), 6))
                 if k not in got:
-                    tick(f"SST-state strips at their effective incidence: {len(got) + 1}")
+                    tick(f"RANS-state strips at their effective incidence: {len(got) + 1}")
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore")  # the messages are in meta['warnings'], grouped below
                         got[k] = PF.surface(loops[li[i]], float(ae[i]), float(Re[i]), decoder=dec, family=fam[li[i]])
@@ -631,8 +621,12 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
         warn += _sst_warnings([r["meta"]["warnings"] for r in det], Re, lo, hi)
         below, above = int(np.sum(Re < lo)), int(np.sum(Re > hi))      # more than half outside: say so first (app, figure)
         sst_range = dict(n=n, below=below, above=above, lo=lo, hi=hi, message=None if 2 * (below + above) <= n else
-                         f"SST state outside the field decoder's Reynolds range ({_e(lo)}-{_e(hi)}) on {below + above} of {n} "
-                         "strips: the SST numbers are not meaningful here; use the XFOIL state")
+                         f"RANS state outside the field decoder's Reynolds range ({_e(lo)}-{_e(hi)}) on {below + above} of {n} "
+                         "strips: the RANS-state numbers are not meaningful here; use the XFOIL state")
+
+    def in_range(p):                                    # a solution's strips inside the state's training ranges, none past stall
+        ae = np.asarray(p["alpha_eff"]) - off
+        return bool(np.all((ae >= alim[0]) & (ae <= alim[1]) & (Re >= relim[0]) & (Re <= relim[1])) and p["strips_past_stall"] == 0)
     if s["residual"] > 1e-6:                            # e.g. far past stall: no lifting-line solution
         warn.append(f"the lifting line did not converge at {alpha:g} deg (residual {s['residual']:.0e} after {s['iterations']} Newton steps)")
 
@@ -644,7 +638,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
                   alpha_geo_deg=alpha + np.degrees(w.twist), alpha_eff_deg=ae, alpha_ind_deg=alpha + np.degrees(w.twist) - ae,
                   gamma=G, cl=cl, cd=cd, cm=cm, cl_c_over_cbar=w.c * cl / (w.S / w.b))
     coef = {q: s[q] for q in ("CL", "CDi", "CD0", "CD", "CM", "strips_past_stall")}
-    coef.update(LD=s["CL"] / s["CD"], e=s["e"] if s["e"] is not None else float("nan"))
+    coef.update(LD=s["CL"] / s["CD"], e=s["e"] if s["e"] is not None else float("nan"), in_range=in_range(s))
     if sst:
         strips.update(cd_pressure=rows("cd_pressure"), cd_friction=rows("cd_friction"))
         dA = w.c * w.ds
@@ -684,7 +678,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
                 Re_root=V * c0 / NU_AIR, Re_tip=V * c1 / NU_AIR, x_ref=float(w.ref[0]), z_ref=float(w.ref[2]))
     nan = lambda v: float("nan") if v is None else v
     polar = dict(alpha=al, **{q: np.array([p[q] for p in curve]) for q in ("CL", "CDi", "CD0", "CD", "CM")})
-    polar.update(LD=polar["CL"] / polar["CD"], e=np.array([nan(p["e"]) for p in curve]))
+    polar.update(LD=polar["CL"] / polar["CD"], e=np.array([nan(p["e"]) for p in curve]), in_range=np.array([in_range(p) for p in curve]))
     tables = dict(alpha_deg=np.degrees(tab["alpha"]), cl_fit_max_err=tab["cl_fit_max_err"],
                   **{q: tab[q] for q in (SST_COLS if sst else ("cl", "cd", "cm"))})
     t4 = time.perf_counter()
@@ -707,7 +701,7 @@ REGRESSION = (      # research results (wing_viz3d free wake; matrix 60 m/s: exa
     ("Full-scale wing (span 10 m)", 60.0, "sst", (0.2777, 0.6255, 0.9643), (0.01247, 0.02455, 0.04558), None),
     ("Kinked wing (4415 to 2412, dihedral)", 60.0, "xfoil", (0.4068, 0.7330, 1.0890), None, None),
     ("Kinked wing (4415 to 2412, dihedral)", 60.0, "sst", (0.3821, 0.7236, 1.0558), None, None),
-)   # not listed: the Clark Y wing's SST state, which departs from the research on purpose (+32-65% C_D0; see strip_loops)
+)   # not listed: the Clark Y wing's RANS state, which departs from the research on purpose (+32-65% C_D0; see strip_loops)
 
 
 def check(regression=False):
