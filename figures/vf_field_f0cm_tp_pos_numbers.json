@@ -1,0 +1,60 @@
+{
+ "pos": {
+  "case_name": "airFoil2D_SST_39.31_8.883_4.707_0.0_12.552",
+  "case_index": -1,
+  "arm": "f0cm_s1",
+  "checkpoint_sha256": "5e72da181372c9b966f2b306c32f9a92aaa069704979646ed713726718568c33",
+  "frame": "wind",
+  "alpha_deg": 8.883,
+  "velocity_components": "along/normal to the freestream",
+  "channels": {
+   "ux": {
+    "window_MSE_over_sigma2": 0.0001513645579678587,
+    "window_p99_abs_error": 1.3226459919644662,
+    "truth_range_p1_p99": [
+     -9.431447311624012,
+     70.01051889398522
+    ]
+   },
+   "uy": {
+    "window_MSE_over_sigma2": 0.00020934477330810468,
+    "window_p99_abs_error": 1.8107070935866834,
+    "truth_range_p1_p99": [
+     -72.52851869594933,
+     72.52851869594933
+    ]
+   },
+   "p": {
+    "window_MSE_over_sigma2": 3.864775980542555e-05,
+    "window_p99_abs_error": 52.284638671875015,
+    "truth_range_p1_p99": [
+     -3056.67736328125,
+     3056.67736328125
+    ]
+   },
+   "nut": {
+    "window_MSE_over_sigma2": 8.937275275331733e-05,
+    "window_p99_abs_error": 0.00011050343280658129,
+    "truth_range_p1_p99": [
+     1e-07,
+     0.009134984528645874
+    ]
+   }
+  },
+  "u_colour_limits": {
+   "rule": "U_inf +- p99 of |u - centre| over both columns' window values",
+   "centre": 39.31,
+   "range": [
+    -9.423798097974199,
+    88.0437980979742
+   ]
+  },
+  "p_colour_limits": {
+   "rule": "+-U_inf^2/2 (C_p = +-1)",
+   "range": [
+    -772.6380500000001,
+    772.6380500000001
+   ]
+  }
+ }
+}

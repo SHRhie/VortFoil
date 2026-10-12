@@ -40,6 +40,11 @@ VP.add_paths()
 sys.path.insert(0, HERE)
 
 DECODER = os.path.join(VP.WEIGHTS, "field_decoder_f0cm_s1.npz")    # the deployed operator-conditioned decoder (run 1)
+# Experimental, for personal checks (local branch exp/rext-decoder, not released): the same recipe retrained with 89 more
+# NACA cases at Re 1e6-2e6 and 6e6-1e7 (2026-10-10). It did not pass its pre-registered test: better than the deployed run
+# outside 2e6-6e6 on all four channels, but p and nu_t were not shown non-inferior inside. Used only when asked for.
+DECODER_REXT = os.path.join(VP.WEIGHTS, "field_decoder_rext_s2.npz")
+FIELD_RE_OF = {DECODER_REXT: (1e6, 1e7)}     # a decoder's training Reynolds range when it differs from FIELD_RE
 TOKENS = os.path.join(VP.WEIGHTS, "airfrans_surface_tokens.npz")   # shape tokens of its training cases (shape check)
 FIELD_ALPHA = (-5.0, 15.0)     # AirfRANS full_train incidences: -4.93 .. 14.93 deg
 FIELD_RE = (2e6, 6e6)          # AirfRANS full_train: U 31.3 .. 93.6 m/s, chord 1 m, nu 1.56e-5 m^2/s
@@ -221,21 +226,20 @@ def decode(inp, z, w):
     return pred
 
 
-_ZTRAIN = None
+_ZTRAIN = {}                       # per decoder: each encodes the training sections into its own code space
 
 
-def shape_distance(z, w):
+def shape_distance(z, w, key=DECODER):
     """Distance of a shape code to the nearest training shape code, and the 99th percentile of the training sections'
-    own nearest-neighbour distances (the scale of 'near')."""
-    global _ZTRAIN
-    if _ZTRAIN is None:
+    own nearest-neighbour distances (the scale of 'near'); key names the decoder w (its training codes are cached)."""
+    if key not in _ZTRAIN:
         from supervised_field.nf_eval_shape import encode_np
         with np.load(TOKENS, allow_pickle=True) as f:
             t = f["surf_tokens"].astype(np.float64)
         Z = np.stack([encode_np(k, w) for k in t])
         D = np.sqrt(((Z[:, None] - Z[None]) ** 2).sum(-1)); np.fill_diagonal(D, np.inf)
-        _ZTRAIN = (Z, float(np.percentile(D.min(1), 99)))
-    Z, ref = _ZTRAIN
+        _ZTRAIN[key] = (Z, float(np.percentile(D.min(1), 99)))
+    Z, ref = _ZTRAIN[key]
     return float(np.sqrt(((Z - z[None]) ** 2).sum(-1)).min()), ref
 
 
@@ -313,10 +317,16 @@ def prepare(loop, alpha, Re, decoder=DECODER, family=None):
     with np.errstate(invalid="ignore", over="ignore", divide="ignore"):   # Accelerate BLAS raises spurious flags in matmul
         st = prov.state_for_polygon(poly, a, Re, source="section")  # the provider fits CST16 and measures its own chord
         _, _, fit_err = prov._cst(poly)
-    if not FIELD_ALPHA[0] <= a <= FIELD_ALPHA[1]:
+    a_ok = FIELD_ALPHA[0] <= a <= FIELD_ALPHA[1]
+    if not a_ok:
         msgs.append(f"incidence {a:.2f} deg lies outside the decoder's training range {FIELD_ALPHA[0]:g} to {FIELD_ALPHA[1]:g} deg")
-    if not FIELD_RE[0] <= Re <= FIELD_RE[1]:
-        msgs.append(f"Reynolds number {Re:.3g} lies outside the decoder's training range {FIELD_RE[0]:.0e} to {FIELD_RE[1]:.0e}")
+    re_lo, re_hi = FIELD_RE_OF.get(decoder, FIELD_RE)
+    re_ok = re_lo <= Re <= re_hi
+    if not re_ok:
+        msgs.append(f"Reynolds number {Re:.3g} lies outside the decoder's training range {re_lo:.0e} to {re_hi:.0e}")
+    if decoder == DECODER_REXT:
+        msgs.append("experimental Re-extended decoder (trained to Re 1e6-1e7; not shown non-inferior in p and nu_t at Re "
+                    "2e6-6e6): for checks, not the released result")
     if fit_err > FIT_WARN:
         msgs.append(f"the 16-parameter form deviates from the section by {100 * fit_err:.2f}% chord; the operator state "
                     "(C_l^gamma, s) is that of the fitted shape")
@@ -325,7 +335,7 @@ def prepare(loop, alpha, Re, decoder=DECODER, family=None):
                     "closed trailing edge); the field is for the closed section")
     with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
         z = shape_code(poly, w)
-        dz, dref = shape_distance(z, w)
+        dz, dref = shape_distance(z, w, decoder)
     if dz > dref:
         msgs.append(f"the section's shape code lies {dz:.3g} from the nearest training section (training sections lie within "
                     f"{dref:.3g} of each other, 99th percentile): the section is unlike the NACA 4/5-digit training set")
@@ -333,15 +343,18 @@ def prepare(loop, alpha, Re, decoder=DECODER, family=None):
                 meta=dict(alpha_given=float(alpha), alpha_used=a, chord_rotation_deg=rot, Re=float(Re), cl_gamma=st["cl"],
                           s_sep=st["s"], section_nodes_given=int(len(g)), section_resampled=bool(not dense),
                           cst16_fit_max_error=fit_err, te_gap=te_gap, trailing_edge_closed_by=te_shift, shape_code_distance=dz, shape_code_reference=dref,
+                          in_training_range=bool(a_ok and re_ok),       # incidence and Re (family and shape notes do not count)
                           warnings=msgs, family=family or "coordinates", decoder=os.path.basename(decoder),
                           decoder_sha256=_sha256(decoder)))
 
 
-def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", decoder=DECODER, fast=True, family=None, wall=False):
+def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", decoder=DECODER, fast=True, family=None, wall=False,
+            bl=False):
     """Field for a section given as a coordinate loop, at `points` (n,2) or on a grid over `window`, both in `frame`:
     'wind' (freestream along +x, the section at its incidence; default) or 'body' (the chord frame: LE at the origin,
     chord along +x). Velocity components are returned in the same frame; x_body, y_body give the points in the chord frame.
-    wall=True adds meta["wall"]: the decoder's wall values in its RANS state (see surface())."""
+    wall=True adds meta["wall"]: the decoder's wall values in its RANS state (see surface()); bl=True adds
+    meta["boundary_layer"]: its boundary layer (see boundary_layer(); lists, NaN where no layer is read)."""
     if frame not in ("wind", "body"):
         raise ValueError("frame is 'wind' or 'body'")
     if fast:
@@ -375,8 +388,12 @@ def predict(loop, alpha, Re, points=None, window=WINDOW, h=H, frame="wind", deco
         out = {k: val.reshape(GX.shape) for k, val in out.items()}
     sec = np.c_[body_to_wind(poly[:, 0], poly[:, 1], a)] if frame == "wind" else poly
     meta = dict(c["meta"], frame=frame, U=U, chord=1.0, nu=1.56e-5, section=sec.tolist())
-    if wall:
-        meta["wall"] = _wall(c, Re)
+    if wall or bl:
+        w = _wall(c, Re)
+        if wall:
+            meta["wall"] = w
+        if bl:
+            meta["boundary_layer"] = _boundary_layer(c, Re, w)
     return out, meta
 
 
@@ -397,6 +414,17 @@ def spalding_utau(ut, d, nu):
     return 0.5 * (lo + hi)
 
 
+def _node_frame(P):
+    """Nodes P (open loop) of a closed section -> (node tangent along the loop, node outward normal, segment lengths, ccw)."""
+    Q = np.r_[P, P[:1]]
+    t = np.diff(Q, axis=0)
+    ccw = np.sum(Q[:-1, 0] * Q[1:, 1] - Q[1:, 0] * Q[:-1, 1]) > 0
+    L = np.linalg.norm(t, axis=1); tu = t / L[:, None]
+    tn = tu + np.roll(tu, 1, axis=0); tn /= np.linalg.norm(tn, axis=1, keepdims=True)              # node tangent, loop direction
+    nn = np.c_[tn[:, 1], -tn[:, 0]] * (1.0 if ccw else -1.0)                                     # node outward normal
+    return tn, nn, L, ccw
+
+
 def _wall(c, Re):
     """Wall values from a prepared state (see surface()); JSON-safe."""
     poly, a = np.asarray(c["poly"], np.float64), c["alpha"]
@@ -407,15 +435,12 @@ def _wall(c, Re):
     U = inp["U"]; cp = pred[:, 2] / (0.5 * U ** 2)
     Q, cq = np.r_[P, P[:1]], np.r_[cp, cp[:1]]
     t = np.diff(Q, axis=0)
-    ccw = np.sum(Q[:-1, 0] * Q[1:, 1] - Q[1:, 0] * Q[:-1, 1]) > 0
+    tn, nn, L, ccw = _node_frame(P)
     n_out = np.c_[t[:, 1], -t[:, 0]] * (1.0 if ccw else -1.0)               # outward normal times segment length
     F = -np.sum(0.5 * (cq[1:] + cq[:-1])[:, None] * n_out, axis=0)          # pressure force / (q c)
     # friction by a wall function: the decoder's tangential velocity WALL_D off the wall (log layer), Spalding's law for
     # u_tau, tau_w = u_tau^2 along the near-wall flow; the field's own wall gradient is not resolved (first nodes at y+ ~ 1)
     from supervised_field.airfrans_p3_fields_v2 import NU_AIR
-    L = np.linalg.norm(t, axis=1); tu = t / L[:, None]
-    tn = tu + np.roll(tu, 1, axis=0); tn /= np.linalg.norm(tn, axis=1, keepdims=True)              # node tangent, loop direction
-    nn = np.c_[tn[:, 1], -tn[:, 0]] * (1.0 if ccw else -1.0)                                     # node outward normal
     dsn = 0.5 * (L + np.roll(L, 1))
     with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
         pv = decode(field_inputs(P + WALL_D * nn, poly, a, Re, c["cl"], c["s"]), c["z"], c["w"])
@@ -430,10 +455,27 @@ def _wall(c, Re):
         upper = ~upper
     cl_p, cd_p = float(-F[0] * sa + F[1] * ca), float(F[0] * ca + F[1] * sa)
     cl_f, cd_f = float(-Ff[0] * sa + Ff[1] * ca), float(Ff[0] * ca + Ff[1] * sa)
-    return dict(x=P[:, 0].tolist(), y=P[:, 1].tolist(), cp=cp.tolist(), cf=cf.tolist(), upper=upper.tolist(),
-                cl=cl_p + cl_f, cd=cd_p + cd_f, cl_pressure=cl_p, cd_pressure=cd_p, cd_friction=cd_f,
-                yplus_median=float(np.median(WALL_D * utau / NU_AIR)), wall_function_distance=WALL_D,
-                reference_state="k-omega SST (the decoder's training fields)")
+    w = dict(x=P[:, 0].tolist(), y=P[:, 1].tolist(), cp=cp.tolist(), cf=cf.tolist(), upper=upper.tolist(),
+             cl=cl_p + cl_f, cd=cd_p + cd_f, cl_pressure=cl_p, cd_pressure=cd_p, cd_friction=cd_f,
+             yplus_median=float(np.median(WALL_D * utau / NU_AIR)), wall_function_distance=WALL_D,
+             reference_state="k-omega SST (the decoder's training fields)")
+    w["cm"] = wall_cm(w)
+    return w
+
+
+def wall_cm(r):
+    """c_m about the quarter chord (nose up positive, as the surface model's cm) of wall values x, y, cp, cf (surface()):
+    the wall pressure and wall-function friction integrated as _wall integrates the forces (pressure on the segments,
+    friction at the nodes along the wall toward the trailing edge; the same integration rebuilds surface()'s C_l and C_d
+    exactly). Against the XFOIL state's cm, NACA 2412 at 0-8 deg: within 0.0095 at Re 3e6 and 0.0092 at Re 4.5e6
+    (tests/test_wing.py holds it to 0.02)."""
+    P = np.c_[r["x"], r["y"]]; Q = np.r_[P, P[:1]]; t = np.diff(Q, axis=0)
+    tn, _, L, ccw = _node_frame(P)
+    cq = np.r_[r["cp"], r["cp"][:1]]
+    fp = -0.5 * (cq[1:] + cq[:-1])[:, None] * np.c_[t[:, 1], -t[:, 0]] * (1.0 if ccw else -1.0)    # pressure force / (q c)
+    ff = (np.asarray(r["cf"]) * np.sign(tn[:, 0]) * 0.5 * (L + np.roll(L, 1)))[:, None] * tn       # friction force / (q c)
+    arm = lambda p, f: np.sum((p[:, 0] - 0.25) * f[:, 1] - p[:, 1] * f[:, 0])                     # counterclockwise: nose down
+    return float(-(arm(0.5 * (Q[1:] + Q[:-1]), fp) + arm(P, ff)))
 
 
 def surface(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
@@ -447,7 +489,7 @@ def surface(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
     parallel to the freestream (chord 1). On the 200 AirfRANS test cases these values are compared with the RANS wall
     pressure and forces by code/field/validate_field_surface.py.
     Returns x, y (chord frame), cp, cf, upper (bool per node) as arrays; cl, cd (pressure + friction), cl_pressure,
-    cd_pressure, cd_friction; and the meta of predict()."""
+    cd_pressure, cd_friction, cm (quarter chord, wall_cm); and the meta of predict()."""
     if fast:
         import vf_field_fast as F
         F.install()
@@ -456,8 +498,163 @@ def surface(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
         warnings.warn(m, FieldRangeWarning, stacklevel=2)
     w = _wall(c, Re)
     return dict({k: np.asarray(w[k]) for k in ("x", "y", "cp", "cf", "upper")},
-                **{k: w[k] for k in ("cl", "cd", "cl_pressure", "cd_pressure", "cd_friction", "yplus_median")},
+                **{k: w[k] for k in ("cl", "cd", "cl_pressure", "cd_pressure", "cd_friction", "cm", "yplus_median")},
                 meta=dict(c["meta"], frame="body", reference_state=w["reference_state"]))
+
+
+# ------------------------------------------------------------------------------------------- boundary layer (RANS state)
+# The layer is read off the decoder's field on wall-normal rays with the research gate's extraction (airfoil_operator,
+# VortFoil/code/field_profile_gate.py: layer_edge and truth_state, audited by field_profile_extraction_audit.py), with one
+# change: the profile given to the edge criterion is u_t / U_I, U_I the local inviscid speed from the field's own pressure
+# (Bernoulli with the freestream total pressure), where the gate gave u_t itself. Over the curved front the inviscid speed
+# falls off with the wall distance, and the vorticity integral of u_t then puts the edge out in the inviscid flow: on the RANS
+# fields of the 200 AirfRANS test cases the gate's reading gave no layer (mostly theta < 0) at 74% of the stations at x/c < 0.1
+# and 12% at 0.1-0.95, this one at 8% and 1.8%; where both read a layer at 0.1-0.95 they agree within 0.4% (median).
+BL_BAND = 0.1          # chords: length of the wall-normal rays (the gate's band was 0.05, which cut off thick aft layers)
+BL_EDGE_FRAC = 0.995   # layer edge: fraction of the corrected vorticity integral (the gate's EDGE_FRAC)
+BL_X = (0.01, 0.99)    # x/c range of the stations: every second section node in it, per surface
+BL_KEYS = ("theta", "dstar", "H", "Ue", "delta")
+
+
+def _bl_distances(first=1e-6, ratio=1.15, steps=100):
+    """Sample distances along a ray (chords): geometric from `first` until the step reaches BL_BAND / steps, then that step up
+    to BL_BAND. The outer fifth of the samples, where layer_edge reads the outer flow, is the outer 31% of the ray (the last 32
+    of 157, from 0.069 chord); bl_states drops an edge beyond 0.8 of the ray, so at least 20 of them lie outside the layer."""
+    d = BL_BAND / steps
+    g = first * ratio ** np.arange(int(np.ceil(np.log(d / ((ratio - 1) * first)) / np.log(ratio))) + 1)
+    return np.r_[g, np.arange(g[-1] + d, BL_BAND + 0.5 * d, d)]
+
+
+BL_N = _bl_distances()         # 157 distances
+
+
+def layer_edge(n, u, frac=BL_EDGE_FRAC, outer=0.2):
+    """Index of the edge of the layer in the profile u(n), or None (the gate's corrected criterion, verbatim): the integral of
+    |du/dn| from the wall saturates at the edge of a rotational layer; the outer flow's small gradient (median over the outer
+    `outer` fraction of the samples) is taken out linearly, and the edge is the first sample (not one of the first three)
+    where the corrected integral reaches `frac` of its final value. A threshold relative to the wall gradient instead follows
+    the Reynolds number, not the layer (tests/test_field_predict.py)."""
+    g = np.abs(np.gradient(u, n))
+    cum = np.concatenate([[0.0], np.cumsum(0.5 * (g[1:] + g[:-1]) * np.diff(n))])
+    k0 = int((1.0 - outer) * len(n))
+    corr = cum - float(np.median(g[k0:])) * n
+    if corr[-1] <= 0:
+        return None
+    k = np.where(corr >= frac * corr[-1])[0]
+    k = k[k >= 3]
+    return int(k[0]) if len(k) else None
+
+
+def _trapz(f, x):
+    return float(np.sum(0.5 * (f[1:] + f[:-1]) * np.diff(x)))       # np.trapezoid needs numpy 2
+
+
+def layer_state(n, u, ke):
+    """ue, theta, dstar, H, delta of the profile u(n) up to index ke with the wall (n = 0, u = 0) prepended (the gate's
+    truth_state, verbatim); None when the edge speed is zero."""
+    nn = np.concatenate([[0.0], n[:ke + 1]])
+    uu = np.concatenate([[0.0], u[:ke + 1]])
+    ue = float(uu[-1])
+    if abs(ue) < 1e-9:
+        return None
+    r = uu / ue
+    th = _trapz(r * (1 - r), nn)
+    ds = _trapz(1 - r, nn)
+    return dict(ue=ue, theta=th, dstar=ds, H=ds / max(th, 1e-12), delta=float(nn[-1]))
+
+
+def bl_states(n, ut, un, p, U, n_upper=None):
+    """The boundary layer on k rays from the field along them, each (k, m) at the distances n (m,) from the wall: tangential and
+    normal velocity ut, un and kinematic pressure p (p / rho, zero in the freestream); U the freestream speed. Each ray is
+    oriented so that its outer flow is positive, and its profile u_t / U_I, U_I = sqrt(U^2 - 2 p - u_n^2) the local inviscid
+    speed, goes to layer_edge and layer_state. Returns (k,) arrays theta, dstar (chords), H, Ue (edge speed / U), delta (edge
+    distance, chords), NaN where no layer is read (a non-finite sample, no edge, fewer than 7 samples in the layer, theta or
+    delta* <= 0, or the edge beyond 0.8 of the ray, in the outer flow's window of layer_edge, _bl_distances), and separated
+    (bool: the flow WALL_D off the wall runs against the outer flow). With n_upper, the rays are bl_rays' stations (the first
+    n_upper on the upper surface, each surface from the leading edge), and those ahead of the stagnation point are not flagged:
+    on the surface with the highest near-wall pressure, the run of flagged stations from the leading edge, whose near-wall
+    flow runs toward the leading edge under an outer flow toward the trailing edge."""
+    k = len(ut)
+    out = {q: np.full(k, np.nan) for q in BL_KEYS}
+    out["separated"] = np.zeros(k, bool)
+    ui = np.sqrt(np.maximum(U ** 2 - 2.0 * np.asarray(p) - np.asarray(un) ** 2, 1e-12))
+    for i in range(k):
+        if not (np.all(np.isfinite(ut[i])) and np.all(np.isfinite(ui[i]))):
+            continue
+        r = ut[i] / ui[i]
+        r = r if r[-1] >= 0 else -r
+        out["separated"][i] = np.interp(WALL_D, n, r) < 0
+        ke = layer_edge(n, r)
+        st = layer_state(n, r, ke) if ke is not None and ke >= 6 else None
+        if st is None or st["theta"] <= 0 or st["dstar"] <= 0 or st["delta"] > 0.8 * n[-1]:
+            continue
+        out["theta"][i], out["dstar"][i], out["H"][i], out["delta"][i] = st["theta"], st["dstar"], st["H"], st["delta"]
+        out["Ue"][i] = abs(ut[i][ke]) / U
+    if n_upper is not None:
+        p0 = np.asarray(p, np.float64)[:, 0]
+        if np.isfinite(p0).any():                                   # the stagnation point's surface: the highest near-wall pressure
+            s = out["separated"][:n_upper] if np.nanargmax(p0) < n_upper else out["separated"][n_upper:]     # a view
+            run = np.flatnonzero(~s)
+            s[:run[0] if len(run) else len(s)] = False                # the flagged run from the leading edge
+    return out
+
+
+def bl_rays(poly, upper):
+    """The stations of a closed section polygon (TE -> upper -> LE -> lower -> TE) with its nodes' upper flags (_wall): every
+    second node with x/c in BL_X, upper surface then lower, each from the leading edge to the trailing edge. Returns the open
+    node list's indices of the stations, the number of them on the upper surface, their node tangents and outward normals
+    (k, 2), and the ray points (k, m, 2): each station plus its normal times BL_N."""
+    P = poly[:-1] if np.allclose(poly[0], poly[-1]) else poly
+    tn, nn, _, _ = _node_frame(P)
+    up = np.asarray(upper, bool)
+    sides = []
+    for m in (up, ~up):
+        i = np.flatnonzero(m & (P[:, 0] >= BL_X[0]) & (P[:, 0] <= BL_X[1]))
+        sides.append(i[np.argsort(P[i, 0], kind="stable")][::2])
+    i = np.r_[sides[0], sides[1]]
+    return i, len(sides[0]), tn[i], nn[i], P[i, None, :] + BL_N[None, :, None] * nn[i, None, :]
+
+
+def _boundary_layer(c, Re, w):
+    """The boundary layer from a prepared state and its wall values w (_wall); JSON-safe (see boundary_layer())."""
+    poly, a = np.asarray(c["poly"], np.float64), c["alpha"]
+    i, k, tn, nn, X = bl_rays(poly, w["upper"])
+    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):   # Accelerate BLAS raises spurious flags in matmul
+        inp = field_inputs(X.reshape(-1, 2), poly, a, Re, c["cl"], c["s"])
+        pred = decode(inp, c["z"], c["w"])
+    pred[inp["d"] <= 0] = np.nan                                          # a ray that crosses the section (thin trailing edge)
+    pred = pred.reshape(len(i), len(BL_N), 4)
+    ut = pred[..., 0] * tn[:, None, 0] + pred[..., 1] * tn[:, None, 1]
+    un = pred[..., 0] * nn[:, None, 0] + pred[..., 1] * nn[:, None, 1]
+    st = bl_states(BL_N, ut, un, pred[..., 2], inp["U"], k)
+    x, cf = np.asarray(w["x"])[i], np.asarray(w["cf"])[i]
+    out = {}
+    for name, sl in (("upper", slice(0, k)), ("lower", slice(k, None))):
+        out[name] = dict(x_over_c=x[sl].tolist(), Cf=cf[sl].tolist(), separated=st["separated"][sl].tolist(),
+                         **{q: st[q][sl].tolist() for q in BL_KEYS})
+    return out
+
+
+def boundary_layer(loop, alpha, Re, decoder=DECODER, fast=True, family=None):
+    """Boundary layer of the decoder's field, in its RANS state (k-omega SST, fully turbulent, as its training fields).
+
+    Stations: every second node of the section with x/c in BL_X, on each surface. At each, the decoder's velocity and pressure
+    on the wall-normal ray (BL_N, up to BL_BAND chords) give the layer edge and the momentum and displacement thicknesses
+    (bl_states); C_f is the wall function's at that node, exactly surface()'s. Against the same extraction from the RANS
+    fields of the 200 AirfRANS test cases (code/field/validate_field_boundary_layer.py), on attached stations at x/c 0.1-0.95:
+    median relative error of theta and delta* 3.6% and 3.8% on the upper surface (90th percentile 19%), 6.4% and 5.8% on
+    the lower (46% and 36%), H 1.1%; trailing edge (x/c > 0.95) 1-3%; leading edge (x/c < 0.1) 10% upper, 48% lower: not
+    validated there.
+    Returns upper, lower: dicts of (k,) arrays from the leading edge to the trailing edge: x_over_c, theta, dstar (chords),
+    H, Ue (edge speed / U), delta (chords), Cf, separated (bool); NaN where no layer is read. And the meta of predict()."""
+    if fast:
+        import vf_field_fast as F
+        F.install()
+    c = prepare(loop, alpha, Re, decoder, family)
+    for m in c["meta"]["warnings"]:
+        warnings.warn(m, FieldRangeWarning, stacklevel=2)
+    b = _boundary_layer(c, Re, _wall(c, Re))
+    return dict({s: {k: np.asarray(v) for k, v in b[s].items()} for s in ("upper", "lower")}, meta=dict(c["meta"], frame="body"))
 
 # ------------------------------------------------------------------------------------------- output
 STYLE = {"font.family": "serif", "font.serif": ["Times New Roman", "DejaVu Serif"], "mathtext.fontset": "stix",
@@ -487,9 +684,9 @@ def draw_fields(fig, axes, out, meta):
     from matplotlib.colors import LogNorm
     sec = np.asarray(meta["section"])
     wind = meta["frame"] == "wind"
-    panels = [("u_over_U", r"$u_\parallel/U_\infty$" if wind else r"$u/U_\infty$", "viridis", None),
+    panels = [("u_over_U", r"$u_\parallel/U_\infty$" if wind else r"$u/U_\infty$", "coolwarm", "free"),
               ("v_over_U", r"$u_\perp/U_\infty$" if wind else r"$v/U_\infty$", "coolwarm", "sym"),
-              ("cp", r"$C_p$", "coolwarm", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]
+              ("cp", r"$C_p$", "RdYlBu_r", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]   # every channel its own map
     for ax, (k, lab, cmap, kind) in zip(axes, panels):
         cm = plt.get_cmap(cmap)
         kw = dict(cmap=cm, shading="gouraud", rasterized=True)          # values interpolated between the grid points
@@ -499,6 +696,10 @@ def draw_fields(fig, axes, out, meta):
         elif kind == "sym":
             m = float(np.nanpercentile(np.abs(out[k]), 99.5))
             cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=-m, vmax=m, **kw)
+        elif kind == "free":                                              # the free stream's value in the middle: faster red, slower blue
+            u0 = 1.0 if wind else float(np.cos(np.radians(meta["alpha_used"])))
+            m = float(np.nanpercentile(np.abs(out[k] - u0), 99.5))
+            cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=u0 - m, vmax=u0 + m, **kw)
         else:
             cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=np.nanmin(out[k]), vmax=np.nanmax(out[k]), **kw)
         ax.fill(sec[:, 0], sec[:, 1], color="0.25", lw=0)

@@ -1,3 +1,5 @@
+**English** | [한국어](https://github.com/SHRhie/VortFoil/blob/main/README_ko.md)
+
 # VortFoil
 
 See [`MODEL_CARD.md`](MODEL_CARD.md) for intended use and limits, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
@@ -132,6 +134,20 @@ The same command has these subcommands; each takes `--help`:
 
 `uv tool upgrade vortfoil` updates it. On Linux the window needs a desktop session (a display).
 
+### Two commands: `vortfoil` and `vortfoil_exp`
+
+- `vortfoil` runs the paper's 2D models: the surface model (XFOIL state) and the RANS field decoder (RANS state) for one
+  section, in the application window and in the subcommands above. Its window has no 3D wing (`vortfoil app --experimental` is refused).
+- `vortfoil_exp` is the same with one addition in the application window, the **experimental** quasi-3D wing (the box
+  "3D wing" next to the section's name): a classical nonlinear lifting line (Phillips and Snyder, 2000) that carries VortFoil
+  sections in either state, for straight to moderately swept planforms of any size, with kinks, dihedral and NACA, UIUC or
+  file sections. It is not part of the paper's validated claims. `vortfoil_exp view`, `predict`, `sweep`, `about` and `selfcheck` are
+  `vortfoil`'s. From a checkout: `python code/vortfoil_app.py --experimental`.
+  A gray line below the Section model row says what the inputs must respect: the speeds that keep every strip inside each
+  state's training Reynolds range (they follow the strips' chords: the table, Scale x and Strips), the strips' incidence limits, whether the speed you
+  typed fits, and that the RANS state was trained on NACA 4/5-digit sections only when a section is not one. To put a UIUC section
+  on the wing, pick it in the Airfoil box (search its list) and press **Selected row(s)** or **All rows** in the Geometry window.
+
 ### Uninstall
 
 1. Remove the program.
@@ -139,7 +155,7 @@ The same command has these subcommands; each takes `--help`:
    - A pip install: `pip uninstall vortfoil`.
    - An environment made for a checkout: `conda env remove -n vortfoil`, or delete its venv folder; then delete the repository folder.
 2. Delete what the application keeps: the UIUC list, the sections you opened and its log. They are in `%LOCALAPPDATA%\vortfoil` on Windows and in `~/.cache/vortfoil` on macOS and Linux.
-3. Delete a launcher made with `--shortcut`: **VortFoil** on the Windows desktop, or `~/.local/share/applications/vortfoil.desktop` on Linux. macOS has none.
+3. Delete a launcher made with `--shortcut`: **VortFoil** on the Windows desktop, or `~/.local/share/applications/vortfoil.desktop` on Linux (with `--experimental`: **VortFoil (experimental)**, or `vortfoil-exp.desktop`). macOS has none.
 4. If no other uv tool uses them, remove uv's Python and its download cache: `uv python uninstall 3.12`, then `uv cache clean`.
 5. If you installed uv only for VortFoil, remove it last, after step 4 (which needs uv):
    - Windows: `winget uninstall --id=astral-sh.uv -e`
@@ -251,8 +267,8 @@ print(w["cl"], w["cd"], w["cd_pressure"], w["cd_friction"])
 ```
 
 `predict_field.py` prints them and stores them in its output (`wall_x`, `wall_y`, `wall_cp`, `wall_cf`, `wall_upper`). The
-viewer and the application draw this C_p dashed over the surface model's and list its lift and drag, and the CSV export adds
-`_wall.csv`.
+viewer and the application draw this C_p dashed over the surface model's and list its lift, drag and moment (the RANS state,
+below), and the CSV export adds `_wall.csv`.
 
 Against the RANS wall values of the 200 AirfRANS test cases, from the section coordinates alone
 (`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
@@ -266,20 +282,60 @@ Against the RANS wall values of the 200 AirfRANS test cases, from the section co
 These are SST-state values. The surface model's coefficients are XFOIL-state values, and the two are not compared in
 absolute terms.
 
+### Boundary layer in the RANS state
+
+`predict_field.boundary_layer()` reads the layer off the decoder's own flow. At every second node of the section from
+x/c = 0.01 to 0.99, on each surface, it samples the decoder's velocity and pressure along a wall-normal ray (0.1 chord
+long) and integrates the momentum thickness θ and the displacement thickness δ*, the shape factor H, the edge speed and the
+edge distance; C_f is the wall function's above. The edge is where the integral of the vorticity of the tangential speed
+saturates (a criterion that follows the layer; a threshold relative to the wall gradient follows the Reynolds number
+instead), and the speed is first divided by the inviscid speed that the field's own pressure gives, so that the curved flow
+ahead of the layer does not move the edge. A station where no layer is read is NaN, and a station whose near-wall flow runs
+against the outer flow is flagged `separated`. Against the same extraction applied to the RANS fields of the 200 AirfRANS
+test cases, from the section coordinates alone (`code/field/validate_field_boundary_layer.py`,
+`results/field_boundary_layer_validation.json`):
+
+- **Attached stations at x/c 0.1–0.95** (the bound set beforehand, a median relative error of at most 0.20 for θ and δ\*, is
+  met): the upper surface 3.6% (θ) and 3.8% (δ\*), the lower 6.4% and 5.8%; H 1.1%. The 90th percentiles are 19% and 19%
+  (upper) and 46% and 36% (lower).
+- **By case the lower surface varies:** its median error exceeds 20% in 31 of the 200 cases and 50% in 13; 21 of the 31 are
+  among the 66 cases from 8° on (9 of that range's 17 thin sections, t/c < 9%). The upper surface's exceeds 20% in 5 cases
+  and 50% in none.
+- **Trailing edge (x/c > 0.95):** 1–3%. **Leading edge (x/c < 0.1): not validated**, 10% on the upper surface and 48% on
+  the lower; the figure draws the layer from x/c = 0.1, and the CSV file carries the stations from 0.01.
+- **Separated stations are few:** 373 of the 38,421, in 32 cases, all on the upper surface; there θ and δ\* are within 2%
+  (median).
+
+The RANS state's boundary layer is a read-out of the decoder's field: it is as good as the field is near the wall, and
+outside the decoder's training range it is often not read at all.
+
 ### One window for one airfoil
 
 `code/view_airfoil.py` asks for an airfoil (a NACA 4- or 5-digit designation or a `.dat` file), an incidence and a
-Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame; on
-the right are the sheet's surface pressure, both surfaces' boundary-layer thicknesses, and the coefficients with every
-range warning. It needs matplotlib. Resizing the window zooms the whole figure; the layout stays as drawn. Arguments
-skip the questions, and `--save` also writes the figure:
+Reynolds number, and opens one window with everything. On the left are the four field panels in the wind frame (the RANS
+field decoder's); on the right are the surface pressure, both surfaces' boundary-layer thicknesses, the RANS state's
+wall-function C_f and the coefficients with every range warning, in two states:
+
+- **XFOIL state** (solid lines): the surface model, trained on XFOIL. The vortex sheet's C_p, its δ\* and θ, and C_l, C_d,
+  C_m, the circulation lift and the stagnation point. Training range −10° to 18°, Re 5×10⁴ to 10⁷.
+- **RANS state** (dashed C_p, dots for the boundary layer): the field decoder's own values, trained on AirfRANS k–ω SST
+  fields. The wall C_p, C_l, C_d with its pressure and friction parts, C_m about the quarter chord, the wall-function C_f,
+  and the boundary layer (δ\* filled, θ open dots) read from its flow, from x/c = 0.1 where it was checked (above).
+  Training range −5° to 15°, Re 2×10⁶ to 6×10⁶.
+
+Each state has its own range, and each warns about its own. Both are drawn by default; in the application the boxes
+**XFOIL state** and **RANS state** in the Flow box choose which are shown, redrawing without recomputing (one stays
+ticked). A state outside its training range is still computed, but it is drawn faded and labelled "outside training
+range", with its numbers pale; when it is the RANS state the four field panels fade too, and the legends, the status line
+and the title say so. It needs matplotlib. Resizing the window zooms the whole figure; the layout stays as drawn.
+Arguments skip the questions, and `--save` also writes the figure:
 
 ```bash
 python code/view_airfoil.py
 python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 ```
 
-![Viewer: NACA 2412 at 6 degrees, Re 3e6](docs/viewer_example.png)
+![Viewer: NACA 2412 at 6 degrees, Re 3e6, the XFOIL state and the RANS state](docs/viewer_example.png)
 
 ### Desktop application
 
@@ -289,7 +345,7 @@ python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 - a search of the UIUC Airfoil Coordinates Database. Its list and the section you choose are downloaded from the UIUC site and cached; VortFoil does not redistribute them;
 - your own coordinate file, for a section that is in no database.
 
-Then set the incidence, the Reynolds number and the field detail, press **Run**, **Save figure** at 400 dpi (png, pdf or svg), and **Export data (CSV)**: every number of the result, as CSV files with a text file explaining the columns. The files hold the coefficients, the surface C_p at 240 panels, both boundary layers at 121 stations, the field at every grid point (in units of U and c and in SI) and the section; `vortfoil view ... --csv DIR` writes the same. The application picks whichever of three layouts shows the figure largest:
+Then set the incidence, the Reynolds number and the field detail, press **Run**, **Save figure** at 400 dpi (png, pdf or svg), and **Export data (CSV)**: every number of the result, as CSV files with a text file explaining the columns. The files hold the coefficients (with the RANS state's lift, drag and moment and 1/0 for whether each state is inside its training range), the surface C_p at 240 panels, the surface model's boundary layers at 121 stations, the field at every grid point (in units of U and c and in SI), the RANS state's wall values and boundary layer (`_wall.csv`, `_boundary_layer_rans.csv`) and the section; `vortfoil view ... --csv DIR` writes the same. The application picks whichever of three layouts shows the figure largest:
 
 - side by side, for a wide window;
 - fields over a row of surface panels, for a window of ordinary proportions;
@@ -313,13 +369,16 @@ python code/vortfoil_app.py
 - on Linux, an entry in the applications menu;
 - on macOS nothing is written, since the terminal is the launcher (`vortfoil`).
 
+With `--experimental` (`vortfoil_exp app --shortcut`) it adds a second launcher, **VortFoil (experimental)**
+(`vortfoil-exp.desktop` on Linux; `vortfoil_exp` on macOS), whose window has the 3D wing; the first one stays as it is.
+
 **Notes.**
 - The first run loads the models, which takes a few seconds; later runs take about 1–5 s at the normal field detail. A run needs about 1.5 GB of memory.
 - The UIUC list needs an internet connection the first time.
 - The list and the sections you open are cached in `%LOCALAPPDATA%\vortfoil\uiuc` on Windows and in `~/.cache/vortfoil/uiuc` elsewhere.
 - When the application is started without a console, as from the Windows shortcut, its messages go to `app.log` next to that folder.
 - To uninstall, see [Uninstall](#uninstall).
-- `python code/vortfoil_app.py --selftest DIR` runs one case without a person and saves the figure and a capture of the window in DIR, as a quick check of an installation.
+- `python code/vortfoil_app.py --selftest DIR` runs one case without a person and saves the figure and a capture of the window in DIR, as a quick check of an installation; `--experimental --selftest DIR --wing PRESET` does the same for a wing.
 
 ## Execution conditions
 
@@ -426,9 +485,15 @@ MARIO publishes only these four aggregate numbers.
   against XFOIL's forced-transition lift on the 200 test cases
   (`results/step2_eval_f0cm_20260925T213247Z/result.json`, `provider_vs_xfoil_diagnostic.cl_R2`).
 
-Fig. 6 of the manuscript, `figures/vf_field_f0cm_tp_p10.{pdf,png}` (saved numbers
-`figures/vf_field_f0cm_tp_numbers.json`), renders the deployed operator-conditioned decoder against RANS truth
-on test case 128 (U∞ = 39.0 m/s, α = −2.22°).
+Fig. 6 of the manuscript, `figures/vf_field_f0cm_tp_pos.{pdf,png}` (saved numbers
+`figures/vf_field_f0cm_tp_pos_numbers.json`), renders the deployed operator-conditioned decoder against RANS truth
+on the test case `airFoil2D_SST_39.31_8.883_4.707_0.0_12.552` (U∞ = 39.3 m/s, α = 8.88°; a symmetric NACA
+four-digit section, 12.6% thick). The case comes from a rule fixed before any figure was drawn: of the 66 test
+cases at α ≥ 8°, the one with the lowest mean of the decoder's four standardized all-mesh MSEs (run 1,
+`results/step2_eval_f0cm_20260925T213247Z/per_case.npz`, `mse_all_*_s1`); it ranks 14 of 200 overall. Each
+channel has its own colour scale, shared by the RANS and decoder columns: u∥ (along the free stream) in coolwarm
+centred on the free-stream speed, red faster and blue slower; u⊥ in coolwarm about zero; p/ρ in RdYlBu_r limited
+to ±U∞²/2 (C_p = ±1), so the suction peak saturates; ν_t in YlGnBu on a log scale.
 
 ### Inference cost
 
@@ -474,9 +539,10 @@ python code/field/validate_predict_field.py            # predict_field.py agains
 python code/field/validate_field_surface.py            # predict_field.surface() against the RANS wall values (results/field_surface_validation.json)
 
 # Fig. 6
-python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
-python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --only p10 \
-    --layout truth_pred --frame wind --label "operator-conditioned decoder" --print
+python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
+python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
+    --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
+    --case-tag pos --p-qinf --print
 
 # Field timing (Table 17)
 python code/reproduce/vf_speed_field.py

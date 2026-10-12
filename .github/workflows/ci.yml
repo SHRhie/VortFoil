@@ -108,6 +108,11 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get install -y -q xvfb > /dev/null; run="xvfb-run -a"; else run=""; fi
           $run vortfoil app --selftest app_out --airfoil naca:2412
           test -s app_out/app_figure.png
+      - name: Experimental window with a wing (self-test)
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then run="xvfb-run -a"; else run=""; fi
+          $run vortfoil_exp app --selftest app_exp --wing "Rectangular, AR 6" --V 25
+          test -s app_exp/app_figure.png
 
   publish:
     # Uploads to PyPI only when a GitHub release is published; pushes and pull requests never do. PyPI trusted publisher:

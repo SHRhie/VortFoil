@@ -45,6 +45,7 @@ import os, json, time
 os.environ.setdefault("MPLBACKEND", "Agg")
 os.environ.setdefault("XFOIL_EXE", os.path.expanduser("~/src/xfoil/bin/xfoil"))
 import numpy as np
+from functools import lru_cache
 from multiprocessing import Pool
 
 # airfrans / pyvista are imported inside the functions that read AirfRANS files (2026-10-08), so the paint and the
@@ -112,12 +113,27 @@ def _wrap(a):
     return (a + np.pi) % (2.0 * np.pi) - np.pi
 
 
+@lru_cache(maxsize=32)
+def _unit_solves(key, shape):
+    """decamber_gamma's two unit-freestream panel solves of one geometry (its nodes as float64 bytes), read-only. They
+    depend on the nodes only, so a wing's section table (one shape at many incidences) and the two paints of each
+    predict_field.surface call reuse them instead of solving again (2026-10-11: 29% of a surface call on the Mac;
+    bitwise-identical results)."""
+    nodes = np.frombuffer(key, np.float64).reshape(shape)
+    sols = panel_solve(nodes, 0.0), panel_solve(nodes, 90.0)      # U = (1, 0) and (0, 1)
+    for s in sols:
+        for v in (s["gamma"], s["Uinf"], *s["geom"].values()):
+            if isinstance(v, np.ndarray):
+                v.flags.writeable = False
+    return sols
+
+
 def decamber_gamma(nodes, alpha_deg, cl_visc):
     """UPGRADE 4.  Two unit-freestream panel solves -> closed-form effective angle
     a_e whose EXACT panel solution carries the viscous circulation cl_visc/2
     (unit chord).  Returns gamma(a_e), sigma(a_e), geom, plus diagnostics."""
-    sol_c = panel_solve(nodes, 0.0)        # U = (1, 0)
-    sol_s = panel_solve(nodes, 90.0)       # U = (0, 1)
+    g = np.ascontiguousarray(nodes, np.float64)
+    sol_c, sol_s = _unit_solves(g.tobytes(), g.shape)
     geom = sol_c["geom"]; L = geom["L"]
     g_c = np.asarray(sol_c["gamma"]); s_c = float(sol_c["sigma"])
     g_s = np.asarray(sol_s["gamma"]); s_s = float(sol_s["sigma"])
