@@ -684,7 +684,7 @@ def draw_fields(fig, axes, out, meta):
     from matplotlib.colors import LogNorm
     sec = np.asarray(meta["section"])
     wind = meta["frame"] == "wind"
-    panels = [("u_over_U", r"$u_\parallel/U_\infty$" if wind else r"$u/U_\infty$", "viridis", None),
+    panels = [("u_over_U", r"$u_\parallel/U_\infty$" if wind else r"$u/U_\infty$", "coolwarm", "free"),
               ("v_over_U", r"$u_\perp/U_\infty$" if wind else r"$v/U_\infty$", "coolwarm", "sym"),
               ("cp", r"$C_p$", "RdYlBu_r", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]   # every channel its own map
     for ax, (k, lab, cmap, kind) in zip(axes, panels):
@@ -696,6 +696,10 @@ def draw_fields(fig, axes, out, meta):
         elif kind == "sym":
             m = float(np.nanpercentile(np.abs(out[k]), 99.5))
             cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=-m, vmax=m, **kw)
+        elif kind == "free":                                              # the free stream's value in the middle: faster red, slower blue
+            u0 = 1.0 if wind else float(np.cos(np.radians(meta["alpha_used"])))
+            m = float(np.nanpercentile(np.abs(out[k] - u0), 99.5))
+            cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=u0 - m, vmax=u0 + m, **kw)
         else:
             cf = ax.pcolormesh(out["x"], out["y"], _fill_inside(out[k]), vmin=np.nanmin(out[k]), vmax=np.nanmax(out[k]), **kw)
         ax.fill(sec[:, 0], sec[:, 1], color="0.25", lw=0)
