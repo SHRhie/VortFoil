@@ -51,6 +51,8 @@ generation; it does not follow a prior 1.x package.
   RANS state. `predict_field.boundary_layer()` reads the RANS state's boundary layer from the decoder's flow (validated on the
   200 AirfRANS test cases, `code/field/validate_field_boundary_layer.py`, `results/field_boundary_layer_validation.json`). The CSV
   export adds `_boundary_layer_rans.csv`, and `_coefficients.csv` gains the RANS state's C_m and 1/0 flags for each state's range.
+  The field panels use one colour map per channel: u_par coolwarm centred on the free stream, u_perp coolwarm, C_p
+  RdYlBu_r, nu_t YlGnBu on a log scale.
 - `vortfoil_exp` (from a checkout, `python code/vortfoil_app.py --experimental`): the application window with an
   experimental quasi-3D wing, a classical nonlinear lifting line that carries VortFoil sections in the XFOIL or the RANS state
   (`code/wing_nll.py`, `code/view_wing.py`, `code/wing_flow.py`). It is not part of the paper's validated claims; `vortfoil`
