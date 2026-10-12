@@ -27,7 +27,7 @@ releases created *after* the webhook is connected. A release made first is not p
 to be uploaded by hand.
 
 **Sync with the manuscript before going public.** `paper/abstract.md`, the
-README field table and `figures/vf_field_f0cm_tp_p10.*` must match the manuscript as it will be
+README field table and `figures/vf_field_f0cm_tp_pos*` must match the manuscript as it will be
 submitted. Re-check them after the last manuscript build, and before building anything for PyPI:
 the README is the PyPI project description.
 

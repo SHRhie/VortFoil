@@ -1,25 +1,30 @@
 """Field contour figure: RANS truth against a field decoder's stored prediction on AirfRANS full_test cases.
 
-Data: prediction files written by code/field/step2_store_preds.py, one per case, eval_{index:04d}.npz with
-prediction, label, query_xy, case_index, case_name, checkpoint_sha256 and arm, on the AirfRANS point cloud
-(including the no-slip surface nodes, which give the airfoil polygon without any generator). The cases and their
-indices are those of results/fig_case_selection.json (p10 / p50 / p90 of per-case u_x error).
+Data: prediction files written by code/field/step2_store_preds.py, one per case, eval_{index:04d}.npz (or
+eval_<case name>.npz with --name) with prediction, label, query_xy, case_index, case_name, checkpoint_sha256 and arm,
+on the AirfRANS point cloud (including the no-slip surface nodes, which give the airfoil polygon without any
+generator). Without --case, the cases and their indices are those of results/fig_case_selection.json (p10 / p50 / p90
+of per-case u_x error).
 
 Figure discipline: repo generator + saved result files + assert not allclose(pred, truth); numbers written next to
 the PDF.
 
-Fig. 6 of the manuscript (figures/vf_field_f0cm_tp_p10.pdf and vf_field_f0cm_tp_numbers.json), from the shipped
+Fig. 6 of the manuscript (figures/vf_field_f0cm_tp_pos.pdf and vf_field_f0cm_tp_pos_numbers.json), from the shipped
 weights of the deployed operator-conditioned decoder:
-  python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
-  python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --only p10 \
-      --layout truth_pred --frame wind --label "operator-conditioned decoder" --print
+  python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
+  python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
+      --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
+      --case-tag pos --p-qinf --print
 (--print: drawn at the manuscript text width, 5.40 in, with 11 pt titles/labels and 10 pt colour-bar ticks; the shipped
-figure. Without it the figure is 10 x 8 in, and --font-scale X enlarges its text.)
+figure. Without it the figure is 10 x 8 in, and --font-scale X enlarges its text. --p-qinf: pressure limits
++-U_inf^2/2, C_p = +-1.) The case is the test case at alpha >= 8 deg with the lowest mean of the four standardized
+all-mesh MSEs of the deployed run (results/step2_eval_f0cm_20260925T213247Z/per_case.npz, mse_all_*_s1): rank 14 of 200.
 
 Author constraints (2026-09-18): no white empty regions inside the plotting window and no colormap
 with a black/near-black background. Hence: the long-edge Delaunay mask is relaxed to 0.5 so the
 far-field is filled; diverging channels use coolwarm (light-grey centre, not white); nu_t uses
-YlGnBu on a log scale (light low end) with decade ticks instead of magma.
+YlGnBu on a log scale (light low end) with decade ticks instead of magma. Pressure uses RdYlBu_r. u (u_par in the wind
+frame) uses coolwarm centred on the free stream (author 2026-10-12, was viridis): red faster, blue slower.
 """
 import os, sys, json
 import numpy as np
@@ -45,7 +50,7 @@ except Exception:
     pass
 plt.rcParams["savefig.bbox"] = None   # exact 10x8 in canvas (plot_style sets a tight bbox, which would crop it)
 
-ROWS = [("ux", r"$u_x$ [m/s]", "viridis", "seq"),
+ROWS = [("ux", r"$u_x$ [m/s]", "coolwarm", "seq"),         # centred on the free stream (author 2026-10-12): limits set in make()
         ("uy", r"$u_y$ [m/s]", "coolwarm", "sym"),          # grey centre, no white void
         ("p", r"$p/\rho$ [m$^2$/s$^2$]", "RdYlBu_r", "sym"),  # pale-yellow centre; distinct from u_y (author: no shared colormap)
         ("nut", r"$\nu_t$ [m$^2$/s]", "YlGnBu", "log")]
@@ -104,6 +109,8 @@ PRINT = False       # --print: text width 5.40 in, 11 pt titles/labels, 10 pt co
 FONT_SCALE = 1.0    # --font-scale X: titles/labels/colour-bar ticks x X; above 1 the linear colour bars get <= 5 round ticks
 FRAME = "wind"      # 2026-09-26 author rule: airfoil at its true incidence (freestream along +x), --frame body = old view
 PIVOT = np.array([0.25, 0.0])
+P_QINF = False      # --p-qinf (2026-10-12): pressure colour limits +-U_inf^2/2 (C_p = +-1) instead of the |p| p99, which a strong
+                    # suction peak widens until the field sits in the pale centre (alpha 8.9: p99 = 3.96 U_inf^2/2; case 128: 0.98)
 
 
 def to_wind(xy, V, alpha_deg):
@@ -135,6 +142,15 @@ def make(case_file, tag, prefix="vf_field"):
     for i, (k, lab_txt, cmap, kind) in enumerate(ROWS):
         t, p = lab[:, i], pred[:, i]
         vmin, vmax = limits(t, kind, win)
+        if k == "p" and P_QINF:   # shared by both columns; the suction peak below C_p = -1 saturates (extend arrow)
+            q = 0.5 * float(nums["case_name"].split("_")[2]) ** 2; vmin, vmax = -q, q
+            nums["p_colour_limits"] = {"rule": "+-U_inf^2/2 (C_p = +-1)", "range": [-q, q]}
+        if k == "ux":   # 2026-10-12 author: coolwarm centred on the free stream, red faster, blue slower; the sym rule (p99)
+            # about that centre over both columns' window values, shared by both columns
+            u0 = float(nums["case_name"].split("_")[2]) * (1.0 if FRAME == "wind" else float(np.cos(np.radians(alpha))))
+            a = float(np.percentile(np.abs(np.r_[t[win], p[win]] - u0), 99)); vmin, vmax = u0 - a, u0 + a
+            nums["u_colour_limits"] = {"rule": ("U_inf" if FRAME == "wind" else "U_inf cos(alpha)") + " +- p99 of |u - centre| over both columns' window values",
+                                       "centre": u0, "range": [vmin, vmax]}
         e = np.abs(p - t); emax = np.percentile(e[win], 99)
         cols = ((t, "RANS (AirfRANS)"), (p, PRED_LABEL)) + (((e, r"$|$error$|$"),) if ncol == 3 else ())
         for j, (val, ttl) in enumerate(cols):
@@ -157,7 +173,7 @@ def make(case_file, tag, prefix="vf_field"):
         axes[i, 0].set_ylabel(lab_txt, fontsize=11 if PRINT else 11 * FONT_SCALE)
         m = win & ~np.isnan(t)
         nums["channels"][k] = {"window_MSE_over_sigma2": float(np.mean((p[m] - t[m]) ** 2) / SIG[k] ** 2),
-                               "window_p99_abs_error": float(emax), "truth_range_p1_p99": [float(vmin), float(vmax)]}
+                               "window_p99_abs_error": float(emax), "truth_range_p1_p99": [float(v) for v in limits(t, kind, win)]}
     prm = nums["case_name"].split("_")
     if LAYOUT == "truth_pred_err":   # publication rule (2026-07-05): no main title; the truth/pred figure leaves it to the caption
         fig.suptitle(f"AirfRANS full test case {nums['case_index']}: $U_\\infty$={prm[2]} m/s, $\\alpha$={prm[3]}$^\\circ$  ({tag})", fontsize=11)
@@ -180,12 +196,17 @@ if __name__ == "__main__":
         PRINT = True
     if "--font-scale" in sys.argv:
         FONT_SCALE = float(sys.argv[sys.argv.index("--font-scale") + 1])
+    P_QINF = "--p-qinf" in sys.argv
     only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None      # p10 | p50 | p90
-    sel = json.load(open(SEL_JSON))["selected_full_test_cases"]
+    sel = json.load(open(SEL_JSON))["selected_full_test_cases"]; tags = ("p10", "p50", "p90")
+    if "--case" in sys.argv:   # 2026-10-12: one case by AirfRANS name (step2_store_preds.py --name) -> eval_<name>.npz
+        sel, tags = [(sys.argv[sys.argv.index("--case") + 1], None, None)], (sys.argv[sys.argv.index("--case-tag") + 1],)
     allnums = {}
-    for (ci, name, _), tag in zip(sel, ("p10", "p50", "p90")):
+    for (ci, name, _), tag in zip(sel, tags):
         if only and tag != only:
             continue
-        allnums[tag] = make(os.path.join(preds_dir, f"eval_{ci:04d}.npz"), tag, prefix)
+        allnums[tag] = make(os.path.join(preds_dir, f"eval_{ci:04d}.npz" if isinstance(ci, int) else f"eval_{ci}.npz"), tag, prefix)
         print(tag, allnums[tag]["case_index"], {k: round(v["window_MSE_over_sigma2"], 5) for k, v in allnums[tag]["channels"].items()})
+    if "--case" in sys.argv:   # its own numbers file, so the p10/p50/p90 one is left as it is
+        prefix = f"{prefix}_{tags[0]}"
     json.dump(allnums, open(os.path.join(OUT, f"{prefix}_numbers.json"), "w"), indent=1)

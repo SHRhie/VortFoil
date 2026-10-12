@@ -483,9 +483,15 @@ MARIO publishes only these four aggregate numbers.
   against XFOIL's forced-transition lift on the 200 test cases
   (`results/step2_eval_f0cm_20260925T213247Z/result.json`, `provider_vs_xfoil_diagnostic.cl_R2`).
 
-Fig. 6 of the manuscript, `figures/vf_field_f0cm_tp_p10.{pdf,png}` (saved numbers
-`figures/vf_field_f0cm_tp_numbers.json`), renders the deployed operator-conditioned decoder against RANS truth
-on test case 128 (U∞ = 39.0 m/s, α = −2.22°).
+Fig. 6 of the manuscript, `figures/vf_field_f0cm_tp_pos.{pdf,png}` (saved numbers
+`figures/vf_field_f0cm_tp_pos_numbers.json`), renders the deployed operator-conditioned decoder against RANS truth
+on the test case `airFoil2D_SST_39.31_8.883_4.707_0.0_12.552` (U∞ = 39.3 m/s, α = 8.88°; a symmetric NACA
+four-digit section, 12.6% thick). The case comes from a rule fixed before any figure was drawn: of the 66 test
+cases at α ≥ 8°, the one with the lowest mean of the decoder's four standardized all-mesh MSEs (run 1,
+`results/step2_eval_f0cm_20260925T213247Z/per_case.npz`, `mse_all_*_s1`); it ranks 14 of 200 overall. Each
+channel has its own colour scale, shared by the RANS and decoder columns: u∥ (along the free stream) in coolwarm
+centred on the free-stream speed, red faster and blue slower; u⊥ in coolwarm about zero; p/ρ in RdYlBu_r limited
+to ±U∞²/2 (C_p = ±1), so the suction peak saturates; ν_t in YlGnBu on a log scale.
 
 ### Inference cost
 
@@ -531,9 +537,10 @@ python code/field/validate_predict_field.py            # predict_field.py agains
 python code/field/validate_field_surface.py            # predict_field.surface() against the RANS wall values (results/field_surface_validation.json)
 
 # Fig. 6
-python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128
-python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --only p10 \
-    --layout truth_pred --frame wind --label "operator-conditioned decoder" --print
+python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
+python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
+    --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
+    --case-tag pos --p-qinf --print
 
 # Field timing (Table 17)
 python code/reproduce/vf_speed_field.py
