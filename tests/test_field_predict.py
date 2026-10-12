@@ -333,14 +333,16 @@ def test_viewer_text_fits_in_every_layout_and_state(PF, cases, layout, serif, mo
     matplotlib.pyplot.close(fig)
 
 
+@pytest.mark.parametrize("serif", [["Times New Roman", "DejaVu Serif"], ["DejaVu Serif"]])          # the second: without Times New Roman (Linux)
 @pytest.mark.parametrize("layout", ["landscape", "square", "portrait"])
-def test_viewer_text_after_a_window_zoom(cases, layout):
+def test_viewer_text_after_a_window_zoom(PF, cases, layout, serif, monkeypatch):
     """The zoomed, frozen figure (scale_with_window) keeps the states' text clear of the edges and of its neighbours from 0.8 to 1.5 times
     its design size (the released figure's axis-label pads do not shrink: below 0.7 its y labels leave the figure), with the legends as
     they were (they are rebuilt at the scaled type size)."""
     matplotlib = pytest.importorskip("matplotlib")
     matplotlib.use("Agg")
     import view_airfoil as V
+    monkeypatch.setitem(PF.STYLE, "font.serif", serif)
     fig = V.figure(*cases["rans_out"], layout=layout)
     legends = [[t.get_text() for t in ax.get_legend().get_texts()] for ax in fig.axes if ax.get_legend()]
     W, H = V.DESIGNS[layout]
@@ -433,13 +435,16 @@ def test_viewer_state_outside_its_training_range_is_faded(cases):
     matplotlib.pyplot.close("all")
 
 
+@pytest.mark.parametrize("serif", [["Times New Roman", "DejaVu Serif"], ["DejaVu Serif"]])          # the second: without Times New Roman (Linux)
 @pytest.mark.parametrize("layout", ["landscape", "square", "portrait"])
-def test_viewer_boundary_layer_legend_is_clear_of_the_data(cases, layout):
+def test_viewer_boundary_layer_legend_is_clear_of_the_data(PF, cases, layout, serif, monkeypatch):
     """The boundary-layer panel's legend keeps clear of the curves of the states inside their training range, whichever states are shown,
-    thin layers or thick, at any incidence and Reynolds number (the axis grows by up to two decades above the data under it)."""
+    thin layers or thick, at any incidence and Reynolds number (the axis grows by up to two decades above the data under it), in either
+    serif (DejaVu Serif, where Times New Roman is missing, sets the legend some 20% wider)."""
     matplotlib = pytest.importorskip("matplotlib")
     matplotlib.use("Agg")
     import view_airfoil as V
+    monkeypatch.setitem(PF.STYLE, "font.serif", serif)
     for key, case in cases.items():
         for states in (("xfoil", "rans"), ("xfoil",), ("rans",)):
             fig = V.figure(*case, layout=layout, states=states)
