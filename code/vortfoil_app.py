@@ -533,14 +533,14 @@ class App:
         loop, alpha, Re, h, name, family, decoder = args
         self.args = (name, alpha, Re)
         self.last = (name, alpha, Re, r, surf_w, out, meta)
-        self.draw(self.orientation())
-        self.sync()
         n = len(surf_w) + len(meta["warnings"])
         out_of = [s for s, k in (("XFOIL state", "xfoil_in_range"), ("RANS state", "rans_in_range")) if not meta.get(k, True)]
         self.status.configure(text=f"{name}, {alpha:g} deg, Re {Re:.3g}: done in {dt:.1f} s"
                               + (f"; {n} warning(s), listed in the figure." if n else "; inside both training domains.")
                               + (f" The {' and the '.join(out_of)} {'is' if len(out_of) == 1 else 'are'} outside {'its' if len(out_of) == 1 else 'their'} training range: drawn faded." if out_of else "")
                               + self.cutof)
+        self.draw(self.orientation())                         # after the status line: its height is the panel's, which sets the canvas's
+        self.sync()
         if self.selftest:
             self.root.after(500, self.finish_selftest)
 
@@ -657,11 +657,21 @@ class App:
         self.relayout = self.root.after(300, lambda: self.result() is None or self.draw(self.orientation()))   # (the mode may have changed)
 
     def fit(self):
-        """Zoom the frozen layout to the canvas as it is now (later resizes do this through the resize handler)."""
-        w = self.can.get_tk_widget().winfo_width(); h = self.can.get_tk_widget().winfo_height()
-        if w > 1 and h > 1:
-            self.fig.set_size_inches(w / self.fig.dpi, h / self.fig.dpi, forward=False)
-        self.on_resize()
+        """Zoom the frozen layout to the canvas once the panel has its new size (later resizes do this through the resize handler).
+        The panel's changes (the Flow box's rows, the status line) reach the canvas first, so the figure is drawn once, at its final
+        size: by the canvas's resize when they resize it, else here (a draw asked for before them ran first, at the old size)."""
+        pending = getattr(self.can, "_idle_draw_id", None)   # a draw still queued from before this figure was built (a resize's, the relayout's)
+        if pending:                                           # would run first in the update, of the new figure unzoomed: the one draw below replaces it
+            self.can.get_tk_widget().after_cancel(pending); self.can._idle_draw_id = None
+        resized = []
+        cid = self.can.mpl_connect("resize_event", resized.append)
+        self.root.update_idletasks()
+        self.can.mpl_disconnect(cid)
+        if not resized:
+            w = self.can.get_tk_widget().winfo_width(); h = self.can.get_tk_widget().winfo_height()
+            if w > 1 and h > 1:
+                self.fig.set_size_inches(w / self.fig.dpi, h / self.fig.dpi, forward=False)
+            self.on_resize()
         self.can.toolbar.update()                             # the figure was rebuilt: the toolbar's history (mplot3d fills it) holds the old axes
 
     def save(self):
@@ -747,8 +757,10 @@ class App:
         for v, t in (("xfoil", "XFOIL state"), ("sst", "RANS state")):
             ttk.Radiobutton(r, text=t, value=v, variable=self.wstate).pack(side="left", padx=(0, 10))
         r = row(3)
-        note = ttk.Label(r, textvariable=self.range_note, foreground="gray", wraplength=wrap, justify="left"); note.pack(fill="x")
-        note.bind("<Configure>", lambda ev: note.configure(wraplength=max(wrap, ev.width - 8)))     # the box's width where it is wider than 3.4 in (a 14-inch Mac: 373 px, not 287)
+        note = ttk.Label(r, textvariable=self.range_note, foreground="gray", wraplength=wrap, justify="left", width=1); note.pack(fill="x")
+        note.bind("<Configure>", lambda ev: note.configure(wraplength=max(wrap, f.winfo_width() - 8)))     # the box's width where it is wider than 3.4 in (a 14-inch Mac: 373 px, not 287)
+        # width=1: the other rows set the box's width, never this text (it widened the box it wrapped at: ten redraws a tick). The box's width, not
+        # the event's: after a tick the line's own event still carries the 2D box's width when the box already has the 3D rows' (one more redraw)
         r = row(4)
         self.surface_box = choice(r, "Surface", self.surface, WV.SURFACE_QUANTITIES["xfoil"], 8, "surface")
         choice(r, "Spanwise", self.span, WV.SPAN_QUANTITIES, 11, "span")
@@ -995,11 +1007,11 @@ class App:
         if self.surface.get() not in vals:
             self.surface.set("C_p")
         self.wopts["surface"] = self.surface.get()
+        self.status.configure(text=wing_summary(out, dt))     # before the figure: the status line's height is the panel's, which sets the canvas's
         self.draw(self.orientation())
         self.sync()
         if self.v3win is not None:                            # the 3D view's options (a modeless window) follow the new result
             self.view3d_floor()
-        self.status.configure(text=wing_summary(out, dt))
         if self.selftest:
             self.root.after(500, self.finish_selftest)
 
@@ -1024,6 +1036,7 @@ class App:
         name = f"{m.group() if m else WV.short(label, 11)}, 2y/b {view.cut_eta:.2f}"     # short: a long 2D header squeezes the figure's panels
         self.done_section(("cut", name), (lp["coords"][j], name, lp["family"][j]), None)
         self.code, self.cutlabel, self.cutof = naca_code(label, lp["family"][j]), label, f" From the wing {res['wing']['name']}."
+        self.ranges()                                         # done_section judged the cut's 2D name, no designation: the hidden gray line was wrong and changed at the next tick (redraws)
         self.alpha.set(f"{st['alpha_eff_deg'][i]:.4g}"); self.re.set(f"{st['Re'][i]:.4g}")
         self.wing.set(False); self.show()
         self.run()
