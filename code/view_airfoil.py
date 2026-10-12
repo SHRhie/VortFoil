@@ -262,19 +262,34 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape", 
     fig.get_layout_engine().execute(fig)                                         # the cells' sizes
     # The boundary-layer legend sits in the upper left, and the axis is raised until the curves under it are clear of it (those to its
     # right may rise beside it). Where that would take more than two decades (thick layers), the legend goes where it fits ("best"),
-    # in a box, since it then lies over something.
+    # in a box, since it then lies over something. Where the box too lies over the curves of a state inside its training range, both
+    # are tried again at smaller type, in steps to 6 pt (a wide serif needs it: DejaVu Serif, matplotlib's fallback where Times New
+    # Roman is missing, sets the legend some 20% wider); if none is clear, the 8 pt box stays.
     lg = axb.get_legend()
     if lg and ok.any():
-        bb, ab = lg.get_window_extent(), axb.get_window_extent()
-        share, x1 = (bb.height + 8.0 * fig.dpi / 72) / ab.height, (bb.width + 4.0 * fig.dpi / 72) / ab.width + 0.01
-        lo, t_all = np.log10(6e-6), np.log10(ys[ok].max())
-        t_left = np.log10(max(ys[ok & (xs <= x1)].max(initial=0.0), 6e-6))
-        up = max((t_left - share * lo) / (1.0 - share), t_all + 0.15)
-        far = up > t_all + 2.0
-        if far:
-            lg.remove()
+        ab, lo, t_all = axb.get_window_extent(), np.log10(6e-6), np.log10(ys[ok].max())
+        inside = any(inr[s] for s in states)             # pts are then the curves at full strength
+
+        def top(lg):                                     # the axis top (log10) that puts the curves under the upper-left legend lg below it
+            bb = lg.get_window_extent()
+            share, x1 = (bb.height + 8.0 * fig.dpi / 72) / ab.height, (bb.width + 4.0 * fig.dpi / 72) / ab.width + 0.01
+            t_left = np.log10(max(ys[ok & (xs <= x1)].max(initial=0.0), 6e-6))
+            return max((t_left - share * lo) / (1.0 - share), t_all + 0.15)
+
+        for fs in (8.0, 7.5, 7.0, 6.5, 6.0):
+            if fs < 8.0:
+                lg = axb.legend(frameon=False, fontsize=fs, loc="upper left")
+            up = top(lg)
+            if up <= t_all + 2.0:
+                axb.set_ylim(6e-6, 10 ** up)
+                break
+            axb.set_ylim(6e-6, 10 ** (t_all + 0.5))
+            lg = axb.legend(frameon=True, fontsize=fs, loc="best")
+            bb, xy = lg.get_window_extent(), axb.transData.transform(np.c_[xs[ok], ys[ok]])
+            if not inside or not ((xy > (bb.x0, bb.y0)) & (xy < (bb.x1, bb.y1))).all(axis=1).any():
+                break
+        else:
             axb.legend(frameon=True, fontsize=8, loc="best")
-        axb.set_ylim(6e-6, 10 ** (t_all + 0.5 if far else up))
     # the type: 8.5 pt, smaller when the lines are many or long for the cell the layout gives them, and a list of warnings that would
     # not fit even at 6 pt ends in a pointer to the CSV file. One text per line, on a pitch of LINE em (UNDER more below a line with an
     # underscore), so that a pale line stays in line. The width is measured (matplotlib 3.11 rounds a character's advance to whole

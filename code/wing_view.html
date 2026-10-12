@@ -737,6 +737,7 @@ html[data-view="error"] .layout { grid-template-columns: minmax(0, 1fr); }
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { T = tok(); schedule(); });
   window.vortfoilView = { view, state, draw };               // read by the page tests (not by the page)
   update();
+  resize();                    // the first frame now, with the numbers: the observer's first call waits for a rendering frame, which a headless DOM dump need not
 })();
 </script>
 </body>
