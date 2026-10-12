@@ -158,4 +158,4 @@ def test_page_with_broken_data_says_so(tmp_path):
     html = open(page, encoding="utf-8").read().replace(pack(rec), "AAAA")
     open(page, "w", encoding="utf-8").write(html)
     dom = dump(page)
-    assert 'data-view="error"' in dom and "Could not unpack the data of this page" in dom
+    assert re.search(r'<html[^>]* data-view="error"', dom) and "Could not unpack the data of this page" in dom   # on <html>: the page's CSS has the bare text too
