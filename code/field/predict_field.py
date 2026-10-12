@@ -686,7 +686,7 @@ def draw_fields(fig, axes, out, meta):
     wind = meta["frame"] == "wind"
     panels = [("u_over_U", r"$u_\parallel/U_\infty$" if wind else r"$u/U_\infty$", "viridis", None),
               ("v_over_U", r"$u_\perp/U_\infty$" if wind else r"$v/U_\infty$", "coolwarm", "sym"),
-              ("cp", r"$C_p$", "coolwarm", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]
+              ("cp", r"$C_p$", "RdYlBu_r", "sym"), ("nut_over_Uc", r"$\nu_t/(U_\infty c)$", "YlGnBu", "log")]   # every channel its own map
     for ax, (k, lab, cmap, kind) in zip(axes, panels):
         cm = plt.get_cmap(cmap)
         kw = dict(cmap=cm, shading="gouraud", rasterized=True)          # values interpolated between the grid points
