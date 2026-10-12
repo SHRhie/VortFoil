@@ -412,6 +412,9 @@ class Root(Widget):
     def after_cancel(self, ident):
         pass
 
+    def update_idletasks(self):
+        pass
+
     def destroy(self):
         self.exit = True
 
@@ -1158,9 +1161,11 @@ def test_open_cut_is_the_real_section_with_a_short_name(tk, monkeypatch):
     k = app.view.cut_index
     mouse(app, "button_press_event", 0.6); mouse(app, "button_release_event", 0.6)
     k = app.view.cut_index
+    line = app.range_note.get()                                                # the gray line of this wing with NACA 2212 in the Airfoil box
     app.open_cut()
     name = f"NACA 2212, 2y/b {res['strips']['eta'][k]:.2f}"
     assert app.section[1] == name and len(name) <= 22 and app.code == "2212" and app.cutlabel == "NACA 2212"
+    assert app.range_note.get() == line and FAMILY not in line                 # judged on the cut's designation, not its 2D name: the next tick changes nothing
     assert app.cutof == f" From the wing {FULL}, NACA 2212."
     settle(app, lambda: app.last is not None)
     assert app.args[0] == name and app.status.kw["text"].startswith(f"{name}, ") and app.status.kw["text"].endswith(f" From the wing {FULL}, NACA 2212.")
@@ -1348,6 +1353,7 @@ def test_the_gray_row_of_ranges(tk, monkeypatch):
     assert any(isinstance(w, Radiobutton) for w in rows[2].walk()) and any(w is app.surface_box for w in rows[4].walk())      # after Section model, before Surface
     assert label.kw["foreground"] == "gray" and label.kw["wraplength"] == app.status.kw["wraplength"] == 340 and label.kw["justify"] == "left"
     for width, wrap in ((1, 340), (300, 340), (373, 365), (500, 492)):                            # the Flow box's width minus a margin, never below 3.4 in
+        app.f3.winfo_width = lambda: width
         label.bound["<Configure>"](types.SimpleNamespace(width=width))
         assert label.kw["wraplength"] == wrap
     # the Full-scale wing at its own 45 m/s (NACA 2412 in the Airfoil box: a NACA section, so no family note)
@@ -1527,6 +1533,102 @@ def test_a_uiuc_section_put_on_the_wing_by_the_helper_runs(tk, tmp_path, monkeyp
     res = app.wres
     assert res["wing"]["name"] == "Custom wing" and all("clarky" in lb for lb in res["loops"]["label"]) and set(res["loops"]["family"]) == {None}
     assert res["coef"]["CL"] > 0.3 and app.range_note.get().endswith(FAMILY)
+
+
+# ------------------------------------------------------------------------------------------------ one full draw per change, at the canvas's final size
+def test_the_gray_line_never_sets_the_width_it_wraps_at(tk):
+    """The gray line wraps at the 3D Flow box's width and must not set that width: the other rows do. Tk's sizes, modelled: a label asks
+    for its width in characters, else for its longest wrapped line (7 px a character here). On Windows (upright screen) a tick laid the
+    rows out at the 2D box's width first (535 px: the Re-extended box's); a line that asked for its wrapped width then held the box
+    wide, and the box narrowed in ten steps, a canvas resize and a full redraw each (22 draws a tick). And the line's own <Configure>
+    comes after its box's: it still carried 535 px when the box had the 3D rows' width (373 px, a 14-inch Mac's), one more redraw."""
+    app, root = tk()
+    app.wing.set(True); app.show()
+    label, = [w for w in app.f3.walk() if isinstance(w, Label) and w.kw.get("textvariable") is app.range_note]
+
+    def asks(wraplength):
+        label.configure(wraplength=wraplength)
+        if label.kw.get("width", 0) > 0:
+            return 7 * label.kw["width"]
+        lines = [""]
+        for word in app.range_note.get().split():
+            if lines[-1] and 7 * (len(lines[-1]) + 1 + len(word)) > wraplength:
+                lines.append(word)
+            else:
+                lines[-1] = (lines[-1] + " " + word).lstrip()
+        return 7 * max(map(len, lines))
+    assert len(app.range_note.get()) > 150 and asks(527) == asks(365)        # whatever it wraps at, it asks for the same width
+    app.f3.winfo_width = lambda: 373
+    label.bound["<Configure>"](types.SimpleNamespace(width=535))
+    assert label.kw["wraplength"] == 365
+
+
+def test_a_change_is_drawn_once_at_the_canvas_final_size(tk):
+    """Tk's idle queue in miniature, on an upright screen (the panel above the canvas): a change of the panel's rows (the Flow box's, the
+    status line) reaches the canvas two idle passes later (the box's arrangement, then the panel's); the canvas then takes its new size,
+    zooms and asks for a draw, as FigureCanvasTk does; a draw runs in a later pass, of the figure as it is then. Each status character
+    takes a pixel row from the canvas here, so each change of the line resizes it. Ticking and unticking 3D wing, with and without
+    results, a state box and the end of a 2D and of a wing run each draw the figure once, at the canvas's final size. A draw asked for
+    before the panel's change reached the canvas ran first, at the old size: the 2D figure twice, 0.7 s each on Windows. And a draw
+    still queued when a click lands (a resize's, the relayout's) ran first in the update, of the new figure at its design size."""
+    from matplotlib.backend_bases import ResizeEvent
+    app, root = tk((1080, 1920))
+    settle(app, lambda: app.section is not None)
+    queue, drawn = [], []
+
+    def update_idletasks():                                       # the idle callbacks in order, the ones they add included
+        while queue:
+            queue.pop(0)()
+
+    def size():                                                   # what the panel leaves to the canvas
+        return (993, 1500 - 60 * (app.mode() == "wing") - len(app.status.kw["text"]))
+
+    def resize():                                                 # FigureCanvasTk at <Configure>: the figure takes the canvas's size, zooms, asks for a draw
+        if app.can.size != size():
+            app.can.size = size()
+            app.fig.set_size_inches(size()[0] / app.fig.dpi, size()[1] / app.fig.dpi, forward=False)
+            app.can.callbacks.process("resize_event", ResizeEvent("resize_event", app.can))
+            app.can.draw_idle()
+
+    def draw_idle(*a, **k):                                       # requests merge until the draw runs (FigureCanvasTk's _idle_draw_id); it draws the figure at its size then
+        if not app.can._idle_draw_id:
+            def job():
+                app.can._idle_draw_id = None
+                drawn.append(tuple(round(v) for v in app.fig.get_size_inches() * app.fig.dpi))
+            app.can._idle_draw_id = job
+            queue.append(job)
+    for w, name in ((app.f2, "grid"), (app.f3, "grid"), (app.status, "configure")):
+        setattr(w, name, lambda *a, f=getattr(w, name), **k: (f(*a, **k), queue.append(lambda: queue.append(resize))))
+    root.update_idletasks, app.can.draw_idle, app.can._idle_draw_id = update_idletasks, draw_idle, None
+    app.can.get_tk_widget().after_cancel = queue.remove           # Tk's after_cancel: that idle callback never runs
+    resize(); update_idletasks()
+
+    def once(act, queued=False):                                  # an action (queued: a draw asked for earlier still waits), then the event loop
+        drawn.clear()
+        if queued:
+            app.can.draw_idle()
+        act(); update_idletasks()
+        assert drawn == [size()] == [app.can.size] and np.allclose(app.fig.get_size_inches() * app.fig.dpi, size())
+
+    def run(start, done):                                         # Run, then the event loop until the result: the result's draws
+        start(); update_idletasks()
+        t0 = time.time()
+        while not done():
+            assert time.time() - t0 < 240, app.status.kw["text"]
+            drawn.clear(); app.poll(); update_idletasks(); time.sleep(0.02)
+        assert drawn == [size()] == [app.can.size]
+    for on in (True, False):
+        once(lambda: (app.wing.set(on), app.show()))
+    app.alpha.set("17")                                           # its status line is longer than Computing's: the canvas shrinks at the end
+    run(app.run, lambda: app.last is not None)
+    assert app.status.kw["text"].endswith("drawn faded.")
+    once(lambda: (app.show_r.set(False), app.states_changed(app.show_r)))
+    once(lambda: (app.show_r.set(True), app.states_changed(app.show_r)), queued=True)
+    small_wing(app); update_idletasks()
+    run(app.run_wing, lambda: app.wres is not None)
+    for on, queued in ((False, False), (True, False), (False, True), (True, True)):   # the 2D figure, then the wing's
+        once(lambda: (app.wing.set(on), app.show()), queued)
+    assert len(app.fig.axes) >= 5
 
 
 # ------------------------------------------------------------------------------------------------ vortfoil (2D) and vortfoil_exp (+ 3D)
