@@ -4,8 +4,9 @@ Writes npz files (prediction, label, query_xy, case_index, case_name, checkpoint
 code/figures/vf_field_f2_contour.py renders with --preds/--tag.  Same inputs as the evaluation worker
 (state_provider._work, via nf_hybrid_field._case_inputs), provider with the maximum-side s rule the decoder was trained with
 (state_provider.ConfirmedStateProvider(s_rule="teH")); nothing is recomputed differently.
-Fig. 6 is case 128 of the deployed run (run 1):
-  python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --cases 128   -> results/preds_f0cm_s1/
+Fig. 6 is a case named outside the selection file (--name: eval_<name>.npz, case_index -1), deployed run (run 1):
+  python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
+  -> results/preds_f0cm_s1/eval_airFoil2D_SST_39.31_8.883_4.707_0.0_12.552.npz
 """
 import os, sys, json, hashlib, numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +24,8 @@ def main():
     want = {int(ci): name for ci, name, _ in sel}
     if "--cases" in sys.argv:
         keep = [int(x) for x in sys.argv[sys.argv.index("--cases") + 1].split(",")]; want = {k: v for k, v in want.items() if k in keep}
+    if "--name" in sys.argv:   # a case by name, in the selection file or not; it has no index there, so case_index -1 and the name in the file name
+        want = {-1: sys.argv[sys.argv.index("--name") + 1]}
     from supervised_field.nf_eval200 import ROOT
     cases = sorted(json.load(open(os.path.join(ROOT, "manifest.json")))["full_test"])
     arm = f"{tag}_s{sd}"
@@ -41,7 +44,7 @@ def main():
         z = encode_np(resample_le(xy, M, seed=0).astype(np.float64), G._W[sd])
         pred = fwd_np(c["X"].astype(np.float64), c["s_row"].astype(np.float64), PA, z, G._W[sd]); pred[sm, 0] = 0; pred[sm, 1] = 0; pred[sm, 3] = 0
         assert not np.allclose(pred, TR)
-        np.savez(os.path.join(out_dir, f"eval_{ci:04d}.npz"), prediction=pred.astype(np.float32), label=TR.astype(np.float64), query_xy=P[:, :2].astype(np.float32),
+        np.savez(os.path.join(out_dir, f"eval_{ci:04d}.npz" if ci >= 0 else f"eval_{nm}.npz"), prediction=pred.astype(np.float32), label=TR.astype(np.float64), query_xy=P[:, :2].astype(np.float32),
                  case_index=np.int32(ci), case_name=nm, checkpoint_sha256=wsha, arm=arm, cl_provider=np.float64(c["cl_used"]), s_provider=np.float64(c["s"]))
         print("stored", ci, nm, "cl %.3f s %.3f" % (c["cl_used"], c["s"]), flush=True)
     print("dir", out_dir)

@@ -93,7 +93,10 @@ coordinates alone (no AirfRANS files, no XFOIL), its mean errors on the 200 Airf
 0.99 to 1.07 times the deployed evaluation's (`results/predict_field_validation.json`; README, "Flow
 field for any section"). The field also gives wall values in its own RANS state: `predict_field.surface()`, the
 viewer's dashed C_p and `_wall.csv`. Against the RANS values of the 200 test cases its lift has R² 0.9993 and its drag, with
-friction from a wall function, a mean relative error of 0.14 (README, "Wall pressure, lift and drag in the RANS state").
+friction from a wall function, a mean relative error of 0.14 (README, "Wall pressure, lift and drag in the RANS state"). The
+viewer and the application show the surface model (the XFOIL state) and these values with a boundary layer read from the
+decoder's flow (the RANS state), together or one at a time; a state outside its own training range is drawn faded and labelled
+(README, "Boundary layer in the RANS state" and "One window for one airfoil").
 
 The decoder was trained on NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶, and it
 warns outside those ranges. On ten UIUC sections of other families, computed with the AirfRANS

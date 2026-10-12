@@ -81,11 +81,12 @@ paths explicitly or run from a tree that has them.
 | `field_holdout_score.py` | Validation-holdout score of field-decoder weight files, computed as the trainer's `holdout()` does: the selection scores of both deployed decoders (`results/f0a_holdout_rescore_20260930.jsonl`, `results/f0cm_holdout_rescore.json`; needs the training corpora, `VORTFOIL_CORPUS_DIR`). |
 | `step2_rebuild_corpus_provider.py` | Step 2a: build the operator-input field training corpus from the XFOIL-input corpus: paint recomputed at the stored rows with the sheet's C_l^γ, s from the boundary-layer operator with `S_RULE = "teH"`. Neither corpus is shipped; the operator-conditioned decoder's corpus is `_nf_train_v5_full800_provider_maxs.npz` (sha256 `a387d918…`, in its weights' `run_config`). |
 | `step2_eval_f0c.py` | Step 2b: evaluate the operator-conditioned decoder runs (default `--weights-tag f0cm`, rule `teH`), seed-pooled and paired against the three sealed XFOIL-conditioned runs; `results/step2_eval_f0cm_20260925T213247Z/` is its record. |
-| `step2_store_preds.py` | Store full-field predictions of an operator-conditioned decoder for the figure cases (rule `teH`); Fig. 6 uses `--weights-tag f0cm --seed 1 --cases 128`. |
+| `step2_store_preds.py` | Store full-field predictions of an operator-conditioned decoder for the figure cases (rule `teH`); `--name` stores one case by its AirfRANS name (`eval_<name>.npz`); Fig. 6 uses `--weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552`. |
 | `vf_field_fast.py` | Faster kernels for the field pathway with the same arithmetic; `verify()` checks them against the originals on `field_decoder_f0cm_s1.npz`. |
-| `predict_field.py` | The deployed operator-conditioned decoder for any section, incidence and Reynolds number, from coordinates alone (no AirfRANS files, no XFOIL): `--coords section.dat` or `--naca 2412`, `--alpha`, `--Re`, a grid (`--window`, `--h`) or `--points`, in the wind or chord frame; writes the field (AirfRANS units and normalized) to an npz and, with `--png`, a quick-look figure. Warns (`FieldRangeWarning`) outside the decoder's training domain (AirfRANS: NACA 4/5-digit sections, incidence −5 to 15°, Re 2×10⁶ to 6×10⁶) or for a section whose shape code lies far from every training section. |
+| `predict_field.py` | The deployed operator-conditioned decoder for any section, incidence and Reynolds number, from coordinates alone (no AirfRANS files, no XFOIL): `--coords section.dat` or `--naca 2412`, `--alpha`, `--Re`, a grid (`--window`, `--h`) or `--points`, in the wind or chord frame; writes the field (AirfRANS units and normalized) to an npz and, with `--png`, a quick-look figure. Warns (`FieldRangeWarning`) outside the decoder's training domain (AirfRANS: NACA 4/5-digit sections, incidence −5 to 15°, Re 2×10⁶ to 6×10⁶) or for a section whose shape code lies far from every training section. `surface()` gives the decoder's RANS state at the wall (C_p, wall-function C_f, lift, drag, moment) and `boundary_layer()` its boundary layer (θ, δ*, H, edge speed on wall-normal rays through its flow). |
 | `naca_generator.py` | The NACA 4/5-digit generator the AirfRANS sections were built with, copied verbatim from the airfrans package 0.1.5.1 (MIT License; see `NOTICE`); `predict_field.py --naca` uses it. |
 | `validate_predict_field.py` | Checks `predict_field.py` on AirfRANS full_test (200 cases) against the deployed evaluation: the same inputs reproduce the recorded errors; the coordinates-only route, from the case's 441-node section and from a sparse 161-node one, is scored against RANS; writes `results/predict_field_validation.json` and `_per_case.npz`. Needs `AIRFRANS_ROOT`. |
+| `validate_field_boundary_layer.py` | Checks `predict_field.boundary_layer()` on AirfRANS full_test (200 cases): the same extraction (wall-normal rays, edge criterion, θ, δ*, H) applied to the RANS field and to the decoder's field from the coordinates alone, scored per surface, region (leading edge, aft, trailing edge) and attached or separated station against the bound set beforehand (median relative error ≤ 0.20 on attached stations at x/c 0.1–0.95); writes `results/field_boundary_layer_validation.json`. Needs `AIRFRANS_ROOT` and pyvista; `--workers` runs cases in parallel. |
 
 ### `code/field/supervised_field/`
 
@@ -147,7 +148,7 @@ closed section; `state_for` passes it the NACA polyline, as before.
 | `plot_style.py` | NCFE 2026 figure style — camera-ready conference defaults. |
 | `vf_surface_cst16_fig.py` | Figs. 2–3: Cp, stagnation and Cm readouts of the confirmed single model against XFOIL truth on the 2,678 converged attached rows (layout copy of the sealed generator with the converged-row mask). |
 | `vf_drag_closure_fig.py` | Figures for CMAME_v2 §Profile drag. Generator + saved numbers, per the figure-provenance rule. |
-| `vf_field_f2_contour.py` | Fig. 6: RANS truth against a decoder's stored prediction (`--preds`, from `code/field/step2_store_preds.py`). |
+| `vf_field_f2_contour.py` | Fig. 6: RANS truth against a decoder's stored prediction (`--preds`, from `code/field/step2_store_preds.py`; `--case NAME --case-tag TAG` renders one named case, `--p-qinf` limits the pressure scale to C_p = ±1). |
 
 With `--print`, each generator reproduces its files in `figures/`: drawn at the manuscript's text width (5.40 in)
 with 11 pt titles and labels and 10 pt ticks and legends. Without it, they draw the earlier smaller-text layout.
@@ -155,5 +156,26 @@ with 11 pt titles and labels and 10 pt ticks and legends. Without it, they draw 
 ## `code/view_airfoil.py`
 
 One window for one airfoil: asks for (or takes) the airfoil, incidence and Reynolds number and shows the field decoder's
-four field panels next to the surface model's C_p, boundary-layer thicknesses and coefficients, with every range warning
-(`--save` writes the figure, `--no-show` skips the window).
+four field panels next to the surface pressure, boundary-layer thicknesses and coefficients in two states, with every range
+warning: the XFOIL state (the surface model) and the RANS state (the field decoder's wall values, boundary layer and
+wall-function C_f). `figure(..., states=...)` draws either or both; a state outside its training range
+(`meta["xfoil_in_range"]`, `meta["rans_in_range"]` from `compute`) is drawn faded and labelled. `export_csv` writes every number
+(`--csv DIR`; the RANS state's boundary layer is `_boundary_layer_rans.csv`). `--save` writes the figure, `--no-show` skips
+the window.
+
+## `code/vortfoil_app.py` and the experimental 3D wing
+
+The application window: `vortfoil` (or `python code/vortfoil_app.py`) runs the paper's 2D models of `view_airfoil.py`.
+`vortfoil_exp` (or `--experimental`) adds the experimental quasi-3D wing, which is not part of the paper's validated claims:
+
+| file | purpose |
+|---|---|
+| `wing_nll.py` | A nonlinear lifting line (Phillips and Snyder, 2000) on VortFoil sections in the XFOIL state (surface model) or the RANS state (field decoder): presets and wing definitions (JSON), `compute()`, `input_ranges()` (for the 3D Flow box: the speeds that keep every strip inside each state's training Reynolds range, the strip incidence ranges, the decoder's section family, as sentences) and `--check`. |
+| `view_wing.py` | The wing figure (3D surface, spanwise quantity with a draggable section cut, the section at the cut, the polar, the coefficients) and its CSV export. |
+| `wing_flow.py`, `wing_view.html` | The browser 3D view: the wing, streamlines, the viscous wake and the trailing vortices in a standalone WebGL page. |
+
+In the 3D window the gray line below the Section model row is `wing_nll.input_ranges()` on the wing Run computes (numbers only, no
+model runs; its speeds are those of `compute()`'s strips; it follows the planform, the geometry table, Scale x, Strips, the speed, the
+Airfoil box's section and the chosen state). The Geometry window's
+**Selected row(s)** and **All rows** write the Airfoil box's section (a NACA designation, `uiuc:<name>` or the file's path, never
+`current`) into the table's section column (`section_rows()`), so a UIUC section is picked in the Airfoil box and placed on rows.

@@ -8,10 +8,14 @@
 The airfoil is a NACA 4- or 5-digit designation or a coordinate file (Selig or Lednicer .dat). The window shows
   left   the RANS field from the field decoder: velocity along and across the freestream, C_p and nu_t, with the
          section at its incidence (wind frame);
-  right  the surface pressure of the vortex sheet, the boundary-layer thicknesses of both surfaces, and the
-         coefficients (C_l, C_d, C_m, the circulation lift, the stagnation point), with every range warning.
-The surface results come from the vortfoil package (trained on XFOIL), the field from the decoder trained on AirfRANS
-k-omega SST fields. They are two models with their own training domains, and each warns about its own.
+  right  the surface pressure, the boundary layer of both surfaces and the coefficients, in two states: the XFOIL state
+         (the vortfoil package: vortex sheet and boundary-layer operator, trained on XFOIL; C_l, C_d, C_m, the circulation
+         lift, the stagnation point) and the RANS state (the field decoder's wall values, trained on AirfRANS k-omega SST
+         fields: C_l, C_d with its pressure and friction parts, C_m, the boundary layer read from its flow, and the
+         wall-function C_f), with every range warning.
+The two states have their own training domains, and each warns about its own. figure(..., states=...) shows either state or
+both (the application's two boxes); a state outside its training range (meta["xfoil_in_range"], meta["rans_in_range"]) is
+drawn faded and labelled, and so are the field panels when the RANS state is the one outside.
 --save writes the figure (400 dpi); --no-show skips the window (for scripts or machines without a display). On an
 upright screen the panels are stacked (--layout). Resizing the window zooms the figure; its layout stays as drawn.
 """
@@ -46,8 +50,12 @@ def section(airfoil):
 _MODEL = None
 
 
-def compute(loop, alpha, Re, h, family=None):
-    """Surface results (vortfoil package) and the field (predict_field), with their warnings."""
+def compute(loop, alpha, Re, h, family=None, decoder=None):
+    """Surface results (vortfoil package) and the field (predict_field), with their warnings. Both states are computed:
+    the XFOIL state (r, the surface model) and the RANS state (meta: the field decoder's wall values meta["wall"] and boundary
+    layer meta["boundary_layer"]). meta["xfoil_in_range"] / meta["rans_in_range"]: the incidence and the Reynolds number lie
+    inside that model's training ranges (incidence and Re only: shape warnings, such as the surface model's 16-parameter fit
+    and trailing-edge gap or the decoder's family and shape distance, do not count)."""
     global _MODEL
     import vortfoil
     import predict_field as PF
@@ -59,13 +67,20 @@ def compute(loop, alpha, Re, h, family=None):
     surf_w = [str(w.message) for w in ws if issubclass(w.category, vortfoil.RangeWarning)]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PF.FieldRangeWarning)          # kept in meta["warnings"]
-        out, meta = PF.predict(loop, alpha, Re, h=h, family=family, wall=True)
+        out, meta = PF.predict(loop, alpha, Re, h=h, family=family, wall=True, bl=True, decoder=decoder or PF.DECODER)
+    meta["xfoil_in_range"] = not bool(r.info["outside_training_range"][0])
+    meta["rans_in_range"] = meta["in_training_range"]
     return r, surf_w, out, meta
 
 
 DESIGNS = {"landscape": (16.0, 7.6), "square": (13.0, 10.5), "portrait": (9.5, 12.0)}   # drawn at these sizes (in); windows zoom
-WRAP = {"landscape": 78, "square": 58, "portrait": 100}   # characters per line of the coefficients box
+WRAP = {"landscape": 66, "square": 50, "portrait": 100}   # characters per line of the coefficients box
 DESIGN = DESIGNS["landscape"]
+STATES = ("xfoil", "rans")                                # what the surface panels can show: the surface model, the field decoder's wall values
+STATE_NAME = {"xfoil": "XFOIL state", "rans": "RANS state"}
+UP, LO, FADE = "#b2182b", "#2166ac", 0.35                 # upper and lower surface; the alpha of a state outside its training range
+LINE, UNDER, FILL = 1.15, 0.35, 0.9                         # the coefficients box: line pitch (em), the extra after a line with an underscore (C_l, s_sep: it touched the next line's letters on a screen) and the share of the width a line may take
+CHECKED_X = 0.1                                           # the figure shows the RANS-state boundary layer and C_f from x/c = 0.1, where the layer is checked against RANS (predict_field.boundary_layer)
 
 
 def screen_is_portrait():
@@ -80,13 +95,36 @@ def screen_is_portrait():
         return False
 
 
-def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
+def look(state, inside):
+    """Line style of a state's curves in the surface panels: the XFOIL state solid, the RANS state dashed; a state outside its
+    training range is drawn faded (alpha FADE) and dashed in its own way (XFOIL dashes, RANS dots)."""
+    if inside:
+        return dict(ls="-", lw=1.2, alpha=1.0) if state == "xfoil" else dict(ls="--", lw=0.9, alpha=0.8)
+    return dict(ls=(0, (5, 2)) if state == "xfoil" else (0, (2, 1.5)), lw=1.2, alpha=FADE)
+
+
+def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape", states=STATES):
     """The result figure in one of three layouts: 'landscape' (fields left, surface right), 'square' (fields on top,
     surface pressure, boundary layer and coefficients in a row below) or 'portrait' (fields, then the two surface
-    panels, then the coefficients). With `fig`, it is cleared and redrawn (the application reuses its figure)."""
+    panels, then the coefficients). With `fig`, it is cleared and redrawn (the application reuses its figure).
+    states: which states the surface panels and the coefficients show: 'xfoil' (the vortex sheet and boundary-layer operator),
+    'rans' (the field decoder's wall pressure, boundary layer and wall-function C_f), or both (default). A state outside its
+    training range (meta["xfoil_in_range"], meta["rans_in_range"]) is drawn faded, with "(outside training range)" in its
+    legend entry and its numbers pale. The four field panels are the RANS field whatever the states; when the RANS state is outside
+    its training range they are faded too (with their colour bars) and labelled."""
+    import textwrap
     import matplotlib.pyplot as plt
     import vortfoil
     import predict_field as PF
+    states = (states,) if isinstance(states, str) else tuple(states)
+    if not states or not set(states) <= set(STATES):
+        raise ValueError(f"states: 'xfoil', 'rans' or both (got {states!r})")
+    states = tuple(s for s in STATES if s in states)
+    inr = {"xfoil": bool(meta.get("xfoil_in_range", True)), "rans": bool(meta.get("rans_in_range", True))}
+    tag = lambda s: STATE_NAME[s] + ("" if inr[s] else " (outside training range)")
+    wl = meta.get("wall") if "rans" in states else None
+    bl = meta.get("boundary_layer") if "rans" in states else None
+    prime = [s for s in states if inr[s]] or list(states)               # the axes' limits follow the states inside their training range
     plt.rcParams.update(PF.STYLE)
     if fig is None:
         fig = plt.figure(figsize=DESIGNS[layout], constrained_layout=True)
@@ -96,14 +134,14 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
         fig.set_layout_engine("constrained")
     if layout == "landscape":
         gs = fig.add_gridspec(1, 2, width_ratios=[2.25, 1])
-        gl = gs[0].subgridspec(2, 2); gr = gs[1].subgridspec(3, 1, height_ratios=[1.15, 1.0, 1.05])
+        gl = gs[0].subgridspec(2, 2); gr = gs[1].subgridspec(3, 1, height_ratios=[0.85, 1.5, 1.05] if bl else [1.15, 1.0, 1.05])
         cell = dict(cp=gr[0], bl=gr[1], text=gr[2])
     elif layout == "square":
         gs = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
         gl = gs[0].subgridspec(2, 2); gm = gs[1].subgridspec(1, 3, width_ratios=[1.0, 1.0, 0.9])
         cell = dict(cp=gm[0], bl=gm[1], text=gm[2])
     else:
-        gs = fig.add_gridspec(3, 1, height_ratios=[2.0, 1.0, 0.6])
+        gs = fig.add_gridspec(3, 1, height_ratios=[1.85, 1.0, 0.8])
         gl = gs[0].subgridspec(2, 2); gm = gs[1].subgridspec(1, 2)
         cell = dict(cp=gm[0], bl=gm[1], text=gs[2])
     axf = [fig.add_subplot(gl[i, j]) for i in range(2) for j in range(2)]
@@ -112,54 +150,169 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape"):
         ax.set_xlabel("x / c")
     for ax in axf[::2]:
         ax.set_ylabel("y / c")
+    if not inr["rans"]:                                  # the field is the RANS state's too: faded (with its colour bar) and labelled like its curves
+        for ax in axf:
+            for c in ax.collections:
+                c.set_alpha(FADE)
+                if c.colorbar is not None:
+                    c.colorbar.solids.set_alpha(FADE)
+            ax.text(0.5, 0.97, "outside training range", transform=ax.transAxes, ha="center", va="top", fontsize=8, color="0.2")
 
-    # surface pressure of the sheet: panels 0-119 run TE -> LE on the upper surface, 120-239 LE -> TE on the lower
+    # surface pressure. XFOIL state: the sheet's panels 0-119 run TE -> LE on the upper surface, 120-239 LE -> TE on the lower;
+    # RANS state: the field decoder's wall nodes
     ax = fig.add_subplot(cell["cp"])
-    x, cp = r.x_cp[0], r.cp[0]
-    ax.plot(x[:120], cp[:120], color="#b2182b", lw=1.2, label="upper")
-    ax.plot(x[120:], cp[120:], color="#2166ac", lw=1.2, label="lower")
-    wl = meta.get("wall")
-    if wl:                                                    # the field decoder's wall pressure, in its RANS state
-        xw, cw, up = np.asarray(wl["x"]), np.asarray(wl["cp"]), np.asarray(wl["upper"], bool)
-        for m, col in ((up, "#b2182b"), (~up, "#2166ac")):
+    cps = []
+    if "xfoil" in states:
+        x, cp, st = r.x_cp[0], r.cp[0], look("xfoil", inr["xfoil"])
+        cps += [cp] if "xfoil" in prime else []
+        ax.plot(x[:120], cp[:120], color=UP, **st)
+        ax.plot(x[120:], cp[120:], color=LO, **st)
+        ax.plot([], [], color="0.25", label=tag("xfoil"), **st)
+    if wl:
+        xw, cw, up, st = np.asarray(wl["x"]), np.asarray(wl["cp"]), np.asarray(wl["upper"], bool), look("rans", inr["rans"])
+        cps += [cw] if "rans" in prime else []
+        for m, col in ((up, UP), (~up, LO)):
             o = np.argsort(xw[m])
-            ax.plot(xw[m][o], cw[m][o], "--", color=col, lw=0.9, alpha=0.8, label="RANS state (field)" if col == "#b2182b" else None)
+            ax.plot(xw[m][o], cw[m][o], color=col, **st)
+        ax.plot([], [], color="0.25", label=tag("rans"), **st)
     ax.invert_yaxis(); ax.set_xlim(0, 1); ax.set_xlabel("x / c"); ax.set_ylabel(r"$C_p$")
-    ax.set_title("surface pressure: vortex sheet (XFOIL state); field decoder (RANS state)"); ax.legend(frameon=False)
+    if len(prime) < len(states) and cps:                                  # a faded state may run off the scale
+        lo, hi = float(np.nanmin(np.r_[tuple(cps)])), float(np.nanmax(np.r_[tuple(cps)]))
+        ax.set_ylim(hi + 0.05 * (hi - lo), lo - 0.05 * (hi - lo))
+    ax.set_title("surface pressure: upper (red), lower (blue)")
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(frameon=False, fontsize=9)
 
-    # boundary-layer thicknesses of both surfaces
-    ax = fig.add_subplot(cell["bl"])
-    xb = vortfoil.BL_X
-    for k, (lab, col) in enumerate((("upper", "#b2182b"), ("lower", "#2166ac"))):
-        ax.semilogy(xb[1:], r.dstar[0, k, 1:], "-", color=col, lw=1.2, label=rf"$\delta^*$ {lab}")
-        ax.semilogy(xb[1:], r.theta[0, k, 1:], "--", color=col, lw=1.2, label=rf"$\theta$ {lab}")
-    top = float(max(r.dstar[0].max(), r.theta[0].max()))
-    ax.set_xlim(0, 1); ax.set_ylim(1e-5, 2.0 * top); ax.set_xlabel("x / c"); ax.set_ylabel("thickness / c")
-    ax.set_title("boundary layer (displacement, momentum thickness)"); ax.legend(frameon=False, ncol=2, fontsize=8)
+    # boundary layer: the thicknesses of both surfaces (XFOIL state: lines; RANS state: dots, from x/c 0.1 on, where it is checked
+    # against RANS) and, below, the RANS state's wall-function C_f
+    if bl:
+        sub = cell["bl"].subgridspec(2, 1, height_ratios=[2.3, 1.0])
+        ax = fig.add_subplot(sub[0]); axc = fig.add_subplot(sub[1], sharex=ax)
+        ax.tick_params(labelbottom=False)
+    else:
+        ax, axc = fig.add_subplot(cell["bl"]), None
+    axb, pts = ax, []                                     # pts: (x, thickness) of the states inside their training range, which set the axis
+    if "xfoil" in states:
+        xb, a = vortfoil.BL_X, look("xfoil", inr["xfoil"])["alpha"]
+        for k, col in enumerate((UP, LO)):
+            ax.plot(xb[1:], r.dstar[0, k, 1:], "-", color=col, lw=1.2, alpha=a)
+            ax.plot(xb[1:], r.theta[0, k, 1:], "--", color=col, lw=1.2, alpha=a)
+            pts += [(xb[1:], r.dstar[0, k, 1:]), (xb[1:], r.theta[0, k, 1:])] if "xfoil" in prime else []
+        ax.plot([], [], color="0.25", lw=1.2, alpha=a, label=tag("xfoil") + (": " if inr["xfoil"] else "\n") + r"$\delta^*$ solid, $\theta$ dashed")
+    if bl:
+        a = 0.9 if inr["rans"] else FADE
+        cf, read = [], False
+        for side, col in (("upper", UP), ("lower", LO)):
+            b = bl[side]
+            m = np.asarray(b["x_over_c"], float) >= CHECKED_X
+            x = np.asarray(b["x_over_c"], float)[m]
+            for q, hollow in (("dstar", False), ("theta", True)):
+                v = np.asarray(b[q], float)[m]
+                ax.plot(x, v, "o", ls="none", ms=2.4, mew=0.7, color=col, mfc="none" if hollow else col, alpha=a)
+                read = read or bool(np.isfinite(v).any())
+                pts += [(x, v)] if "rans" in prime else []
+            axc.plot(x, np.asarray(b["Cf"], float)[m], color=col, ls="-" if inr["rans"] else "--", lw=1.0, alpha=1.0 if inr["rans"] else FADE)
+            cf.append(np.asarray(b["Cf"], float)[m])
+        ax.plot([], [], marker="o" if read else "none", ls="none", ms=3, color="0.25", alpha=a,           # no dots to show: the entry says so
+                label=tag("rans") + (": " if inr["rans"] else "\n") + (r"$\delta^*$ filled, $\theta$ open dots" if read else "no layer read"))
+        lo, hi = min(float(np.nanmin(np.r_[tuple(cf)])), 0.0), float(np.nanmax(np.r_[tuple(cf)]))
+        axc.set_ylim(lo - 0.06 * (hi - lo), hi + 0.12 * (hi - lo)); axc.axhline(0.0, color="0.7", lw=0.6, zorder=0)
+        axc.set_ylabel(r"$C_f$"); axc.set_xlabel("x / c")
+        axc.set_title(r"wall-function $C_f$, RANS state" + ("" if inr["rans"] else " (outside training range)"), loc="right", fontsize=8, color="0.25", pad=2)
+    else:
+        ax.set_xlabel("x / c")
+    xs, ys = (np.concatenate([np.asarray(p[i], float) for p in pts]) if pts else np.zeros(0) for i in (0, 1))
+    ok = np.isfinite(ys) & (ys > 0)
+    ax.set_yscale("log"); ax.set_xlim(0, 1); ax.set_ylim(6e-6, 3.0 * (ys[ok].max() if ok.any() else 1e-2)); ax.set_ylabel("thickness / c")   # the 1e-5 tick clear of the corner
+    ax.set_title("boundary layer: upper (red), lower (blue)")
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(frameon=False, fontsize=8, loc="upper left")
 
-    # coefficients and warnings
+    # coefficients and warnings: a line, and whether it is pale (the state is outside its training range)
     ax = fig.add_subplot(cell["text"]); ax.axis("off")
-    lines = [f"{name}    alpha {meta['alpha_used']:.2f} deg    Re {Re:.3g}", "",
-             f"C_l  {r.cl[0]: .4f}    (circulation lift {r.cl_gamma[0]: .4f})",
-             f"C_d  {r.cd[0]: .5f}",
-             f"C_m  {r.cm[0]: .4f}    (quarter chord)",
-             f"stagnation at {r.stagnation[0]:.4f} of the arc length",
-             f"field inputs: C_l^gamma {meta['cl_gamma']:.4f}, s_sep {meta['s_sep']:.3f}"]
-    if meta.get("wall"):
-        wl = meta["wall"]
-        lines += [f"field, RANS state: C_l {wl['cl']: .4f}, C_d {wl['cd']: .5f}",
-                  f"  (pressure {wl['cd_pressure']:.5f}, friction {wl['cd_friction']:.5f}, wall function)"]
-    lines.append("")
+    lines = [(f"{name}    alpha {meta['alpha_used']:.2f} deg    Re {Re:.3g}", False), ("", False)]
+    if "xfoil" in states:
+        pale = not inr["xfoil"]
+        lines += [("XFOIL state: outside training range" if pale else "XFOIL state (surface model)", pale),
+                  (f"  C_l {r.cl[0]: .4f}   C_d {r.cd[0]: .5f}   C_m {r.cm[0]: .4f}", pale),
+                  (f"  circulation lift {r.cl_gamma[0]:.4f}, stagnation {r.stagnation[0]:.4f}", pale)]
+    if wl:
+        pale = not inr["rans"]
+        lines += [("RANS state: outside training range" if pale else "RANS state (field decoder, wall function)", pale),
+                  (f"  C_l {wl['cl']: .4f}   C_d {wl['cd']: .5f}   C_m {wl['cm']: .4f}", pale),
+                  (f"  pressure {wl['cd_pressure']:.5f} + friction {wl['cd_friction']:.5f} (C_d)", pale),
+                  (f"  field inputs: C_l^gamma {meta['cl_gamma']:.4f}, s_sep {meta['s_sep']:.3f}", pale)]
+        if bl:
+            lines += [("  boundary layer, x/c 0.1 to 1: " + ("not checked here" if pale else "checked vs RANS"), pale)]
+            if not pale and meta["alpha_used"] >= 8.0:     # 1 test case in 3 from 8 deg on (field_boundary_layer_validation.json)
+                lines += [("  lower surface: often 20%+ off at this alpha", False)]
+    lines += [("C_m about the quarter chord, nose up positive", False), ("", False), ("warnings:", False)]
     warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]
-    lines += ["warnings:"] + ([f"- {m}" for m in warn] if warn else ["- none: inside both training domains"])
-    import textwrap
-    txt = "\n".join(textwrap.fill(l, WRAP[layout], subsequent_indent="  ") if l.startswith("- ") else l for l in lines)
-    ax.text(0.0, 1.0, txt, va="top", ha="left", family="monospace", fontsize=8.5, transform=ax.transAxes)
-    where = {"landscape": "left: RANS field decoder, wind frame; right: surface model",
-             "square": "top: RANS field decoder, wind frame; bottom row: surface model",
-             "portrait": "top: RANS field decoder, wind frame; below: surface model"}[layout]
+    lines += [(l, False) for m in (warn or ["none: inside both training domains"]) for l in
+              textwrap.wrap(f"- {m}", WRAP[layout], subsequent_indent="  ")]
+    field = "RANS field decoder, wind frame" + ("" if inr["rans"] else ", outside its range")
+    surface = "XFOIL and RANS states" if len(states) == 2 else STATE_NAME[states[0]] + ("" if inr[states[0]] else ", outside its range")
+    where = {"landscape": f"left: {field}; right: surface, {surface}",
+             "square": f"top: {field}; bottom row: surface, {surface}",
+             "portrait": f"top: {field}; below: surface, {surface}"}[layout]
+    if meta.get("decoder") == "field_decoder_rext_s2.npz":                # experimental (branch exp/rext-decoder)
+        where = "field: Re-extended decoder, experimental; " + where
     fig.suptitle(rf"VortFoil — {name},  $\alpha$ = {meta['alpha_used']:.2f}$^\circ$,  Re = {Re:.3g}"
                  + ("   " if layout == "landscape" else "\n") + f"({where})", fontsize=12)
+    fig.get_layout_engine().execute(fig)                                         # the cells' sizes
+    # The boundary-layer legend sits in the upper left, and the axis is raised until the curves under it are clear of it (those to its
+    # right may rise beside it). Where that would take more than two decades (thick layers), the legend goes where it fits ("best"),
+    # in a box, since it then lies over something. Where the box too lies over the curves of a state inside its training range, both
+    # are tried again at smaller type, in steps to 6 pt (a wide serif needs it: DejaVu Serif, matplotlib's fallback where Times New
+    # Roman is missing, sets the legend some 20% wider); if none is clear, the 8 pt box stays.
+    lg = axb.get_legend()
+    if lg and ok.any():
+        ab, lo, t_all = axb.get_window_extent(), np.log10(6e-6), np.log10(ys[ok].max())
+        inside = any(inr[s] for s in states)             # pts are then the curves at full strength
+
+        def top(lg):                                     # the axis top (log10) that puts the curves under the upper-left legend lg below it
+            bb = lg.get_window_extent()
+            share, x1 = (bb.height + 8.0 * fig.dpi / 72) / ab.height, (bb.width + 4.0 * fig.dpi / 72) / ab.width + 0.01
+            t_left = np.log10(max(ys[ok & (xs <= x1)].max(initial=0.0), 6e-6))
+            return max((t_left - share * lo) / (1.0 - share), t_all + 0.15)
+
+        for fs in (8.0, 7.5, 7.0, 6.5, 6.0):
+            if fs < 8.0:
+                lg = axb.legend(frameon=False, fontsize=fs, loc="upper left")
+            up = top(lg)
+            if up <= t_all + 2.0:
+                axb.set_ylim(6e-6, 10 ** up)
+                break
+            axb.set_ylim(6e-6, 10 ** (t_all + 0.5))
+            lg = axb.legend(frameon=True, fontsize=fs, loc="best")
+            bb, xy = lg.get_window_extent(), axb.transData.transform(np.c_[xs[ok], ys[ok]])
+            if not inside or not ((xy > (bb.x0, bb.y0)) & (xy < (bb.x1, bb.y1))).all(axis=1).any():
+                break
+        else:
+            axb.legend(frameon=True, fontsize=8, loc="best")
+    # the type: 8.5 pt, smaller when the lines are many or long for the cell the layout gives them, and a list of warnings that would
+    # not fit even at 6 pt ends in a pointer to the CSV file. One text per line, on a pitch of LINE em (UNDER more below a line with an
+    # underscore), so that a pale line stays in line. The width is measured (matplotlib 3.11 rounds a character's advance to whole
+    # pixels, 3.10 does not), and FILL of the cell is all it may take: a window zoom changes the rounding.
+    H = ax.get_position().height * fig.get_figheight() * 72                      # points
+    em = lambda ls: np.cumsum([0.0] + [LINE + (UNDER if "_" in t else 0.0) for t, _ in ls])     # in em: where each line starts, and the total
+    keep = max(12, int(np.searchsorted(em(lines)[1:], 0.97 * H / 6.0, side="right")))            # lines that fit at 6 pt
+    if len(lines) > keep:
+        lines = lines[:keep - 1] + [("- ... (the rest is in the CSV coefficients)", False)]
+    rows = em(lines)
+    widest, fs, cell = max((t for t, _ in lines), key=len), min(8.5, 0.97 * H / rows[-1]), ax.get_window_extent().width
+    for _ in range(4):
+        probe = ax.text(0.0, 1.0, widest, family="monospace", fontsize=fs, transform=ax.transAxes)
+        w = probe.get_window_extent().width
+        probe.remove()
+        if w <= FILL * cell:
+            break
+        fs *= 0.99 * FILL * cell / w
+    fs = max(6.0, fs)
+    for (txt, pale), y in zip(lines, rows):
+        if txt:
+            ax.text(0.0, 1.0 - (y + 0.9) * fs / H, txt, va="baseline", ha="left", family="monospace", fontsize=fs,
+                    color="0.6" if pale else "k", transform=ax.transAxes).set_in_layout(False)
     return fig
 
 
@@ -184,12 +337,14 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
         w = csv.writer(f)
         w.writerow(["airfoil", "alpha_given_deg", "alpha_used_deg", "Re", "Cl", "Cl_circulation", "Cd", "Cm_quarter_chord",
                     "stagnation_arc_fraction", "ue_TE_over_U", "theta_TE_over_c", "dstar_TE_over_c", "field_Cl_gamma",
-                    "field_s_sep", "field_Cl_RANS", "field_Cd_RANS", "field_Cd_RANS_pressure", "field_Cd_RANS_friction", "warnings"])
-        wl = meta.get("wall") or dict(cl=np.nan, cd=np.nan, cd_pressure=np.nan, cd_friction=np.nan)
+                    "field_s_sep", "field_Cl_RANS", "field_Cd_RANS", "field_Cd_RANS_pressure", "field_Cd_RANS_friction", "warnings",
+                    "field_Cm_RANS", "XFOIL_state_in_training_range", "RANS_state_in_training_range"])
+        wl = meta.get("wall") or dict(cl=np.nan, cd=np.nan, cd_pressure=np.nan, cd_friction=np.nan, cm=np.nan)
         w.writerow([name, alpha, a, Re] + [f"{float(v):.8g}" for v in (r.cl[0], r.cl_gamma[0], r.cd[0], r.cm[0], r.stagnation[0],
                                                                        r.ue_te[0], r.theta_te[0], r.dstar_te[0], meta["cl_gamma"], meta["s_sep"],
                                                                        wl["cl"], wl["cd"], wl["cd_pressure"], wl["cd_friction"])]
-                   + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]])])
+                   + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]), f"{float(wl['cm']):.8g}",
+                      int(meta.get("xfoil_in_range", True)), int(meta.get("rans_in_range", True))])
     paths.append(p)
     side = np.where(np.arange(r.cp.shape[1]) < r.cp.shape[1] // 2, 0, 1)
     table("surface", ["panel", "lower_surface", "x_over_c", "Cp"], [np.arange(r.cp.shape[1]), side, r.x_cp[0], r.cp[0]])
@@ -203,6 +358,12 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
     if meta.get("wall"):
         wl = meta["wall"]
         table("wall", ["x_body", "y_body", "upper_surface", "Cp_RANS", "Cf_RANS"], [wl["x"], wl["y"], np.asarray(wl["upper"], int), wl["cp"], wl["cf"]])
+    if meta.get("boundary_layer"):                                # the RANS state's: upper surface stations, then lower, each leading edge to trailing edge
+        bl = meta["boundary_layer"]
+        col = lambda q: np.r_[np.asarray(bl["upper"][q], float), np.asarray(bl["lower"][q], float)]
+        table("boundary_layer_rans", ["upper_surface", "x_over_c", "Ue_over_U", "dstar_over_c", "theta_over_c", "H", "delta_over_c", "Cf", "separated"],
+              [np.r_[np.ones(len(bl["upper"]["theta"])), np.zeros(len(bl["lower"]["theta"]))], col("x_over_c"), col("Ue"), col("dstar"), col("theta"),
+               col("H"), col("delta"), col("Cf"), col("separated")])
     sec = np.asarray(meta["section"])
     xb, yb = PF.wind_to_body(sec[:, 0], sec[:, 1], a) if meta.get("frame", "wind") == "wind" else (sec[:, 0], sec[:, 1])
     table("section", ["x_body", "y_body"], [xb, yb])
@@ -215,10 +376,15 @@ _coefficients.csv    the surface model (vortex sheet + boundary-layer operator +
                      lift closure) and the circulation lift alone, C_d, C_m about the quarter chord, the stagnation point
                      as a fraction of the arc length, the trailing-edge state, and the field decoder's inputs
                      (circulation lift C_l^gamma and separation measure s_sep), the field decoder's lift and drag in its
-                     RANS state (drag = pressure + friction from a wall function); every range warning in the last column.
+                     RANS state (drag = pressure + friction from a wall function); every range warning in the warnings
+                     column; then the RANS state's C_m about the quarter chord (field_Cm_RANS, nose up positive, from the
+                     wall pressure and wall-function friction of _wall.csv) and, for each state, 1 if the incidence and the
+                     Reynolds number lie inside its training range, 0 if not (the figure draws a state outside its range
+                     faded).
 _surface.csv         C_p of the vortex sheet at the 240 panel midpoints: panels 0-119 run from the trailing edge to the
                      leading edge on the upper surface (lower_surface 0), 120-239 back on the lower surface (1).
-_boundary_layer.csv  momentum (theta) and displacement (dstar) thickness of both surfaces at x/c = 0..1 (121 stations).
+_boundary_layer.csv  momentum (theta) and displacement (dstar) thickness of both surfaces at x/c = 0..1 (121 stations), of the
+                     surface model (the XFOIL state).
 _field.csv           the RANS field of the decoder trained on AirfRANS k-omega SST at every grid point: x_wind, y_wind
                      (freestream along +x, section at its incidence), the same point in the chord frame (x_body, y_body),
                      inside_section (1: inside the section, values nan), velocity along and across the freestream, C_p and
@@ -226,6 +392,26 @@ _field.csv           the RANS field of the decoder trained on AirfRANS k-omega S
 _wall.csv            the field decoder's wall values at the section's nodes, in its RANS state (k-omega SST): x_body,
                      y_body, upper_surface (1) or lower (0), C_p, and C_f from a wall function (the decoder's velocity
                      2e-4 chord off the wall, Spalding's law; > 0 where the near-wall flow runs toward the trailing edge).
+_boundary_layer_rans.csv
+                     the boundary layer of the RANS state, read from the field decoder's flow on wall-normal rays (0.1
+                     chord long) at every second section node with x/c from 0.01 to 0.99, the upper surface first, each
+                     surface from the leading edge to the trailing edge: upper_surface (1 or 0), x_over_c, Ue_over_U (the
+                     speed at the layer edge), dstar_over_c and theta_over_c (displacement and momentum thickness), H =
+                     dstar/theta, delta_over_c (the edge distance), Cf (the wall function's, as in _wall.csv) and
+                     separated (1: the flow 2e-4 chord off the wall runs against the outer flow; 0 ahead of the
+                     stagnation point, where the attached flow near the nose runs toward the leading edge). nan: no layer
+                     is read at that station (the ray crosses the section, no edge is found, fewer than 7 samples lie in
+                     the layer, the edge lies beyond 0.8 of the ray, or a thickness is <= 0). Isolated stations just
+                     behind the leading edge can be outliers, a very large H where theta is near zero (H = 138 at x/c
+                     0.12 on the lower surface of NACA 2412 at 14 deg). The same extraction on the AirfRANS RANS fields
+                     of the 200 test cases and on the decoder's fields differs, on attached stations at x/c 0.1 to 0.95,
+                     by a median of 4% (upper surface) and 6% (lower) in theta and dstar. Case by case the lower surface
+                     varies more: its median exceeds 20% in 31 of the 200 cases and 50% in 13, mostly from 8 deg on (21
+                     of those 66 cases, and 9 of their 17 thin sections, t/c < 9%, against 10 of the 134 cases below 8
+                     deg); single stations there can be off several times over. The upper surface's median exceeds 20% in
+                     5 cases and 50% in none. At x/c < 0.1 the median differs by 8-10% (upper) and 27-48% (lower):
+                     indicative there, so the figure starts at x/c 0.1. Outside the decoder's training range the layer is
+                     often not read at all.
 _section.csv         the section the field was computed for, in the chord frame.
 """)
     paths.append(p)
