@@ -1,3 +1,5 @@
+**English** | [한국어](https://github.com/SHRhie/VortFoil/blob/main/README_ko.md)
+
 # VortFoil
 
 See [`MODEL_CARD.md`](MODEL_CARD.md) for intended use and limits, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
