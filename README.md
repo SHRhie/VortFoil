@@ -30,8 +30,8 @@ record; the abstract here is a mirror and is never edited in place.
 
 > **Status.** Version 2.0.0 accompanies the manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
 > for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee), prepared for *Computer Methods in Applied
-> Mechanics and Engineering*. No tagged release or DOI exists yet; `CITATION.cff` will carry the DOI once one
-> is minted. The license is GPL-3.0-or-later (see *License* below).
+> Mechanics and Engineering*. It was released on 2026-10-13 on GitHub and PyPI; `CITATION.cff` carries the
+> Zenodo DOI once it is minted. The license is GPL-3.0-or-later (see *License* below).
 
 ## Layout
 
@@ -123,7 +123,7 @@ with `(cd weights && shasum -a 256 -c SHA256SUMS)`.
    - Windows: `winget install --id=astral-sh.uv -e`
    - macOS: `brew install uv`
    - Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. Install VortFoil: `uv tool install --python 3.12 --managed-python vortfoil`. Until the PyPI release, install from a copy of this repository instead: `uv tool install --python 3.12 --managed-python ./VortFoil`. `--managed-python` makes uv use its own Python, which includes Tk for the window; a system Python, such as Ubuntu's, may lack it.
+2. Install VortFoil: `uv tool install --python 3.12 --managed-python vortfoil`. To install from a copy of this repository instead: `uv tool install --python 3.12 --managed-python ./VortFoil`. `--managed-python` makes uv use its own Python, which includes Tk for the window; a system Python, such as Ubuntu's, may lack it.
 3. Type `vortfoil` in a terminal. The application window opens (see [Desktop application](#desktop-application)).
 
 The same command has these subcommands; each takes `--help`:
@@ -165,7 +165,7 @@ The same command has these subcommands; each takes `--help`:
 **As a Python library**, in your own environment:
 
 ```bash
-pip install vortfoil            # once published
+pip install vortfoil            # from PyPI
 pip install -e .                # from this repository (a fresh environment: it installs TensorFlow)
 ```
 
