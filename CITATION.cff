@@ -22,6 +22,14 @@ authors:
     affiliation: "Kyung Hee University"
     email: leejeongsu@khu.ac.kr
 repository-code: "https://github.com/SHRhie/VortFoil"
+doi: 10.5281/zenodo.23336871
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23336872
+    description: "Zenodo archive of version 2.0.0"
+  - type: doi
+    value: 10.5281/zenodo.23336871
+    description: "Zenodo concept DOI, all versions"
 license: GPL-3.0-or-later
 preferred-citation:
   type: unpublished
@@ -61,4 +69,4 @@ preferred-citation:
     and nu_t, but not on u_y, and its velocity errors above 8 degrees incidence exceed that
     baseline's published aggregate. Surface lift and drag shape gradients are checked
     against finite differences of the same single-precision forward map.
-# [AUTHOR] add doi once the paper and the Zenodo archive are live.
+# [AUTHOR] add the paper's doi to preferred-citation once it is published.
