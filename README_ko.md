@@ -4,7 +4,7 @@
 
 # VortFoil
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23336871.svg)](https://doi.org/10.5281/zenodo.23336871)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23336871-blue)](https://doi.org/10.5281/zenodo.23336871)
 
 의도된 용도와 한계는 [`MODEL_CARD.md`](MODEL_CARD.md)를, 릴리스 노트는 [`CHANGELOG.md`](CHANGELOG.md)를 참고하십시오.
 
