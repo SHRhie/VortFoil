@@ -23,13 +23,6 @@ authors:
     email: leejeongsu@khu.ac.kr
 repository-code: "https://github.com/SHRhie/VortFoil"
 doi: 10.5281/zenodo.23336871
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.23336872
-    description: "Zenodo archive of version 2.0.0"
-  - type: doi
-    value: 10.5281/zenodo.23336871
-    description: "Zenodo concept DOI, all versions"
 license: GPL-3.0-or-later
 preferred-citation:
   type: unpublished
