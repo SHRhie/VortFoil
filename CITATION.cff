@@ -6,7 +6,7 @@ message: >-
 type: software
 title: "VortFoil"
 version: 2.0.0
-# [AUTHOR] add date-released on the release day; no release exists yet.
+date-released: 2026-10-13
 authors:
   - family-names: Rhie
     given-names: Sang-Hyun
