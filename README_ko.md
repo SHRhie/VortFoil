@@ -28,7 +28,7 @@ VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터
 
 > **상태.** 버전 2.0.0은 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
 > (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응하며, *Computer Methods in Applied Mechanics and Engineering*
-> 투고용으로 준비되었습니다. 태그된 릴리스와 DOI는 아직 없으며, DOI가 발급되면 `CITATION.cff`에 기재됩니다.
+> 투고용으로 준비되었습니다. 2026-10-13에 GitHub과 PyPI로 릴리스되었으며, Zenodo DOI가 발급되면 `CITATION.cff`에 기재됩니다.
 > 라이선스는 GPL-3.0-or-later입니다(아래의 *라이선스* 참조).
 
 ## 디렉터리 구조
@@ -115,7 +115,7 @@ paper/            원고 초록
    - Windows: `winget install --id=astral-sh.uv -e`
    - macOS: `brew install uv`
    - Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. VortFoil을 설치합니다: `uv tool install --python 3.12 --managed-python vortfoil`. PyPI 릴리스 전에는 대신 이 저장소의 사본에서 설치합니다: `uv tool install --python 3.12 --managed-python ./VortFoil`. `--managed-python`은 uv가 자체 Python을 쓰도록 하며, 이 Python에는 창에 필요한 Tk가 들어 있습니다. Ubuntu의 Python 같은 시스템 Python에는 Tk가 없을 수 있습니다.
+2. VortFoil을 설치합니다: `uv tool install --python 3.12 --managed-python vortfoil`. 이 저장소의 사본에서 설치하려면: `uv tool install --python 3.12 --managed-python ./VortFoil`. `--managed-python`은 uv가 자체 Python을 쓰도록 하며, 이 Python에는 창에 필요한 Tk가 들어 있습니다. Ubuntu의 Python 같은 시스템 Python에는 Tk가 없을 수 있습니다.
 3. 터미널에서 `vortfoil`을 입력합니다. 애플리케이션 창이 열립니다([데스크톱 애플리케이션](#desktop-application) 참조).
 
 같은 명령에는 다음 하위 명령이 있으며, 각 하위 명령은 `--help`를 받습니다:
@@ -158,7 +158,7 @@ paper/            원고 초록
 **Python 라이브러리로 사용하는 경우**, 자신의 환경에 설치합니다:
 
 ```bash
-pip install vortfoil            # 공개된 뒤
+pip install vortfoil            # PyPI에서
 pip install -e .                # 이 저장소에서 설치(새 환경에서는 TensorFlow도 설치됩니다)
 ```
 
