@@ -5,7 +5,7 @@ surface model, evaluated on the sealed f0a field decoders WITHOUT retraining.
 Question. The field decoder's two XFOIL-at-inference inputs are the paint circulation scale `cl`
 and the separation scalar `s`.  Since the 2026-09-05 refactor (31cd352) nf_hybrid_field._case_inputs
 requires a non-XFOIL `state_provider` and "a compliant state_provider does not exist in this
-repository".  This script supplies one from the single model the CMAME_v2 paper describes:
+repository".  This script supplies one from the single model the paper describes:
     cl  = 2 * sum(gamma_panels * ds)      -- readout of the OP1 sheet (op1_supervised_eps0.50.scr_bd128)
     s   = clip(tail(H > 4.0)/0.10, 0, 1)   -- from the OP2 boundary-layer operator (CANDIDATE m325_BT): the
           contiguous H>4 run back from the TE, mean of the two surfaces (rule calibrated on TRAIN, see below)

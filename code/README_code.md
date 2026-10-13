@@ -147,7 +147,7 @@ closed section; `state_for` passes it the NACA polyline, as before.
 |---|---|
 | `plot_style.py` | NCFE 2026 figure style — camera-ready conference defaults. |
 | `vf_surface_cst16_fig.py` | Figs. 2–3: Cp, stagnation and Cm readouts of the confirmed single model against XFOIL truth on the 2,678 converged attached rows (layout copy of the sealed generator with the converged-row mask). |
-| `vf_drag_closure_fig.py` | Figures for CMAME_v2 §Profile drag. Generator + saved numbers, per the figure-provenance rule. |
+| `vf_drag_closure_fig.py` | Figures for the manuscript's profile-drag section. Generator + saved numbers, per the figure-provenance rule. |
 | `vf_field_f2_contour.py` | Fig. 6: RANS truth against a decoder's stored prediction (`--preds`, from `code/field/step2_store_preds.py`; `--case NAME --case-tag TAG` renders one named case, `--p-qinf` limits the pressure scale to C_p = ±1). |
 
 With `--print`, each generator reproduces its files in `figures/`: drawn at the manuscript's text width (5.40 in)

@@ -27,7 +27,6 @@ license: GPL-3.0-or-later
 preferred-citation:
   type: unpublished
   title: "VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction"
-  notes: "Submitted."
   authors:
     - family-names: Rhie
       given-names: Sang-Hyun
