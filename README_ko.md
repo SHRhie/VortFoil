@@ -28,7 +28,7 @@ VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터
 
 > **상태.** 버전 2.0.0은 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
 > (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응하며, *Computer Methods in Applied Mechanics and Engineering*
-> 투고용으로 준비되었습니다. 2026-10-13에 GitHub과 PyPI로 릴리스되었으며, Zenodo DOI가 발급되면 `CITATION.cff`에 기재됩니다.
+> 투고용으로 준비되었습니다. 2026-10-13에 GitHub과 PyPI로 릴리스되었고 Zenodo에 보관되었습니다: [10.5281/zenodo.23336872](https://doi.org/10.5281/zenodo.23336872) (이 버전; 모든 버전: [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871)).
 > 라이선스는 GPL-3.0-or-later입니다(아래의 *라이선스* 참조).
 
 ## 디렉터리 구조
@@ -533,4 +533,4 @@ GNU General Public License v3.0 또는 그 이후 버전 — [`LICENSE`](LICENSE
 
 ## 인용
 
-[`CITATION.cff`](CITATION.cff)를 참고하십시오.
+[`CITATION.cff`](CITATION.cff)를 참고하십시오. 버전 2.0.0의 소프트웨어 DOI: [10.5281/zenodo.23336872](https://doi.org/10.5281/zenodo.23336872).
