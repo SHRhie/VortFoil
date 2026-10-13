@@ -6,7 +6,7 @@ with a synthetic shape token, and asserts the four output channels are finite an
 correctly shaped.  No AirfRANS data is touched.
 
 Run with the TF 2.18 environment (supervised_field imports the `airfrans` package):
-    /Users/shr/.conda/envs/tf218/bin/python code/smoke_field_decoder.py
+    python code/smoke_field_decoder.py
 
 The surface chain is checked separately by code/smoke_confirmed_chain.py, which must run
 under TF 2.10 to reproduce the sealed numbers bit-for-bit.

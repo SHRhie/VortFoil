@@ -36,7 +36,7 @@ def _default_xfoil_path() -> str:
     happens to use the same DUMP format but ships with extra patches.
     """
     if os.name == "nt":
-        return r"C:\Users\KHU\Desktop\XFOIL6.99\xfoil.exe"
+        return shutil.which("xfoil") or "xfoil.exe"   # on PATH; else set XFOIL_EXE
     home_build = Path.home() / "xfoil_src/bin/xfoil"
     if home_build.is_file():
         return str(home_build)
