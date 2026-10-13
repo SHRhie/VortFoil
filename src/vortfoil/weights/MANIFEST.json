@@ -101,7 +101,7 @@
     "a blunt trailing edge cannot be represented by the 16-parameter form",
     "training range: incidence -10 to 18 deg and Reynolds number 5e4 to 1e7 (XFOIL, Ncrit 7, incompressible); the evaluation sets cover -4 to 12 deg and 2e5 to 3e6. predict() issues vortfoil.RangeWarning outside the training range, for a 16-parameter fit error above 0.5% chord or a trailing-edge gap above 1% chord, and flags those rows in result.info['outside_training_range']"
   ],
-  "citation": "Rhie, S.-H., Kim, G., Lee, J. VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction (submitted).",
+  "citation": "Rhie, S.-H., Kim, G., Lim, S., Lee, J. VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction.",
   "attribution": "The anti-derivative approximator and the NeuroFoil staged-operator base are Prof. Jeongsu Lee's; this package packages the VortFoil build of that line.",
   "numbers_file": "results/converged_set_numbers_FINAL.json in the source repository"
 }

@@ -1,4 +1,4 @@
-"""Figures for CMAME_v2 §Profile drag. Generator + saved numbers, per the figure-provenance rule.
+"""Figures for the manuscript's profile-drag section. Generator + saved numbers, per the figure-provenance rule.
 
 Inputs (measured, sealed in VortFoil_v2/artifacts/op2_cdloss_20260917T044259Z/raw):
   sep_eval_preds.npz          predicted TE state + truth on the 1,930-row separated set (m325_BT, OP1 scr_bd128)

@@ -31,8 +31,7 @@ See [`paper/abstract.md`](paper/abstract.md) for the manuscript abstract. The ma
 record; the abstract here is a mirror and is never edited in place.
 
 > **Status.** Version 2.0.0 accompanies the manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
-> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee), prepared for *Computer Methods in Applied
-> Mechanics and Engineering*. It was released on 2026-10-13 on GitHub and PyPI and is archived on Zenodo:
+> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee). It was released on 2026-10-13 on GitHub and PyPI and is archived on Zenodo:
 > [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871). The license is GPL-3.0-or-later (see *License* below).
 
 ## Layout
