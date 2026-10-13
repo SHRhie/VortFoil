@@ -1,5 +1,3 @@
-[![DOI](https://zenodo.org/badge/1408340252.svg)](https://doi.org/10.5281/zenodo.23336871)
-
 **English** | [한국어](https://github.com/SHRhie/VortFoil/blob/main/README_ko.md)
 
 # VortFoil
