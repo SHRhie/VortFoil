@@ -2,7 +2,7 @@
 
 # VortFoil
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23336871.svg)](https://doi.org/10.5281/zenodo.23336871)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.23336871-blue)](https://doi.org/10.5281/zenodo.23336871)
 
 See [`MODEL_CARD.md`](MODEL_CARD.md) for intended use and limits, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
