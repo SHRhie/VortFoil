@@ -4,6 +4,8 @@
 
 # VortFoil
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23336871.svg)](https://doi.org/10.5281/zenodo.23336871)
+
 의도된 용도와 한계는 [`MODEL_CARD.md`](MODEL_CARD.md)를, 릴리스 노트는 [`CHANGELOG.md`](CHANGELOG.md)를 참고하십시오.
 
 **"VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction."** 논문에
