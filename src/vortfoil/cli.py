@@ -64,10 +64,7 @@ def main(argv=None, prog="vortfoil"):
     else:
         a0, a1, n = args.alpha_range.split(",")
         alphas = np.linspace(float(a0), float(a1), int(n))
-        cst = inp.get("cst")
-        if cst is None:
-            cst, _ = vortfoil.geometry.fit_cst16(inp["coords"])
-        r = vf.sweep(cst, alphas, Re=args.Re)
+        r = vf.predict(alpha=alphas, Re=args.Re, **inp)        # coordinates: incidence from the fitted chord line, as predict
     if args.json:
         json.dump({k: np.asarray(v).tolist() for k, v in r.as_dict().items()}, sys.stdout, indent=1)
         sys.stdout.write("\n")

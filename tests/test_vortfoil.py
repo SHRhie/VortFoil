@@ -125,6 +125,22 @@ def test_one_section_over_many_conditions(model):
         model.predict(cst=np.stack([cst, cst]), alpha=[1.0, 2.0, 3.0])
 
 
+def test_cli_sweep_from_coordinates_uses_the_fitted_chord(model, tmp_path, capsys):
+    """sweep --coords measures the incidence from the fitted chord line, as predict(coords=...) does."""
+    import json
+    from vortfoil import cli
+    x, yu, yl = vortfoil.geometry.surface(NACA2412_CST, 121)
+    loop = np.r_[np.c_[x[::-1], yu[::-1]], np.c_[x[1:], yl[1:]]]
+    th = np.deg2rad(2.0)
+    loop = loop @ np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]]).T
+    f = tmp_path / "turned.dat"
+    np.savetxt(f, loop)
+    assert cli.main(["sweep", "--coords", str(f), "--alpha-range", "0,8,3", "--Re", "3e6", "--json"]) == 0
+    got = json.loads(capsys.readouterr().out)
+    ref = model.predict(coords=loop, alpha=np.linspace(0, 8, 3), Re=3e6)
+    assert np.abs(np.asarray(got["cl"]) - ref.cl).max() < ATOL_CL
+
+
 def test_range_warnings(model):
     """Inputs outside the training range, or sections the 16-parameter form misrepresents, raise RangeWarning."""
     three = np.repeat(NACA2412_CST[None], 3, 0)
