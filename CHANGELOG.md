@@ -34,7 +34,10 @@ Accompanies the revised manuscript.
   `field_decoder_sml2_s*` and the 1,346-airfoil `field_decoder_cmd_s*`, with the records behind the new numbers
   (`results/cotrain_score_*`, `stepmatch_score_*`, `rans_correction_nn_*`, `table4_row_cmx_s0.json`,
   `consistency_field_vs_corrected_20261029.json`).
-- `DATA_LICENSES.md`: UniFoil (CC BY-SA 4.0) and the weights trained with it.
+- `DATA_LICENSES.md`: UniFoil (its Harvard Dataverse record is CC0 1.0; the dataset paper calls it CC-BY-SA) and the
+  weights trained with it, released under this repository's license with an attribution. The wheel now carries
+  `DATA_LICENSES.md` beside `LICENSE` and `NOTICE`, so the AirfRANS notice and the attributions travel with the weights it
+  ships.
 
 ### Fixed
 

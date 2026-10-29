@@ -562,9 +562,9 @@ vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
   유동장 디코더와 유동장 그림은 AirfRANS로부터 만들어집니다. 출처 표시, 고지 사항, 전체 파일 목록은
   [`DATA_LICENSES.md`](DATA_LICENSES.md)에 있습니다. AirfRANS를 다루는 모든 작업에는 `AIRFRANS_ROOT`를 로컬 `Dataset/`
   디렉터리로 설정하십시오(`code/README_code.md` 참조).
-- **UniFoil**(Kanchi et al., 2025; CC BY-SA 4.0)은 외부 데이터셋이며 여기서 재배포하지 않습니다. UniFoil 익형을 사용해
-  학습한 디코더(`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`)는 그 출처 표시와 함께 CC BY-SA 4.0에 따라
-  제공합니다(`DATA_LICENSES.md`).
+- **UniFoil**(Kanchi et al., 2025; Harvard Dataverse, CC0 1.0)은 외부 데이터셋이며 여기서 재배포하지 않습니다. UniFoil
+  익형을 사용해 학습한 디코더(`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`)는 그 출처 표시와 함께 이 저장소의
+  라이선스로 제공합니다(`DATA_LICENSES.md`).
 - **`data/eval/`** 디렉터리에는 이 README의 모든 표면 수치를 만드는 데 쓴 XFOIL 평가 타깃이 있습니다. `holdout_targets.npz`(부착 유동 홀드아웃,
   2,880행 격자를 2,737행으로 걸러낸 것), `attached_surface_targets_v2.npz`와 `sep_eval_targets_v2.npz`(부착 유동과 박리 유동의
   표면/경계층 타깃이며, 후자는 NeuralFoil의 32개 스테이션에서의 경계층 상태를 담고 있습니다), 그리고 `sep_eval_coords.npz`(박리 유동 집합의

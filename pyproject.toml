@@ -8,7 +8,8 @@ version = "2.1.0"
 description = "A vortex-panel-informed neural operator for steady airfoil flow: surface pressure, lift, moment and the stagnation point from a predicted vortex sheet, drag and a lift correction from a parallel boundary-layer state"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "GPL-3.0-or-later"     # LICENSE and NOTICE are picked up by hatchling's default license-files
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE", "DATA_LICENSES.md"]   # the data notices travel with the weights the wheel ships
 authors = [
   { name = "Sang-Hyun Rhie" },
   { name = "Gyuwon Kim" },

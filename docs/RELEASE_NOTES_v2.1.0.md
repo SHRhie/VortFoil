@@ -177,7 +177,7 @@ Jeongsu Lee, Department of Mechanical Engineering, Kyung Hee University.
 
 See [`CITATION.cff`](../CITATION.cff). The code is licensed under the GNU GPL v3 or later, because
 the boundary-layer closures are translated from XFOIL; see [`NOTICE`](../NOTICE).
-The UniFoil-trained weights (`field_decoder_cmx_s*`, `field_decoder_cmd_s*`) are made available
-under CC BY-SA 4.0 with attribution to UniFoil (Kanchi et al., 2025), and carry the AirfRANS
-notice. No UniFoil data are shipped. See [`DATA_LICENSES.md`](../DATA_LICENSES.md) for the
+The UniFoil-trained weights (`field_decoder_cmx_s*`, `field_decoder_cmd_s*`) are released under
+this repository's license with an attribution to UniFoil (Kanchi et al., 2025; its Harvard Dataverse
+record is CC0 1.0), and carry the AirfRANS notice. No UniFoil data are shipped. See [`DATA_LICENSES.md`](../DATA_LICENSES.md) for the
 attributions and data licenses.

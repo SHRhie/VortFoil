@@ -265,8 +265,9 @@ boundary-layer closures (`xfoil_closures.py`) are translated from XFOIL 6.99 (Dr
 Youngren, GPL v2 or later); see [`NOTICE`](NOTICE). Data attributions are in
 [`DATA_LICENSES.md`](DATA_LICENSES.md).
 
-The UniFoil-trained weights (`field_decoder_cmx_s*`, `field_decoder_cmd_s*`) are made available
-under CC BY-SA 4.0 with attribution; see [`DATA_LICENSES.md`](DATA_LICENSES.md).
+The UniFoil-trained weights (`field_decoder_cmx_s*`, `field_decoder_cmd_s*`) are released under this
+repository's license with an attribution to UniFoil, whose Harvard Dataverse record is CC0 1.0; see
+[`DATA_LICENSES.md`](DATA_LICENSES.md).
 
 Authors: Sang-Hyun Rhie (Kyung Hee University), Gyuwon Kim (Kyung Hee
 University), Suhyeong Lim (Kyung Hee University), Jeongsu Lee (Kyung Hee University).

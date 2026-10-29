@@ -635,9 +635,9 @@ variables they honour.
   produced from AirfRANS. Attributions, notices and the full file list are in
   [`DATA_LICENSES.md`](DATA_LICENSES.md). Set `AIRFRANS_ROOT` to the local `Dataset/` directory for
   anything that touches AirfRANS (see `code/README_code.md`).
-- **UniFoil** (Kanchi et al., 2025; CC BY-SA 4.0) is an external dataset, not redistributed here. The
-  decoders trained with UniFoil airfoils (`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`) are
-  made available under CC BY-SA 4.0 with its attribution (`DATA_LICENSES.md`).
+- **UniFoil** (Kanchi et al., 2025; Harvard Dataverse, CC0 1.0) is an external dataset, not redistributed here. The
+  decoders trained with UniFoil airfoils (`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`) are released
+  under this repository's license with an attribution to it (`DATA_LICENSES.md`).
 - **`data/eval/`** holds the XFOIL evaluation targets used to produce every surface number in
   this README: `holdout_targets.npz` (the attached-flow holdout, a 2,880-row grid gated to 2,737),
   `attached_surface_targets_v2.npz` and `sep_eval_targets_v2.npz` (attached and separated
