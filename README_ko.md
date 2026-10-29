@@ -44,7 +44,7 @@ code/model/       OP1(시트)과 OP2(경계층) 오퍼레이터 정의, ADA-F �
 code/field/       유동장 디코더의 상태 제공 모듈, 학습/평가 구동 스크립트, 유동장 채점 스크립트
 code/reproduce/   보고된 수치의 근거가 되는 측정 스크립트
 code/figures/     원고용 그림 생성 스크립트
-weights/          배포되는 13개 가중치 파일(아래 표 참조)
+weights/          배포되는 23개 가중치 파일(아래 표 참조)
 data/eval/        XFOIL 평가 타깃(학습 데이터 아님)
 results/          원고 수치의 원본인 봉인된 기록
 evaluation_runs/  XFOIL 조건부 디코더 실행의 봉인된 사례별 지표(유동장 채점 스크립트의 기준)
@@ -249,10 +249,11 @@ python code/field/predict_field.py --naca 23012 --alpha 8 --Re 4e6 --out field.n
 x 방향으로 −0.5에서 1.5, y 방향으로 −0.5에서 0.5 시위의 범위를 0.005 시위 간격으로 덮습니다. `--points`는 사용자의 점을 받고,
 `--frame body`는 시위 좌표계를 사용합니다.
 
-이 디코더는 받음각 −5°에서 15°, Re 2×10⁶에서 6×10⁶의 NACA 4자리 및 5자리 단면에 대한 AirfRANS k–ω SST 유동장으로 학습했습니다.
-이 범위를 벗어나면 `FieldRangeWarning`을 발생시킵니다.
+배포된 디코더는 받음각 −5°에서 15°, Re 2×10⁶에서 6×10⁶의 NACA 4자리 및 5자리 단면에 대한 AirfRANS k–ω SST 유동장과
+비-NACA UniFoil 익형 16,923개(Spalart–Allmaras, −2°에서 6°)를 함께 사용해 학습했습니다. AirfRANS 범위를 벗어나면
+`FieldRangeWarning`을 발생시킵니다.
 
-**다른 익형 계열: 정확도가 훨씬 낮습니다.** 다른 계열의 UIUC 단면 열 개를 AirfRANS 프로토콜(k–ω SST, OpenFOAM v2112, 위의 범위 안)로 계산하고 배포된 지표로 채점했습니다. 이 디코더의 오차는 단면별로 NACA 시험 수준의 1.5배에서 80배였고, u_x는 평균 26배였습니다.
+**다른 익형 계열: 정확도가 훨씬 낮습니다.** AirfRANS 프로토콜(k–ω SST, OpenFOAM v2112, 위의 범위 안)로 계산한 미관측 비-NACA UIUC 시험 단면 16개에서, 배포된 디코더의 평균 오차는 u_x, u_y, p, ν_t에서 각각 NACA 시험 수준의 14, 15, 46, 38배이며, 2.0.0의 AirfRANS 전용 디코더는 각각 27, 35, 68, 40배입니다(`results/cotrain_score_cmx_20261015T023434Z.json`). 아래의 단면별 수치는 그 AirfRANS 전용 디코더로 UIUC 단면 열 개에서 측정한 것입니다. 그 오차는 단면별로 해당 디코더의 NACA 시험 수준의 1.5배에서 80배였고, u_x는 평균 26배였습니다.
 
 - 오차는 벽 근처에서 가장 크지만, 물체에서 떨어진 곳에서도 큽니다.
 - NACA 형상에 가까운 단면은 시험 오차 분포의 꼬리 안에 머물렀습니다: RAE 2822 1.5배, NACA 64₂-415 2.8배, DU 84-132V 2.9배.
@@ -260,10 +261,11 @@ x 방향으로 −0.5에서 1.5, y 방향으로 −0.5에서 0.5 시위의 범�
 
 형상 코드 거리 검사는 이들 중 어느 것도 걸러 내지 못했으므로, 익형 계열을 판별하는 장치가 아닙니다. 따라서 NACA 번호(`--naca`, 뷰어나 애플리케이션에서 고른 NACA 익형)로 주어지지 않은 모든 단면에는 그 사실을 알리는 `FieldRangeWarning`이 표시됩니다. 이런 유동장은 참고용으로만 읽으십시오. 표면 결과는 별도의 표면 모델에서 나오므로 영향을 받지 않습니다.
 
-AirfRANS 시험 사례 200개에 대한 검증(`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
+AirfRANS 시험 사례 200개에서 이 경로를 검증한 결과이며, 평가를 재현하는 대상인 2.0.0의 AirfRANS 전용 디코더로 실행했습니다
+(`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
 
-- **배포된 평가의 입력:** 스크립트가 기록된 사례별 오차를 재현합니다.
-- **사례의 441개 노드 단면 좌표만 사용:** 평균 오차는 배포된 디코더 대비 u_x, u_y, p, ν_t에서 각각 0.99, 0.99, 1.07, 1.03배입니다.
+- **해당 디코더의 기록된 평가 입력:** 스크립트가 기록된 사례별 오차를 재현합니다.
+- **사례의 441개 노드 단면 좌표만 사용:** 평균 오차는 기록된 오차 대비 u_x, u_y, p, ν_t에서 각각 0.99, 0.99, 1.07, 1.03배입니다.
 - **성긴 161개 노드 단면(재샘플링하여 사용):** 대부분의 격자 노드가 경계층의 첫 번째 셀들 안에 있기 때문에 RANS 격자에서의 오차가
   벽 근처에서 커집니다(u_y 3.8배). 0.01 시위 격자에서는 성긴 입력과 조밀한 입력의 예측이 디코더 자체 시험 오차의 0.3%에서 6%만큼 다릅니다.
 
@@ -271,7 +273,7 @@ AirfRANS 시험 사례 200개에 대한 검증(`code/field/validate_predict_fiel
 
 ### RANS 상태의 벽면 압력, 양력, 항력
 
-이 디코더는 벽면 자체의 압력도 예측하므로(그곳에서 속도와 ν_t는 영이 됩니다), 유동장은 표면 모델의 XFOIL 상태 값과 나란히 자신의 기준 상태인 k–ω SST에서의 표면 값을 제공합니다. 디코더는 벽에 수직인 속도 기울기를 해상하지 못하며(첫 번째 격자 노드가 y+ ≈ 1에 있고, 그 기울기로 계산한 표면 마찰은 RANS 표면 마찰의 2.3배입니다), 따라서 표면 마찰은 벽 함수로 구합니다. 벽에서 2×10⁻⁴ 시위 떨어진 로그층(시험 사례의 y+ 중앙값 31)에서의 디코더 접선 속도로부터 Spalding 법칙으로 마찰 속도를 구합니다. `predict_field.surface()`는 단면 노드에서의 벽면 C_p와 C_f, 그리고 양력과 항력을 반환합니다:
+이 디코더는 벽면 자체의 압력도 예측하므로(그곳에서 속도와 ν_t는 영이 됩니다), 유동장은 표면 모델의 XFOIL 상태 값과 나란히 자신의 기준 상태인 k–ω SST에서의 표면 값을 제공합니다. 디코더는 벽에 수직인 속도 기울기를 해상하지 못하며(첫 번째 격자 노드가 y+ ≈ 1에 있고, 2.0.0의 AirfRANS 전용 디코더에서 그 기울기로 계산한 표면 마찰은 RANS 표면 마찰의 2.3배입니다), 따라서 표면 마찰은 벽 함수로 구합니다. 벽에서 2×10⁻⁴ 시위 떨어진 로그층(시험 사례의 y+ 중앙값 31)에서의 디코더 접선 속도로부터 Spalding 법칙으로 마찰 속도를 구합니다. `predict_field.surface()`는 단면 노드에서의 벽면 C_p와 C_f, 그리고 양력과 항력을 반환합니다:
 
 ```python
 import predict_field as PF          # code/field
@@ -282,17 +284,22 @@ print(w["cl"], w["cd"], w["cd_pressure"], w["cd_friction"])
 
 `predict_field.py`는 이 값들을 출력하고 결과 파일에 저장합니다(`wall_x`, `wall_y`, `wall_cp`, `wall_cf`, `wall_upper`). 뷰어와 애플리케이션은 이 C_p를 점선으로 표면 모델의 것 위에 겹쳐 그리고 그 양력, 항력, 모멘트를 나열하며(아래의 RANS 상태), CSV 내보내기에는 `_wall.csv`가 추가됩니다.
 
-AirfRANS 시험 사례 200개의 RANS 벽면 값에 대해, 단면 좌표만으로 비교한 결과(`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
+AirfRANS 시험 사례 200개의 RANS 벽면 값에 대해, 2.0.0의 AirfRANS 전용 디코더에서 단면 좌표만으로 비교한 결과
+(`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
 
 - **벽면 C_p:** 평균 RMSE 0.035, 시위의 5–95% 구간에서는 0.014입니다. 오차는 앞전 흡입 피크와 정체점에 집중됩니다. 받음각 구간별(−6–0°, 0–8°, 8–12°, 12–16°)로는 0.020, 0.018, 0.042, 0.120입니다.
 - **양력:** RANS 양력 대비 R² 0.9993, 평균 상대 오차 0.029, Spearman 0.9997.
 - **항력:** RANS 항력 대비 평균 상대 오차 0.14, Spearman 0.81. 표면 마찰 성분(벽 함수)의 평균 상대 오차는 0.045(Spearman 0.93)이고, 압력 성분이 더 약합니다(평균 상대 오차 0.38, Spearman 0.80).
 
+배포된 디코더를 사용한 원고의 RANS 기준 평가(예측 유동장에 AirfRANS 힘 계산 루틴을 적용하고 같은 벽 함수를 사용;
+`results/table4_row_cmx_s0.json`)에서는 양력의 평균 상대 오차가 0.054(Spearman 0.9995), 항력은
+0.128(Spearman 0.743; 벽 기울기로 표면 마찰을 구하면 0.455)이며, 모멘트 MAE는 0.0023입니다.
+
 이들은 SST 상태의 값입니다. 표면 모델의 계수는 XFOIL 상태의 값이며, 둘의 절대 수치를 서로 비교하지는 않습니다.
 
 ### RANS 상태의 경계층
 
-`predict_field.boundary_layer()`는 디코더 자신의 유동에서 경계층을 읽어 냅니다. 각 표면에서 x/c = 0.01부터 0.99까지 단면 노드를 하나 걸러 하나씩 골라, 벽에 수직인 광선(길이 0.1 시위)을 따라 디코더의 속도와 압력을 샘플링하고, 이를 적분하여 운동량 두께 θ, 배제 두께 δ\*, 형상 계수 H, 가장자리 속도, 가장자리 거리를 구합니다. C_f는 위의 벽 함수에서 얻은 값입니다. 가장자리는 접선 속도의 와도 적분이 포화되는 지점입니다(이 기준은 경계층을 따라가며, 벽 기울기에 상대적인 문턱값은 대신 레이놀즈 수를 따라갑니다). 속도는 먼저 유동장 자체의 압력이 주는 비점성 속도로 나누므로, 경계층 앞쪽의 휘어진 유동이 가장자리를 움직이지 않습니다. 경계층이 읽히지 않는 스테이션은 NaN이며, 벽 근처 유동이 바깥 유동과 반대로 흐르는 스테이션에는 `separated` 표시가 붙습니다. AirfRANS 시험 사례 200개의 RANS 유동장에 같은 추출을 적용한 결과와 비교하면(단면 좌표만 사용; `code/field/validate_field_boundary_layer.py`, `results/field_boundary_layer_validation.json`):
+`predict_field.boundary_layer()`는 디코더 자신의 유동에서 경계층을 읽어 냅니다. 각 표면에서 x/c = 0.01부터 0.99까지 단면 노드를 하나 걸러 하나씩 골라, 벽에 수직인 광선(길이 0.1 시위)을 따라 디코더의 속도와 압력을 샘플링하고, 이를 적분하여 운동량 두께 θ, 배제 두께 δ\*, 형상 계수 H, 가장자리 속도, 가장자리 거리를 구합니다. C_f는 위의 벽 함수에서 얻은 값입니다. 가장자리는 접선 속도의 와도 적분이 포화되는 지점입니다(이 기준은 경계층을 따라가며, 벽 기울기에 상대적인 문턱값은 대신 레이놀즈 수를 따라갑니다). 속도는 먼저 유동장 자체의 압력이 주는 비점성 속도로 나누므로, 경계층 앞쪽의 휘어진 유동이 가장자리를 움직이지 않습니다. 경계층이 읽히지 않는 스테이션은 NaN이며, 벽 근처 유동이 바깥 유동과 반대로 흐르는 스테이션에는 `separated` 표시가 붙습니다. AirfRANS 시험 사례 200개의 RANS 유동장에 같은 추출을 적용한 결과와 비교하면(2.0.0의 AirfRANS 전용 디코더에서 단면 좌표만 사용; `code/field/validate_field_boundary_layer.py`, `results/field_boundary_layer_validation.json`):
 
 - **x/c 0.1–0.95의 부착 스테이션**(사전에 정한 한계, 즉 θ와 δ\*의 상대 오차 중앙값 0.20 이하를 충족함): 윗면 3.6%(θ)와 3.8%(δ\*), 아랫면 6.4%와 5.8%이고, H는 1.1%입니다. 90번째 백분위수는 윗면 19%와 19%, 아랫면 46%와 36%입니다.
 - **아랫면은 사례별로 편차가 있습니다:** 오차 중앙값이 200개 사례 중 31개에서 20%를, 13개에서 50%를 넘습니다. 31개 중 21개는 8° 이상의 66개 사례에 속하며(그 범위의 얇은 단면 17개 중 9개, t/c < 9%), 윗면의 오차 중앙값은 5개 사례에서 20%를 넘고 50%를 넘는 사례는 없습니다.
@@ -448,7 +455,7 @@ R² 값이 음수인 마지막 행이 바로 전진 적분 방식 대신 적합�
 **AirfRANS 전용 유동장 디코더**(원고의 제거 실험용 디코더이며 릴리스 2.0.0은 오퍼레이터 조건부 디코더를 배포했습니다.
 AirfRANS `full_test`, n = 200, 같은 지표):
 
-| 디코더(배포된 가중치) | ux | uy | p | nut | 출처 |
+| 디코더(선택된 실행) | ux | uy | p | nut | 출처 |
 |---|---|---|---|---|---|
 | 오퍼레이터 조건부(`field_decoder_f0cm_s1`, 실행 1) | 1.26e-3 | 1.27e-3 | 2.13e-3 | 7.06e-3 | `results/f0cm_final_rescore_20261002T051450Z/result.json` (`mean.CM`) |
 | XFOIL 조건부(`field_decoder_f0a_s2`, 실행 2) | 1.61e-3 | 2.07e-3 | 3.54e-3 | 9.34e-3 | 같은 파일(`mean.XF2`); `evaluation_runs/_nf_shape_f0a_s2__*` |
@@ -520,7 +527,7 @@ export AIRFRANS_ROOT=/path/to/AirfRANS/Dataset
 python code/field/f0cm_final_rescore.py --workers 8    # 유동장 오차, 구간, 쌍체 비율, 드롭인, C_l 대체, s 규칙 민감도
 python code/field/f0cm_final_rescore.py --limit 2      # 빠른 점검: 제공된 기록의 0-1행, 아무것도 쓰지 않음
 python code/field/step2_eval_f0c.py                    # 오퍼레이터 조건부 실행 세 개(results/step2_eval_f0cm_*)
-python code/field/validate_predict_field.py            # 배포된 평가에 대한 predict_field.py 검증(results/predict_field_validation.json)
+python code/field/validate_predict_field.py            # AirfRANS 전용 디코더의 평가에 대한 predict_field.py 검증(results/predict_field_validation.json)
 python code/field/validate_field_surface.py            # RANS 벽면 값에 대한 predict_field.surface() 검증(results/field_surface_validation.json)
 
 # AirfRANS 전용 디코더의 유동장 그림
@@ -536,7 +543,7 @@ python code/reproduce/vf_speed_field.py
 vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 ```
 
-배포된 실행을 고른 검증 점수는 `code/field/field_holdout_score.py`에서 나오며, 이 스크립트에는 학습 코퍼스가
+실행을 고른 검증 점수는 `code/field/field_holdout_score.py`에서 나오며, 이 스크립트에는 학습 코퍼스가
 필요합니다(제공되지 않음; `VORTFOIL_CORPUS_DIR`).
 
 `code/README_code.md`에는 모든 스크립트와 이들이 따르는 `VORTFOIL_*` / `AIRFRANS_ROOT` 환경 변수가 나열되어 있습니다.
@@ -558,7 +565,7 @@ vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 - **UniFoil**(Kanchi et al., 2025; CC BY-SA 4.0)은 외부 데이터셋이며 여기서 재배포하지 않습니다. UniFoil 익형을 사용해
   학습한 디코더(`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`)는 그 출처 표시와 함께 CC BY-SA 4.0에 따라
   제공합니다(`DATA_LICENSES.md`).
-- **`data/eval/`** 디렉터리에는 이 README의 모든 수치를 만드는 데 쓴 XFOIL 평가 타깃이 있습니다. `holdout_targets.npz`(부착 유동 홀드아웃,
+- **`data/eval/`** 디렉터리에는 이 README의 모든 표면 수치를 만드는 데 쓴 XFOIL 평가 타깃이 있습니다. `holdout_targets.npz`(부착 유동 홀드아웃,
   2,880행 격자를 2,737행으로 걸러낸 것), `attached_surface_targets_v2.npz`와 `sep_eval_targets_v2.npz`(부착 유동과 박리 유동의
   표면/경계층 타깃이며, 후자는 NeuralFoil의 32개 스테이션에서의 경계층 상태를 담고 있습니다), 그리고 `sep_eval_coords.npz`(박리 유동 집합의
   질의 좌표)입니다.
@@ -587,7 +594,7 @@ vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 
 GNU General Public License v3.0 또는 그 이후 버전 — [`LICENSE`](LICENSE)를 참고하십시오. `xfoil_closures.py`는 GPL v2 또는 그 이후 버전으로
 라이선스된 XFOIL 6.99(Drela와 Youngren)를 한 줄씩 옮긴 번역이며, 그 출처와 v3를 택한 이유는 [`NOTICE`](NOTICE)에 있습니다.
-데이터 라이선스와 출처 표시(AirfRANS와 UIUC 좌표)는
+데이터 라이선스와 출처 표시(AirfRANS, UniFoil과 UIUC 좌표)는
 [`DATA_LICENSES.md`](DATA_LICENSES.md)에 있습니다.
 
 ## 인용

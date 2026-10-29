@@ -45,7 +45,7 @@ code/model/       OP1 (sheet) and OP2 (boundary layer) operator definitions, ADA
 code/field/       the field decoder's state provider, its training/eval drivers and the field scorers
 code/reproduce/   measurement scripts behind the reported numbers
 code/figures/     figure generators for the manuscript
-weights/          the 13 shipped weight files (see table below)
+weights/          the 23 shipped weight files (see table below)
 data/eval/        XFOIL evaluation targets (not training data)
 results/          sealed records the manuscript numbers are copied from
 evaluation_runs/  sealed per-case metrics of the XFOIL-conditioned decoder runs (the field scorers' reference)
@@ -260,10 +260,11 @@ It writes u, v, p and ν_t on a grid in AirfRANS units (chord 1 m, air, U∞ = R
 chords at 0.005 chord in the wind frame (freestream along +x). `--points` takes your own points, and `--frame body` uses
 the chord frame.
 
-The decoder was trained on AirfRANS k–ω SST fields of NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶ to 6×10⁶.
-It issues a `FieldRangeWarning` outside that range.
+The deployed decoder was trained on AirfRANS k–ω SST fields of NACA 4- and 5-digit sections at −5° to 15° and Re 2×10⁶
+to 6×10⁶, together with 16,923 non-NACA UniFoil airfoils (Spalart–Allmaras, −2° to 6°). It issues a `FieldRangeWarning`
+outside the AirfRANS ranges.
 
-**Other airfoil families: much less accurate.** Ten UIUC sections of other families were computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above) and scored with the deployed metric. The decoder's errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
+**Other airfoil families: much less accurate.** On the 16 unseen non-NACA UIUC test sections computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above), the deployed decoder's mean errors are 14, 15, 46 and 38 times its NACA test level (u_x, u_y, p, ν_t), against 27, 35, 68 and 40 times for the AirfRANS-only decoder of 2.0.0 (`results/cotrain_score_cmx_20261015T023434Z.json`). The per-section figures below were measured with that AirfRANS-only decoder on ten UIUC sections: its errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
 
 - The errors are largest near the wall but also large off the body.
 - Sections close to a NACA shape stayed within the test tail: RAE 2822 1.5 times, NACA 64₂-415 2.8 times and DU 84-132V 2.9 times.
@@ -271,11 +272,12 @@ It issues a `FieldRangeWarning` outside that range.
 
 The shape-code distance check did not flag any of them, so it is not a family detector. Every section that is not given as a NACA designation (`--naca`, a NACA airfoil in the viewer or the application) therefore gets a `FieldRangeWarning` saying so; read such a field as indicative. The surface results come from the separate surface model and are not affected.
 
-Validation on the 200 AirfRANS test cases (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
+Validation of this pathway on the 200 AirfRANS test cases, run with the AirfRANS-only decoder of 2.0.0 whose evaluation
+it reproduces (`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
 
-- **The deployed evaluation's inputs:** the script reproduces the recorded per-case errors.
-- **The case's 441-node section coordinates alone:** its mean errors are 0.99, 0.99, 1.07 and 1.03 times the deployed
-  decoder's (u_x, u_y, p, ν_t).
+- **That decoder's recorded evaluation inputs:** the script reproduces the recorded per-case errors.
+- **The case's 441-node section coordinates alone:** its mean errors are 0.99, 0.99, 1.07 and 1.03 times the recorded
+  ones (u_x, u_y, p, ν_t).
 - **A sparse 161-node section, which it resamples:** errors on the RANS mesh rise near the wall (u_y 3.8 times) because
   most mesh nodes lie inside the first cells of the boundary layer. On a 0.01-chord grid, the sparse- and dense-input
   predictions differ by 0.3% to 6% of the decoder's own test error.
@@ -286,8 +288,8 @@ Give dense coordinates (at least 441 points) when the near-wall field matters.
 
 The decoder also predicts the pressure on the wall itself (velocity and ν_t are zero there), so the field gives surface
 values in its own reference state, k–ω SST, beside the surface model's XFOIL-state ones. The decoder does not resolve the
-wall-normal velocity gradient (its first mesh nodes sit at y+ ≈ 1, and friction computed from that gradient is 2.3 times the
-RANS friction), so friction comes from a wall function: the decoder's tangential velocity 2×10⁻⁴ chord off the wall, in the
+wall-normal velocity gradient (its first mesh nodes sit at y+ ≈ 1, and for the AirfRANS-only decoder of 2.0.0 friction computed
+from that gradient is 2.3 times the RANS friction), so friction comes from a wall function: the decoder's tangential velocity 2×10⁻⁴ chord off the wall, in the
 log layer (median y+ 31 on the test cases), gives the friction velocity by Spalding's law. `predict_field.surface()`
 returns the wall C_p and C_f at the section's nodes and the lift and drag:
 
@@ -302,14 +304,18 @@ print(w["cl"], w["cd"], w["cd_pressure"], w["cd_friction"])
 viewer and the application draw this C_p dashed over the surface model's and list its lift, drag and moment (the RANS state,
 below), and the CSV export adds `_wall.csv`.
 
-Against the RANS wall values of the 200 AirfRANS test cases, from the section coordinates alone
-(`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
+Against the RANS wall values of the 200 AirfRANS test cases, from the section coordinates alone, with the AirfRANS-only
+decoder of 2.0.0 (`code/field/validate_field_surface.py`, `results/field_surface_validation.json`):
 
 - **Wall C_p:** mean RMSE 0.035, and 0.014 over 5–95% of the chord; the error sits at the leading-edge suction peak and the
   stagnation point. By incidence band (−6–0°, 0–8°, 8–12°, 12–16°): 0.020, 0.018, 0.042 and 0.120.
 - **Lift:** R² 0.9993 against the RANS lift, mean relative error 0.029, Spearman 0.9997.
 - **Drag:** mean relative error 0.14 against the RANS drag, Spearman 0.81. Its friction part (the wall function) has a mean
   relative error of 0.045 (Spearman 0.93); its pressure part is the weaker one (mean relative error 0.38, Spearman 0.80).
+
+With the deployed decoder, in the manuscript's RANS-reference evaluation (the AirfRANS force routine on the predicted
+fields, the same wall function; `results/table4_row_cmx_s0.json`): lift mean relative error 0.054 (Spearman 0.9995), drag
+0.128 (Spearman 0.743; 0.455 with friction from the wall gradient), moment MAE 0.0023.
 
 These are SST-state values. The surface model's coefficients are XFOIL-state values, and the two are not compared in
 absolute terms.
@@ -324,8 +330,8 @@ saturates (a criterion that follows the layer; a threshold relative to the wall 
 instead), and the speed is first divided by the inviscid speed that the field's own pressure gives, so that the curved flow
 ahead of the layer does not move the edge. A station where no layer is read is NaN, and a station whose near-wall flow runs
 against the outer flow is flagged `separated`. Against the same extraction applied to the RANS fields of the 200 AirfRANS
-test cases, from the section coordinates alone (`code/field/validate_field_boundary_layer.py`,
-`results/field_boundary_layer_validation.json`):
+test cases, from the section coordinates alone, with the AirfRANS-only decoder of 2.0.0
+(`code/field/validate_field_boundary_layer.py`, `results/field_boundary_layer_validation.json`):
 
 - **Attached stations at x/c 0.1–0.95** (the bound set beforehand, a median relative error of at most 0.20 for θ and δ\*, is
   met): the upper surface 3.6% (θ) and 3.8% (δ\*), the lower 6.4% and 5.8%; H 1.1%. The 90th percentiles are 19% and 19%
@@ -510,7 +516,7 @@ decoder's integrated ones; the two differ by 6.8% in lift and 14.1% in drag on t
 **AirfRANS-only field decoders** (the manuscript's ablations; release 2.0.0 deployed the operator-conditioned one; AirfRANS
 `full_test`, n = 200, the same metric):
 
-| decoder (deployed weight) | ux | uy | p | nut | source |
+| decoder (selected run) | ux | uy | p | nut | source |
 |---|---|---|---|---|---|
 | operator-conditioned (`field_decoder_f0cm_s1`, run 1) | 1.26e-3 | 1.27e-3 | 2.13e-3 | 7.06e-3 | `results/f0cm_final_rescore_20261002T051450Z/result.json` (`mean.CM`) |
 | XFOIL-conditioned (`field_decoder_f0a_s2`, run 2) | 1.61e-3 | 2.07e-3 | 3.54e-3 | 9.34e-3 | same file (`mean.XF2`); `evaluation_runs/_nf_shape_f0a_s2__*` |
@@ -589,7 +595,7 @@ export AIRFRANS_ROOT=/path/to/AirfRANS/Dataset
 python code/field/f0cm_final_rescore.py --workers 8    # field errors, bands, paired ratios, drop-in, C_l substitution, s-rule sensitivity
 python code/field/f0cm_final_rescore.py --limit 2      # quick check: rows 0-1 of the shipped record, nothing written
 python code/field/step2_eval_f0c.py                    # the three operator-conditioned runs (results/step2_eval_f0cm_*)
-python code/field/validate_predict_field.py            # predict_field.py against the deployed evaluation (results/predict_field_validation.json)
+python code/field/validate_predict_field.py            # predict_field.py against the AirfRANS-only decoder's evaluation (results/predict_field_validation.json)
 python code/field/validate_field_surface.py            # predict_field.surface() against the RANS wall values (results/field_surface_validation.json)
 
 # The AirfRANS-only decoder's field figure
@@ -605,7 +611,7 @@ python code/reproduce/vf_speed_field.py
 vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 ```
 
-The validation scores that select the deployed runs come from `code/field/field_holdout_score.py`, which needs
+The validation scores that select the runs come from `code/field/field_holdout_score.py`, which needs
 the training corpora (not shipped; `VORTFOIL_CORPUS_DIR`).
 
 `code/README_code.md` lists every script and the `VORTFOIL_*` / `AIRFRANS_ROOT` environment
@@ -632,8 +638,8 @@ variables they honour.
 - **UniFoil** (Kanchi et al., 2025; CC BY-SA 4.0) is an external dataset, not redistributed here. The
   decoders trained with UniFoil airfoils (`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`) are
   made available under CC BY-SA 4.0 with its attribution (`DATA_LICENSES.md`).
-- **`data/eval/`** holds the XFOIL evaluation targets used to produce every number in this
-  README: `holdout_targets.npz` (the attached-flow holdout, a 2,880-row grid gated to 2,737),
+- **`data/eval/`** holds the XFOIL evaluation targets used to produce every surface number in
+  this README: `holdout_targets.npz` (the attached-flow holdout, a 2,880-row grid gated to 2,737),
   `attached_surface_targets_v2.npz` and `sep_eval_targets_v2.npz` (attached and separated
   surface/boundary-layer targets, the latter carrying boundary-layer state at NeuralFoil's 32
   stations), and `sep_eval_coords.npz` (the separated-set query coordinates).
@@ -669,7 +675,7 @@ included there at full size.
 GNU General Public License v3.0 or later — see [`LICENSE`](LICENSE). `xfoil_closures.py` is a
 line-by-line translation of XFOIL 6.99 (Drela and Youngren), which is licensed under the GPL v2 or
 later; [`NOTICE`](NOTICE) gives the origin and the reason for v3. Data licenses and attributions
-(AirfRANS and the UIUC coordinates) are in
+(AirfRANS, UniFoil and the UIUC coordinates) are in
 [`DATA_LICENSES.md`](DATA_LICENSES.md).
 
 ## Citation
