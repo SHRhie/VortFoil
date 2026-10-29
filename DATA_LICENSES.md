@@ -28,6 +28,26 @@ which is made available here under the
 
 The field training corpora built from AirfRANS (486 MB each) are not shipped.
 
+## UniFoil — Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)
+
+> R. S. Kanchi, B. Melanson, N. Somasekharan, S. Pan, S. He. UniFoil: A universal dataset of airfoils in
+> transitional and turbulent regimes for subsonic and transonic flows. Advances in Neural Information
+> Processing Systems 38 (Datasets and Benchmarks Track), 2025. doi:10.52202/085713-2467.
+
+UniFoil is made available under CC BY-SA 4.0 (<https://creativecommons.org/licenses/by-sa/4.0/>). No
+UniFoil data are shipped.
+
+| file | relation to UniFoil |
+|---|---|
+| `weights/field_decoder_cmx_s{0,1,2}.npz` | Field decoders trained on AirfRANS fields together with the Spalart–Allmaras fields of 16,923 UniFoil airfoils (every third stored row). |
+| `weights/field_decoder_cmd_s{0,1,2}.npz` | The same with 1,346 UniFoil airfoils. |
+| `results/cotrain_score_*.json` | Records that include errors on 150 held-out UniFoil airfoils. |
+
+Whether trained weights are adapted material under CC BY-SA 4.0 is not settled; these weight files are
+nevertheless made available under CC BY-SA 4.0, with this attribution: *contains information derived from
+[UniFoil](https://doi.org/10.52202/085713-2467) (Kanchi et al., 2025), CC BY-SA 4.0*. They also carry the
+AirfRANS notice above.
+
 ## UIUC Airfoil Coordinates Database
 
 > M. S. Selig. UIUC Airfoil Coordinates Database. UIUC Applied Aerodynamics Group.

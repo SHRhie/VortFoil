@@ -20,8 +20,8 @@ trailing-edge state, and the deployed lift is the circulation readout plus a rid
 viscous-decambering correction read from that same state. A geometry-agnostic field decoder
 reconstructs the 2D RANS field, conditioned on the sheet's circulation and the boundary-layer
 trailing-edge state rather than on an external solver. **This repository ships one confirmed
-surface model and the field decoder conditioned on it**, together with the XFOIL-conditioned
-decoder it is compared with. There is no geometry-only coefficient regressor, and no XFOIL or CFD process is
+surface model, the field decoder conditioned on it and a frozen RANS correction of the surface
+coefficients**, together with the decoders the manuscript compares it with. There is no geometry-only coefficient regressor, and no XFOIL or CFD process is
 launched at inference time in any of the three stages. That is a statement about external
 solver calls, not about fitting and not about linear algebra: both force closures are empirical
 fits frozen at deployment, and the field pathway's physics paint still carries deterministic
@@ -30,8 +30,10 @@ panel solves inside the model.
 See [`paper/abstract.md`](paper/abstract.md) for the manuscript abstract. The manuscript is the source of
 record; the abstract here is a mirror and is never edited in place.
 
-> **Status.** Version 2.0.0 accompanies the manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
-> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee). It was released on 2026-10-13 on GitHub and PyPI and is archived on Zenodo:
+> **Status.** Version 2.1.0 accompanies the revised manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
+> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee): its field decoder is trained on AirfRANS together
+> with 16,923 non-NACA UniFoil airfoils, and a RANS coefficient correction of the surface branch is added (`CHANGELOG.md`).
+> Version 2.0.0 was released on 2026-10-13 on GitHub and PyPI. Every version is archived on Zenodo under
 > [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871). The license is GPL-3.0-or-later (see *License* below).
 
 ## Layout
@@ -76,24 +78,43 @@ convention for research-tree artifacts that are *not* shipped here are all in
    upper and lower surfaces enter separately). It is the viscous-decambering correction to the
    sheet's circulation lift; the deployed Cl is this closed value. The field decoder below still
    consumes the uncorrected Cl^γ.
-5. **Field decoder** — `weights/field_decoder_f0cm_s1.npz`, the deployed operator-conditioned
-   decoder: a geometry-agnostic RANS field decoder (five-layer width-248 non-residual trunk,
-   four-band Fourier features, a PointNet shape latent z ∈ R^16 over the real surface point cloud,
-   physics-paint inputs; ≈305k parameters) trained on 780 AirfRANS k–ω SST cases, the 800-case
-   training split less 20 held out for validation. Its two conditioning inputs come from OP1 and OP2
+5. **Field decoder** — `weights/field_decoder_cmx_s0.npz`, the deployed decoder: a geometry-agnostic
+   RANS field decoder (five-layer width-248 non-residual trunk, four-band Fourier features, a PointNet
+   shape latent z ∈ R^16 over the real surface point cloud, physics-paint inputs; ≈305k parameters)
+   trained on 780 AirfRANS k–ω SST cases (the 800-case training split less 20 held out for validation)
+   together with 16,923 non-NACA UniFoil airfoils (fully turbulent Spalart–Allmaras, M ≤ 0.2; 150
+   airfoils held out), with no turbulence-model input. Of its three training runs, the deployed one has
+   the lowest mean of the four standardized channel MSEs on the 20 validation cases, 0.00257 (runs 1
+   and 2: 0.00458 and 0.00330; `results/cotrain_score_cmx_20261015T023434Z.json`, `selection`). The
+   manuscript's ablations ship with it: the AirfRANS-only decoders described next (release 2.0.0
+   deployed `field_decoder_f0cm_s1.npz`, and the 3D wing's RANS state still uses it), an AirfRANS-only
+   decoder trained for as many optimizer steps as the deployed one (`field_decoder_sml2_s*.npz`, run 2
+   selected; `results/stepmatch_score_20261015T070933Z.json`) and one trained with 1,346 UniFoil
+   airfoils (`field_decoder_cmd_s*.npz`, run 2 selected; `results/cotrain_score_cmd_20261015T032838Z.json`).
+   The AirfRANS-only operator-conditioned decoder, `weights/field_decoder_f0cm_s1.npz`, has the same
+   architecture and is trained on the 780 AirfRANS cases alone. Its two conditioning inputs come from OP1 and OP2
    through `code/field/state_provider.py`, not from an XFOIL call: the paint circulation scale
    Cl^γ (uncorrected) and the separation scalar `s_sep = clip((max(H_TE^u, H_TE^l) − 2)/8, 0, 1)`
    (`s_rule="teH"`), the larger of the two per-surface trailing-edge shape factors, used for its
    training rows and for every evaluation of it. The comparison decoder,
    `weights/field_decoder_f0a_s2.npz`, has the same architecture and recipe and is trained and
-   evaluated on XFOIL's inputs (the XFOIL-conditioned decoder). Of each decoder's three training
-   runs, the deployed one has the lowest mean of the four standardized channel MSEs on the
+   evaluated on XFOIL's inputs (the XFOIL-conditioned decoder). Of each of these two decoders' three
+   training runs, the selected one has the lowest mean of the four standardized channel MSEs on the
    trainer's 20-case validation holdout: 0.00262 for operator-conditioned run 1
    (`results/f0cm_holdout_rescore.json`) and 0.00372 for XFOIL-conditioned run 2
-   (`results/f0a_holdout_rescore_20260930.jsonl`); the non-deployed runs are shipped too
+   (`results/f0a_holdout_rescore_20260930.jsonl`); the other runs are shipped too
    (`results/field_deployed_weights.json`, `selection.*`). `weights/airfrans_surface_tokens.npz`
    (surface point tokens for the shape latent) and `weights/airfrans_train_stats.npz` (output
-   normalization) are inputs the decoder needs, not separate models.
+   normalization) are inputs the decoder needs, not separate models. Every decoder here takes the
+   same two conditioning inputs.
+6. **RANS coefficient correction** — `weights/rans_correction_nn.npz` (a copy is in the package): with
+   every operator and closure frozen, five 5-32-32-3 tanh networks map the surface branch's
+   (C_l, ln C_d, C_m, α, log₁₀ Re) to RANS-level coefficients, C_l + f_l, C_d·exp(f_d) and C_m + f_m
+   (their mean), with no shape or boundary-layer-state input. They are fitted on the 780 AirfRANS
+   training cases (k–ω SST) under a protocol fixed before the fit
+   (`results/rans_correction_nn_20261015_PRESPEC.md`); `vf.predict(..., rans=True)` returns `cl_rans`,
+   `cd_rans` and `cm_rans`, and `vortfoil predict --rans` prints them. Outside the fitted range
+   (α −5° to 15°, Re 2×10⁶ to 6×10⁶) `vortfoil.RangeWarning` is issued.
 
 ## Weights
 
@@ -105,10 +126,20 @@ convention for research-tree artifacts that are *not* shipped here are all in
 | `lift_closure_poly2.npz` | lift closure coefficients (`cl_closed_tf`) | `788f7c73efb2` |
 | `field_decoder_f0a_s0.npz` | field decoder, XFOIL-conditioned, run 0 | `d90b88a5757e` |
 | `field_decoder_f0a_s1.npz` | field decoder, XFOIL-conditioned, run 1 | `118face2a9e8` |
-| `field_decoder_f0a_s2.npz` | field decoder, XFOIL-conditioned, run 2 (deployed) | `1440f8f4dbd3` |
-| `field_decoder_f0cm_s0.npz` | field decoder, operator-conditioned, run 0 | `e1da6228e827` |
-| `field_decoder_f0cm_s1.npz` | field decoder, operator-conditioned, run 1 (deployed) | `5e72da181372` |
-| `field_decoder_f0cm_s2.npz` | field decoder, operator-conditioned, run 2 | `fed72563ca1e` |
+| `field_decoder_f0a_s2.npz` | field decoder, XFOIL-conditioned, run 2 (selected) | `1440f8f4dbd3` |
+| `field_decoder_f0cm_s0.npz` | field decoder, AirfRANS-only operator-conditioned, run 0 | `e1da6228e827` |
+| `field_decoder_f0cm_s1.npz` | field decoder, AirfRANS-only operator-conditioned, run 1 (selected; deployed in 2.0.0; the 3D wing's RANS state) | `5e72da181372` |
+| `field_decoder_f0cm_s2.npz` | field decoder, AirfRANS-only operator-conditioned, run 2 | `fed72563ca1e` |
+| `field_decoder_cmx_s0.npz` | field decoder, AirfRANS + 16,923 UniFoil, run 0 (deployed) | `3a8a14810969` |
+| `field_decoder_cmx_s1.npz` | field decoder, AirfRANS + 16,923 UniFoil, run 1 | `fdeaa79f5701` |
+| `field_decoder_cmx_s2.npz` | field decoder, AirfRANS + 16,923 UniFoil, run 2 | `216f4c5f77d1` |
+| `field_decoder_sml2_s0.npz` | field decoder, AirfRANS-only, step-matched (341 epochs), run 0 | `6c5f4f98f66f` |
+| `field_decoder_sml2_s1.npz` | field decoder, AirfRANS-only, step-matched, run 1 | `fe6cb58df767` |
+| `field_decoder_sml2_s2.npz` | field decoder, AirfRANS-only, step-matched, run 2 (selected) | `677339fac1be` |
+| `field_decoder_cmd_s0.npz` | field decoder, AirfRANS + 1,346 UniFoil, run 0 | `ea4afc5302cc` |
+| `field_decoder_cmd_s1.npz` | field decoder, AirfRANS + 1,346 UniFoil, run 1 | `27061f0007bd` |
+| `field_decoder_cmd_s2.npz` | field decoder, AirfRANS + 1,346 UniFoil, run 2 (selected) | `f2ab7f28378e` |
+| `rans_correction_nn.npz` | RANS coefficient correction (five networks and their standardization) | `86286dcca4f0` |
 | `op2_d500k_previous.npz` | the previously released boundary-layer operator (d500k; not in the deployed chain) | `3c9e8d031fd4` |
 | `airfrans_surface_tokens.npz` | shape-latent surface point tokens | `cd27519b76dc` |
 | `airfrans_train_stats.npz` | field-decoder output normalization | `3da1cefe69d2` |
@@ -454,8 +485,30 @@ The negative-R² row is why the fitted closure (`fitted_poly2`) is the deployed 
 of the marched route: see `results/FINDING_closure_track.json` (findings F3–F16) for the full
 closure-selection story.
 
-**Field decoders** (AirfRANS `full_test`, n = 200, k–ω SST RANS fields; per-channel standardized MSE over
-all mesh nodes, σ from the 800-case training split; one deployed weight file per decoder, no seed statistics):
+**Field decoder, deployed** (per-channel standardized MSE over all mesh nodes, case-equal mean; σ from all nodes of a
+50-case sample of the 200-case scarce-task training split, so the values are conservative against published ones, which take
+σ from every node of the task's training split; `results/cotrain_score_cmx_20261015T023434Z.json`):
+
+| set | ux | uy | p | nut |
+|---|---|---|---|---|
+| AirfRANS `full_test`, n = 200 (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
+| 16 unseen non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
+| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample, not comparable with the rows above) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+
+Against the AirfRANS-only decoder trained for as many optimizer steps, the paired case-bootstrap error ratios are 1.00,
+1.36, 0.57 and 0.51 on AirfRANS (the NACA velocity gains come from training length) and 0.39, 0.30, 0.44 and 0.50 on the 16
+non-NACA sections, all below unity (`results/stepmatch_score_20261015T070933Z.json`).
+
+**RANS coefficient correction** (`results/rans_correction_nn_20261015.json`; its exported weights reproduce the fit's
+predictions to 2e-16, `results/rans_correction_nn_export_check.json`): on the AirfRANS test split (n = 200) the surface
+branch's mean relative lift / drag errors against RANS fall from 7.7% / 25.9% to 2.9% / 4.3% and its moment MAE from
+0.0082 to 0.0028; on 107 unseen non-NACA SST sections the lift MAE falls from 0.037 to 0.028, the drag error from 30.2% to
+8.9% and the moment MAE from 0.0096 to 0.0071. The corrected coefficients are not constrained to agree with the field
+decoder's integrated ones; the two differ by 6.8% in lift and 14.1% in drag on the test split
+(`results/consistency_field_vs_corrected_20261029.json`).
+
+**AirfRANS-only field decoders** (the manuscript's ablations; release 2.0.0 deployed the operator-conditioned one; AirfRANS
+`full_test`, n = 200, the same metric):
 
 | decoder (deployed weight) | ux | uy | p | nut | source |
 |---|---|---|---|---|---|
@@ -478,7 +531,7 @@ MARIO publishes only these four aggregate numbers.
 - **Separation-rule sensitivity.** Feeding the mean of the two trailing-edge shape factors at evaluation
   instead of the maximum gives 1.05 [1.02, 1.10] / 1.13 [1.08, 1.19] / 1.14 [1.03, 1.55] / 1.01 [0.89, 1.14]
   (`eval_rule_sensitivity_CMm_over_CM`).
-- **Incidence bands** (manuscript Table 12; `results/band_table_f0cm_s1.json`, n = 55 / 79 / 44 / 22): the
+- **Incidence bands** (`results/band_table_f0cm_s1.json`, n = 55 / 79 / 44 / 22): the
   improvement over the XFOIL-conditioned decoder is largest in [12, 16)°, 0.41–0.70× on every channel. Against
   MARIO's pooled aggregate, the [−6, 0)° and [0, 8)° bands are below MARIO on every channel; [8, 12)° is above
   it on ux (1.23×) and uy (1.60×); [12, 16)° is above it on all four channels (1.68× / 3.73× / 5.45× / 4.89×).
@@ -486,8 +539,8 @@ MARIO publishes only these four aggregate numbers.
   against XFOIL's forced-transition lift on the 200 test cases
   (`results/step2_eval_f0cm_20260925T213247Z/result.json`, `provider_vs_xfoil_diagnostic.cl_R2`).
 
-Fig. 6 of the manuscript, `figures/vf_field_f0cm_tp_pos.{pdf,png}` (saved numbers
-`figures/vf_field_f0cm_tp_pos_numbers.json`), renders the deployed operator-conditioned decoder against RANS truth
+`figures/vf_field_f0cm_tp_pos.{pdf,png}` (saved numbers `figures/vf_field_f0cm_tp_pos_numbers.json`) renders the
+AirfRANS-only operator-conditioned decoder (deployed in 2.0.0) against RANS truth
 on the test case `airFoil2D_SST_39.31_8.883_4.707_0.0_12.552` (U∞ = 39.3 m/s, α = 8.88°; a symmetric NACA
 four-digit section, 12.6% thick). The case comes from a rule fixed before any figure was drawn: of the 66 test
 cases at α ≥ 8°, the one with the lowest mean of the decoder's four standardized all-mesh MSEs (run 1,
@@ -500,7 +553,7 @@ to ±U∞²/2 (C_p = ±1), so the suction peak saturates; ν_t in YlGnBu on a lo
 
 `results/_speed_confirmed_summary.json` (generators `code/reproduce/vf_speed_surface.py`, `vf_speed_nf.py`, `sepeval/xfoil_time_win.py`): per-case cost of the surface chain at batch sizes 1–2737 (sheet operator + Cl^γ readout 9.95 µs; coefficient chain — the sheet and boundary-layer passes plus both frozen closures, excluding the moment and the stagnation-location readout — 318 µs per case at B = 1024 on a laptop CPU, TF 2.10 eager; reverse-mode shape gradients at 2.34× the sheet pass for Cl^γ, and 3.13× (deployed Cl) and 3.12× (Cd) the coefficient chain, both sharing the boundary-layer operator's backward pass, verified against central finite differences in `results/_grad_check_*.json`), NeuralFoil xlarge on the same rows (28.8 µs per case batched, 0.691 ms single query), XFOIL single-process (0.104 s per case median, Xeon) and MARIO's published 88 ms/sample (A100) as a cross-device reference. Absolutes are host-load dependent; within-run ratios are the stable statistic.
 
-Field pathway, component microbenchmarks of the deployed operator-conditioned decoder (manuscript Table 17; `results/_speed_confirmed_field_f0cm_20261002T053715Z.json`, generator `code/reproduce/vf_speed_field.py`; NumPy encoder and decoder, each test case queried at its own RANS mesh nodes, median 172,029 points per case over three cases): conditioning inputs 0.0131 s, physics paint 5.38 s, nearest-panel and redundant-distance probe 2.90 s, shape encoder 0.0000876 s, decoder 1.29 s per case (7.35 ms per 10³ points). These are component timings, not an end-to-end latency, and MARIO's 0.088 s is a published value on different hardware and timing boundaries, so no speed ratio is formed.
+Field pathway, component microbenchmarks of the AirfRANS-only operator-conditioned decoder (the deployed decoder has the same architecture and inputs; `results/_speed_confirmed_field_f0cm_20261002T053715Z.json`, generator `code/reproduce/vf_speed_field.py`; NumPy encoder and decoder, each test case queried at its own RANS mesh nodes, median 172,029 points per case over three cases): conditioning inputs 0.0131 s, physics paint 5.38 s, nearest-panel and redundant-distance probe 2.90 s, shape encoder 0.0000876 s, decoder 1.29 s per case (7.35 ms per 10³ points). These are component timings, not an end-to-end latency, and MARIO's 0.088 s is a published value on different hardware and timing boundaries, so no speed ratio is formed.
 
 Implementation conditions (`code/reproduce/vf_speed_surface_modes.py`, `results/_speed_modes_*.json`): the deployed eager-CPU figures are an upper bound. Compiling the same coefficient chain with `tf.function` (no XLA) gives 163 µs/case at B = 1024 on the laptop CPU (vs 317 eager) and a 1.30 ms single query (vs 11.3 ms); on an RTX 4060 Ti (8 GB, Windows) the compiled chain reaches 126 µs/case at B = 512 with gradients at ~395 µs/case, while eager execution on the GPU is far slower (93 ms single query) and batches ≥ 1024 exhaust the card's memory in this implementation.
 
@@ -518,7 +571,7 @@ side.
 # TF 2.10 environment — reproduces the surface/drag numbers bit-for-bit
 python code/smoke_confirmed_chain.py
 
-# TF 2.18 environment with the `airfrans` package — forward pass of the deployed field decoder only
+# TF 2.18 environment with the `airfrans` package — forward pass of the AirfRANS-only field decoder (deployed in 2.0.0)
 python code/smoke_field_decoder.py
 ```
 
@@ -531,22 +584,25 @@ python code/reproduce/surface_contract_cst16.py <out.npz> <out.json>
 # Physics drag route + NeuralFoil on any holdout-schema targets npz
 python code/reproduce/eval_on_targets.py data/eval/holdout_targets.npz <out.npz> [op2_weights]
 
-# The manuscript's field numbers on AirfRANS full_test (needs the external dataset)
+# The AirfRANS-only decoders' field numbers on AirfRANS full_test (needs the external dataset)
 export AIRFRANS_ROOT=/path/to/AirfRANS/Dataset
-python code/field/f0cm_final_rescore.py --workers 8    # Tables 11-12, paired ratios, drop-in, C_l substitution, s-rule sensitivity
+python code/field/f0cm_final_rescore.py --workers 8    # field errors, bands, paired ratios, drop-in, C_l substitution, s-rule sensitivity
 python code/field/f0cm_final_rescore.py --limit 2      # quick check: rows 0-1 of the shipped record, nothing written
 python code/field/step2_eval_f0c.py                    # the three operator-conditioned runs (results/step2_eval_f0cm_*)
 python code/field/validate_predict_field.py            # predict_field.py against the deployed evaluation (results/predict_field_validation.json)
 python code/field/validate_field_surface.py            # predict_field.surface() against the RANS wall values (results/field_surface_validation.json)
 
-# Fig. 6
+# The AirfRANS-only decoder's field figure
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
 python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
     --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
     --case-tag pos --p-qinf --print
 
-# Field timing (Table 17)
+# Field timing
 python code/reproduce/vf_speed_field.py
+
+# RANS-corrected coefficients of any section (the deployed correction)
+vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 ```
 
 The validation scores that select the deployed runs come from `code/field/field_holdout_score.py`, which needs
@@ -573,6 +629,9 @@ variables they honour.
   produced from AirfRANS. Attributions, notices and the full file list are in
   [`DATA_LICENSES.md`](DATA_LICENSES.md). Set `AIRFRANS_ROOT` to the local `Dataset/` directory for
   anything that touches AirfRANS (see `code/README_code.md`).
+- **UniFoil** (Kanchi et al., 2025; CC BY-SA 4.0) is an external dataset, not redistributed here. The
+  decoders trained with UniFoil airfoils (`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`) are
+  made available under CC BY-SA 4.0 with its attribution (`DATA_LICENSES.md`).
 - **`data/eval/`** holds the XFOIL evaluation targets used to produce every number in this
   README: `holdout_targets.npz` (the attached-flow holdout, a 2,880-row grid gated to 2,737),
   `attached_surface_targets_v2.npz` and `sep_eval_targets_v2.npz` (attached and separated
@@ -581,7 +640,9 @@ variables they honour.
 - Training corpora (XFOIL boundary-layer decks, the AirfRANS field-training npz files) are not
   shipped: they are 0.5–3.1 GB each, and the field corpora are AirfRANS derivatives. The
   operator-conditioned decoder was trained on `_nf_train_v5_full800_provider_maxs.npz` (sha256
-  `a387d918…`, named in the `run_config` of each `field_decoder_f0cm_s*.npz`), which is not shipped.
+  `a387d918…`, named in the `run_config` of each `field_decoder_f0cm_s*.npz`), which is not shipped; the deployed
+  decoder adds `_nf_unifoil_train_full_thin3_provider.npz` (sha256 `1e6ed4cf…`, in the `run_config` of each
+  `field_decoder_cmx_s*.npz`), not shipped either.
   `code/README_code.md` names the script behind each corpus.
 
 ## Provenance

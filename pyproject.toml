@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vortfoil"
-version = "2.0.0"
+version = "2.1.0"
 description = "A vortex-panel-informed neural operator for steady airfoil flow: surface pressure, lift, moment and the stagnation point from a predicted vortex sheet, drag and a lift correction from a parallel boundary-layer state"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -60,6 +60,7 @@ packages = ["src/vortfoil"]
 "code/field" = "vortfoil/_release/code/field"
 "code/model/staged" = "vortfoil/_release/code/model/staged"
 "weights/field_decoder_f0cm_s1.npz" = "vortfoil/_release/weights/field_decoder_f0cm_s1.npz"
+"weights/field_decoder_cmx_s0.npz" = "vortfoil/_release/weights/field_decoder_cmx_s0.npz"
 "weights/airfrans_surface_tokens.npz" = "vortfoil/_release/weights/airfrans_surface_tokens.npz"
 "weights/op1_supervised_eps0.50.scr_bd128.npz" = "vortfoil/_release/weights/op1_supervised_eps0.50.scr_bd128.npz"
 "weights/op2_m325_BT.npz" = "vortfoil/_release/weights/op2_m325_BT.npz"
@@ -69,6 +70,6 @@ packages = ["src/vortfoil"]
 include = ["src/vortfoil", "pyproject.toml", "README.md", "LICENSE", "NOTICE", "DATA_LICENSES.md",
            "code/vortfoil_paths.py", "code/view_airfoil.py", "code/vortfoil_app.py", "code/wing_nll.py", "code/view_wing.py",
            "code/wing_flow.py", "code/wing_view.html", "code/field", "code/model/staged",
-           "weights/field_decoder_f0cm_s1.npz", "weights/airfrans_surface_tokens.npz",
+           "weights/field_decoder_f0cm_s1.npz", "weights/field_decoder_cmx_s0.npz", "weights/airfrans_surface_tokens.npz",
            "weights/op1_supervised_eps0.50.scr_bd128.npz", "weights/op2_m325_BT.npz"]
 exclude = ["**/__pycache__"]

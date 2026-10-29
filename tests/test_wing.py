@@ -178,7 +178,7 @@ def test_polar_follows_the_state_training_range(cache, monkeypatch):
 def test_sst_warnings_are_grouped():
     import predict_field as PF
     lo = "Reynolds number 1e+06 lies outside the decoder's training range 2e+06 to 6e+06"
-    out = WG._sst_warnings([[lo], [lo, PF.FAMILY_NOTE], [], ["incidence 15.50 deg lies outside ..."]], [1e6, 1e6, 3e6, 7e6], 2e6, 6e6)
+    out = WG._sst_warnings([[lo], [lo, PF.FAMILY_NOTE_AIRFRANS], [], ["incidence 15.50 deg lies outside ..."]], [1e6, 1e6, 3e6, 7e6], 2e6, 6e6)
     assert out == ["RANS decoder: 2 of 4 strips at Re below its training range 2e6-6e6",
                    "RANS decoder: 1 of 4 strips are not NACA 4/5-digit sections (the decoder's training family): read their values as indicative",
                    "RANS decoder: 1 of 4 strips at incidences outside its training range -5 to 15 deg"]

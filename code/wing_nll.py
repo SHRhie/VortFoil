@@ -38,6 +38,10 @@ NU_AIR = 1.5e-5                 # m^2/s, air at about 20 C
 AR_MIN, SWEEP_MAX_DEG = 4.0, 10.0      # lifting-line validity: aspect ratio; quarter-chord sweep (its effects are not modelled)
 TABLE_X = np.arange(-10.0, 18.001, 0.25)  # XFOIL state: section incidences tabulated (deg), the surface model's training range
 TABLE_S = np.arange(-8.0, 16.001, 1.0)    # RANS state: section incidences tabulated (deg; research 0.5)
+# The RANS state keeps the AirfRANS-only decoder of release 2.0.0. The manuscript's wing uses the co-trained decoder, whose
+# NACA 23012 lift turns non-monotonic below -7 deg; the research solver handles that with SST tables over -5..15 deg and a
+# linear continuation of C_l outside them, which in this straight-leg solver settles the default wing's tip strips at 72 deg.
+WING_DECODER = os.path.join(vortfoil_paths.WEIGHTS, "field_decoder_f0cm_s1.npz")
 RE_GRID = 0.05                  # RANS state: per shape, tables on this log10(Re) grid (decades) where that needs fewer tables
                                 # than the strips' own Re values, linear in log10(Re); None: every table at a strip's Re.
 # Why (Mac M5 Pro, serial, 0.088 s per decoder call): the research tables (0.5 deg, every strip's Re) took 88 s for the
@@ -485,7 +489,9 @@ def table_polar(tab, deg=12):
 
 # ------------------------------------------------------------------------------------------- the application's wing
 SST_KINDS = (("the field decoder was trained on NACA", "are not NACA 4/5-digit sections (the decoder's training family): read "
-              "their values as indicative"), ("the coordinates were not in the chord frame", "were normalized to the chord frame"),
+              "their values as indicative"),
+             ("the field decoder's SST training sections are NACA", "are not NACA 4/5-digit sections (the decoder's SST training "
+              "family): read their values as indicative"), ("the coordinates were not in the chord frame", "were normalized to the chord frame"),
              ("the 16-parameter form deviates", "deviate from their 16-parameter form (the operator state is the fitted shape's)"),
              ("trailing-edge gap", "have a trailing-edge gap, closed for the decoder"),
              ("the section's shape code", "are unlike the decoder's NACA training sections (shape code)"))
@@ -541,7 +547,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
     (arrays are coordinates: family None for the field decoder; put a NACA section's designation in its station instead).
     labels: {section: display name} (e.g. {'current': 'clarky'}) for the loops' labels and the returned defn's stations.
     progress(fraction, text) is called from the calling thread; cancel() returning True stops between units of work with
-    RuntimeError('cancelled'). decoder: the field decoder's weights file (RANS state; default predict_field.DECODER).
+    RuntimeError('cancelled'). decoder: the field decoder's weights file (RANS state; default WING_DECODER).
     Returns a plain dict of numbers and numpy arrays (n strips, m tabulated incidences, NX chordwise points):
       defn (validated; its sections as labelled), V, alpha, state, nu, decoder (file name, sst) | sst_range (sst, else
       None): n, below, above (strips with Re outside the decoder's training range lo-hi), lo, hi, message (None unless more
@@ -567,7 +573,7 @@ def compute(defn, V, alpha, state="xfoil", sections=None, progress=None, cancel=
     import vortfoil
     import predict_field as PF
     from vortfoil import geometry
-    sst, dec = state == "sst", decoder or PF.DECODER
+    sst, dec = state == "sst", decoder or WING_DECODER
     names = [s["section"] for s in d["stations"]]
     coords = [section_coords(s, sections) for s in names]
     tick = _Ticker(progress, cancel)
@@ -707,7 +713,7 @@ def _sig3(v, up):
 def input_ranges(defn, scale=1.0, V=None, decoder=None, current_is_naca=False):
     """What a wing's inputs must respect in each section state, for the application's 3D Flow box; numbers only, no model call.
     defn: a wing definition (validate; its n strips, default 40) whose lengths are multiplied by `scale`; V: a speed (m/s) to judge,
-    or None; decoder: the RANS state's weights file (default predict_field.DECODER); current_is_naca: whether 'current' (the
+    or None; decoder: the RANS state's weights file (default WING_DECODER); current_is_naca: whether 'current' (the
     Airfoil box's section) is a NACA 4/5-digit designation. ValueError (validate's, or naming Scale x, the chords or Speed) for
     inputs that are not a wing. Returns
       xfoil, sst: label; alpha (lo, hi) deg and Re (lo, hi), the state's training ranges of strip incidence and Reynolds number;
@@ -731,7 +737,7 @@ def input_ranges(defn, scale=1.0, V=None, decoder=None, current_is_naca=False):
     near = lambda m: ("at the inboard strips", "at the mid-span strips", "at the outboard strips")[min(int(3 * w.eta[m].mean()), 2)]
     out, why, tol = {}, {}, 1e-9                        # tol: a speed at a bound, typed or computed, is inside
     for st, label, (a0, a1), (r0, r1) in (("xfoil", "XFOIL state", TRAIN_ALPHA_DEG, TRAIN_RE),
-                                          ("sst", "RANS state", PF.FIELD_ALPHA, PF.FIELD_RE_OF.get(decoder or PF.DECODER, PF.FIELD_RE))):
+                                          ("sst", "RANS state", PF.FIELD_ALPHA, PF.FIELD_RE_OF.get(decoder or WING_DECODER, PF.FIELD_RE))):
         # 1e-12 inside: at an exact bound, compute()'s rounded Re = V c / NU_AIR fails the models' strict range checks up to 1 time in 10
         v0, v1 = (r0 * NU_AIR / c0 if c0 > 0 else np.inf) * (1 + 1e-12), r1 * NU_AIR / c1 * (1 - 1e-12)
         if not (v0 < np.inf and v1 > 0):                # also NaN: lengths no float carries into a speed (Scale x 1e-320)

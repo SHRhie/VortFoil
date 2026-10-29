@@ -40,6 +40,7 @@ def main(argv=None, prog="vortfoil"):
         q.add_argument("--coords", help="text file of x y coordinates")
         q.add_argument("--Re", type=float, default=1e6)
         q.add_argument("--json", action="store_true", help="print the full result as JSON")
+        q.add_argument("--rans", action="store_true", help="also give the RANS-corrected coefficients (vortfoil.rans)")
         if name == "predict":
             q.add_argument("--alpha", type=float, default=0.0)
         else:
@@ -59,19 +60,21 @@ def main(argv=None, prog="vortfoil"):
     vf = vortfoil.load_model(mode=args.mode, device=args.device)
     inp = _load_cst(args)
     if args.cmd == "predict":
-        r = vf.predict(alpha=args.alpha, Re=args.Re, **inp)
+        r = vf.predict(alpha=args.alpha, Re=args.Re, rans=args.rans, **inp)
         alphas = [args.alpha]
     else:
         a0, a1, n = args.alpha_range.split(",")
         alphas = np.linspace(float(a0), float(a1), int(n))
-        r = vf.predict(alpha=alphas, Re=args.Re, **inp)        # coordinates: incidence from the fitted chord line, as predict
+        r = vf.predict(alpha=alphas, Re=args.Re, rans=args.rans, **inp)   # coordinates: incidence from the fitted chord line
     if args.json:
         json.dump({k: np.asarray(v).tolist() for k, v in r.as_dict().items()}, sys.stdout, indent=1)
         sys.stdout.write("\n")
     else:
-        print(f"{'alpha':>8} {'Cl':>9} {'Cd':>10} {'Cm':>9} {'s_stag':>8}")
+        extra = f" {'Cl_RANS':>9} {'Cd_RANS':>10} {'Cm_RANS':>9}" if args.rans else ""
+        print(f"{'alpha':>8} {'Cl':>9} {'Cd':>10} {'Cm':>9} {'s_stag':>8}" + extra)
         for i, a in enumerate(np.atleast_1d(alphas)):
-            print(f"{float(a):8.2f} {r.cl[i]:9.4f} {r.cd[i]:10.5f} {r.cm[i]:9.4f} {r.stagnation[i]:8.4f}")
+            extra = f" {r.cl_rans[i]:9.4f} {r.cd_rans[i]:10.5f} {r.cm_rans[i]:9.4f}" if args.rans else ""
+            print(f"{float(a):8.2f} {r.cl[i]:9.4f} {r.cd[i]:10.5f} {r.cm[i]:9.4f} {r.stagnation[i]:8.4f}" + extra)
     return 0
 
 

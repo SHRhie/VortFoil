@@ -51,7 +51,7 @@ def test_packaged_and_reproduction_operators_agree(rel):
 
 @pytest.mark.skipif(not os.path.isdir(WEIGHTS_REPO), reason="repository weights not present (wheel install)")
 @pytest.mark.parametrize("name", ["op1_supervised_eps0.50.scr_bd128.npz", "op2_m325_BT.npz",
-                                  "lift_closure_poly2.npz", "cd_closure_poly2.npz"])
+                                  "lift_closure_poly2.npz", "cd_closure_poly2.npz", "rans_correction_nn.npz"])
 def test_packaged_and_repository_weights_agree(name):
     sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()
     assert sha(os.path.join(WEIGHTS_PKG, name)) == sha(os.path.join(WEIGHTS_REPO, name)), name

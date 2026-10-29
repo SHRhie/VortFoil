@@ -231,3 +231,20 @@ def test_reproduces_recorded_scores(model):
     assert abs(r2(r.cl, cl_t) - float(ref["scores"]["cl"])) < 2e-4
     assert abs(r2(r.cl_gamma, cl_t) - float(ref["scores"]["cl_gamma"])) < 2e-4
     assert abs(r2(np.clip(r.cd, 1e-4, 0.1), cd_t) - float(ref["scores"]["cd"])) < 2e-4
+
+
+def test_rans_correction_reproduces_its_fit():
+    """vortfoil.rans.correct on three AirfRANS test cases, from the surface branch's coefficients there, gives the NN-corrected
+    values of the fitted correction (research record results/rans_correction_nn_20261015.json; per-case test predictions)."""
+    rows = [((0.12875917553901672, 0.007713331840932369, 0.010218175128102303, 1.334, 2039230.7692307692),
+             (0.16018389534015814, 0.012186189708074177, 0.0029179966545434654)),
+            ((-0.15317854285240173, 0.006730225868523121, -0.05731268972158432, -4.278, 3720384.615384615),
+             (-0.18273939637739972, 0.00861423355186985, -0.051487795401931984)),
+            ((1.4062963724136353, 0.01602579839527607, 0.03547203540802002, 14.686, 5032115.384615385),
+             (1.3931359306371431, 0.022261582865594116, 0.02732263618975369))]
+    x, ref = np.array([r[0] for r in rows]), np.array([r[1] for r in rows])
+    # 1e-6: the fit took ln C_d of float32 coefficients (about 1e-8 here); the package's float32 chain adds up to 1.3e-6 over the
+    # 200 test cases (results/rans_correction_nn_export_check.json is the exact float64 check of the exported weights)
+    assert np.allclose(np.column_stack(vortfoil.rans.correct(*x.T)), ref, rtol=0, atol=1e-6)
+    with pytest.warns(vortfoil.RangeWarning, match="RANS correction"):
+        vortfoil.rans.correct(0.5, 0.01, -0.05, 4.0, 1e6)                       # Re below the fitted 2e6..6e6
