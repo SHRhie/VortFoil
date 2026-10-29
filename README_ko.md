@@ -18,8 +18,8 @@ VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터
 예측합니다. 배포된 두 힘 계수는 순수한 시트 판독값이 *아닙니다*. 형상 항력은 예측된 뒷전 상태에 대한
 릿지 회귀 닫힘식이고, 배포된 양력은 순환 판독값에 같은 상태에서 읽어 낸 릿지 회귀 점성 캠버 감소
 보정을 더한 값입니다. 형상 비의존 유동장 디코더는 외부 솔버가 아니라 시트의 순환과 경계층의 뒷전 상태를
-조건으로 하여 2차원 RANS 유동장을 복원합니다. **이 저장소는 확정된 표면 모델 하나와 이를 조건으로 하는
-유동장 디코더를 제공하며**, 비교 대상인 XFOIL 조건부 디코더도 함께 제공합니다. 형상만으로 계수를
+조건으로 하여 2차원 RANS 유동장을 복원합니다. **이 저장소는 확정된 표면 모델 하나, 이를 조건으로 하는
+유동장 디코더, 그리고 표면 계수에 대한 고정된 RANS 보정을 제공하며**, 원고에서 비교하는 디코더들도 함께 제공합니다. 형상만으로 계수를
 회귀하는 모델은 없으며, 세 단계 어디에서도 추론 시점에 XFOIL이나 CFD 프로세스를 실행하지 않습니다.
 이는 외부 솔버 호출에 관한 진술일 뿐, 적합이나 선형대수에 관한 진술이 아닙니다. 두 힘 닫힘식은 배포
 시점에 고정된 경험적 적합이며, 유동장 경로의 물리 페인트(physics paint)는 여전히 모델 내부에서
@@ -28,8 +28,11 @@ VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터
 원고의 초록은 [`paper/abstract.md`](paper/abstract.md)를 참고하십시오. 정본은 원고이며, 이곳의 초록은 미러(사본)이므로
 이곳에서 직접 수정하지 않습니다.
 
-> **상태.** 버전 2.0.0은 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
-> (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 2026-10-13에 GitHub과 PyPI로 릴리스되었고 Zenodo에 보관되었습니다: [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871).
+> **상태.** 버전 2.1.0은 수정된 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
+> (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 유동장 디코더는 AirfRANS와 비-NACA UniFoil 익형 16,923개를 함께 사용해
+> 학습했으며, 표면 브랜치의 RANS 계수 보정이 추가되었습니다(`CHANGELOG.md`).
+> 버전 2.0.0은 2026-10-13에 GitHub과 PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의
+> [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871)에 보관됩니다.
 > 라이선스는 GPL-3.0-or-later입니다(아래의 *라이선스* 참조).
 
 ## 디렉터리 구조
@@ -71,21 +74,37 @@ paper/            원고 초록
    예측된 뒷전 상태에 대한 2차 다항식입니다(같은 학습 행 325,370개에서 릿지 회귀로 적합해 고정한 28개 계수이며,
    윗면과 아랫면이 따로 들어갑니다). 시트의 순환 양력에 대한 점성 캠버 감소 보정이며, 배포된 Cl은
    닫힘식을 적용한 이 값입니다. 아래의 유동장 디코더는 여전히 보정되지 않은 Cl^γ를 입력으로 받습니다.
-5. **유동장 디코더** — `weights/field_decoder_f0cm_s1.npz`, 배포된 오퍼레이터 조건부 디코더입니다. 이는 형상
-   비의존 RANS 유동장 디코더(폭 248의 다섯 층 비잔차 트렁크, 네 대역 푸리에 특징, 실제 표면 점군에 대한
-   PointNet 형상 잠재 벡터 z ∈ R^16, 물리 페인트 입력; ≈305k 매개변수)로서 AirfRANS k–ω SST 사례 780개로
-   학습했으며, 이 사례들은 800개 사례 학습 분할에서 검증용으로 20개를 제외한 것입니다. 두 조건 입력은 XFOIL
+5. **유동장 디코더** — `weights/field_decoder_cmx_s0.npz`, 배포된 디코더입니다. 이는 형상 비의존 RANS 유동장
+   디코더(폭 248의 다섯 층 비잔차 트렁크, 네 대역 푸리에 특징, 실제 표면 점군에 대한 PointNet 형상 잠재 벡터
+   z ∈ R^16, 물리 페인트 입력; ≈305k 매개변수)로서 AirfRANS k–ω SST 사례 780개(800개 사례 학습 분할에서
+   검증용으로 20개를 제외한 것)와 비-NACA UniFoil 익형 16,923개(완전 난류 Spalart–Allmaras, M ≤ 0.2;
+   익형 150개는 홀드아웃)를 함께 사용해 학습했으며, 난류 모델 입력은 없습니다. 세 번의 학습 실행 가운데 배포된
+   실행은 검증 사례 20개에서 표준화된 네 채널 MSE의 평균이 0.00257로 가장 낮습니다(실행 1과 2는 0.00458과
+   0.00330; `results/cotrain_score_cmx_20261015T023434Z.json`, `selection`). 원고의 제거 실험용 디코더도 함께
+   제공합니다. 아래에 설명하는 AirfRANS 전용 디코더들(릴리스 2.0.0은 `field_decoder_f0cm_s1.npz`를 배포했으며,
+   3차원 날개의 RANS 상태는 여전히 이를 사용함), 배포된 디코더와 같은 수의 최적화 스텝으로 학습한 AirfRANS 전용
+   디코더(`field_decoder_sml2_s*.npz`, 실행 2 선택; `results/stepmatch_score_20261015T070933Z.json`), 그리고
+   UniFoil 익형 1,346개를 함께 사용해 학습한 디코더(`field_decoder_cmd_s*.npz`, 실행 2 선택;
+   `results/cotrain_score_cmd_20261015T032838Z.json`)입니다. AirfRANS 전용 오퍼레이터 조건부 디코더
+   `weights/field_decoder_f0cm_s1.npz`는 구조가 같으며 AirfRANS 사례 780개만으로 학습했습니다. 두 조건 입력은 XFOIL
    호출이 아니라 `code/field/state_provider.py`를 통해 OP1과 OP2에서 얻습니다. 하나는 페인트 순환 스케일
    Cl^γ(보정 전)이고, 다른 하나는 박리 스칼라 `s_sep = clip((max(H_TE^u, H_TE^l) − 2)/8, 0, 1)`
    (`s_rule="teH"`)로, 표면별 뒷전 형상 계수 두 값 중 큰 쪽이며 이 디코더의 학습 행과 모든 평가에 쓰입니다.
    비교용 디코더 `weights/field_decoder_f0a_s2.npz`는 구조와 학습 레시피가 같고 XFOIL의 입력으로
-   학습되고 평가됩니다(XFOIL 조건부 디코더). 각 디코더의 세 번의 학습 실행 가운데 배포된 실행은 학습기의
+   학습되고 평가됩니다(XFOIL 조건부 디코더). 이 두 디코더 각각의 세 번의 학습 실행 가운데 선택된 실행은 학습기의
    20개 사례 검증 홀드아웃에서 표준화된 네 채널 MSE의 평균이 가장 낮습니다. 오퍼레이터 조건부 실행 1은
    0.00262(`results/f0cm_holdout_rescore.json`), XFOIL 조건부 실행 2는
-   0.00372(`results/f0a_holdout_rescore_20260930.jsonl`)입니다. 배포되지 않은 실행도 함께
+   0.00372(`results/f0a_holdout_rescore_20260930.jsonl`)입니다. 다른 실행도 함께
    제공합니다(`results/field_deployed_weights.json`, `selection.*`). `weights/airfrans_surface_tokens.npz`(형상 잠재
    벡터용 표면 점 토큰)와 `weights/airfrans_train_stats.npz`(출력 정규화)는 디코더가 필요로 하는 입력이며,
-   별도의 모델이 아닙니다.
+   별도의 모델이 아닙니다. 여기의 모든 디코더는 같은 두 조건 입력을 받습니다.
+6. **RANS 계수 보정** — `weights/rans_correction_nn.npz`(패키지에도 사본이 있음). 모든 오퍼레이터와 닫힘식을
+   고정한 상태에서, 5-32-32-3 tanh 네트워크 다섯 개가 표면 브랜치의 (C_l, ln C_d, C_m, α, log₁₀ Re)를
+   RANS 수준의 계수 C_l + f_l, C_d·exp(f_d), C_m + f_m으로 변환하며, 그 평균을 사용합니다. 형상이나 경계층 상태는
+   입력받지 않습니다. 적합 전에 고정한 프로토콜(`results/rans_correction_nn_20261015_PRESPEC.md`)에 따라
+   AirfRANS 학습 사례 780개(k–ω SST)로 적합했습니다. `vf.predict(..., rans=True)`는 `cl_rans`, `cd_rans`,
+   `cm_rans`를 반환하고, `vortfoil predict --rans`는 이를 출력합니다. 적합 범위(α −5°에서 15°, Re 2×10⁶에서
+   6×10⁶)를 벗어나면 `vortfoil.RangeWarning`을 발생시킵니다.
 
 ## 가중치
 
@@ -97,10 +116,20 @@ paper/            원고 초록
 | `lift_closure_poly2.npz` | 양력 닫힘식 계수(`cl_closed_tf`) | `788f7c73efb2` |
 | `field_decoder_f0a_s0.npz` | 유동장 디코더, XFOIL 조건부, 실행 0 | `d90b88a5757e` |
 | `field_decoder_f0a_s1.npz` | 유동장 디코더, XFOIL 조건부, 실행 1 | `118face2a9e8` |
-| `field_decoder_f0a_s2.npz` | 유동장 디코더, XFOIL 조건부, 실행 2(배포됨) | `1440f8f4dbd3` |
-| `field_decoder_f0cm_s0.npz` | 유동장 디코더, 오퍼레이터 조건부, 실행 0 | `e1da6228e827` |
-| `field_decoder_f0cm_s1.npz` | 유동장 디코더, 오퍼레이터 조건부, 실행 1(배포됨) | `5e72da181372` |
-| `field_decoder_f0cm_s2.npz` | 유동장 디코더, 오퍼레이터 조건부, 실행 2 | `fed72563ca1e` |
+| `field_decoder_f0a_s2.npz` | 유동장 디코더, XFOIL 조건부, 실행 2(선택됨) | `1440f8f4dbd3` |
+| `field_decoder_f0cm_s0.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 0 | `e1da6228e827` |
+| `field_decoder_f0cm_s1.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 1(선택됨; 2.0.0에서 배포; 3차원 날개의 RANS 상태) | `5e72da181372` |
+| `field_decoder_f0cm_s2.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 2 | `fed72563ca1e` |
+| `field_decoder_cmx_s0.npz` | 유동장 디코더, AirfRANS + UniFoil 16,923개, 실행 0(배포됨) | `3a8a14810969` |
+| `field_decoder_cmx_s1.npz` | 유동장 디코더, AirfRANS + UniFoil 16,923개, 실행 1 | `fdeaa79f5701` |
+| `field_decoder_cmx_s2.npz` | 유동장 디코더, AirfRANS + UniFoil 16,923개, 실행 2 | `216f4c5f77d1` |
+| `field_decoder_sml2_s0.npz` | 유동장 디코더, AirfRANS 전용, 최적화 스텝 수 일치(341 에포크), 실행 0 | `6c5f4f98f66f` |
+| `field_decoder_sml2_s1.npz` | 유동장 디코더, AirfRANS 전용, 최적화 스텝 수 일치, 실행 1 | `fe6cb58df767` |
+| `field_decoder_sml2_s2.npz` | 유동장 디코더, AirfRANS 전용, 최적화 스텝 수 일치, 실행 2(선택됨) | `677339fac1be` |
+| `field_decoder_cmd_s0.npz` | 유동장 디코더, AirfRANS + UniFoil 1,346개, 실행 0 | `ea4afc5302cc` |
+| `field_decoder_cmd_s1.npz` | 유동장 디코더, AirfRANS + UniFoil 1,346개, 실행 1 | `27061f0007bd` |
+| `field_decoder_cmd_s2.npz` | 유동장 디코더, AirfRANS + UniFoil 1,346개, 실행 2(선택됨) | `f2ab7f28378e` |
+| `rans_correction_nn.npz` | RANS 계수 보정(네트워크 다섯 개와 그 표준화) | `86286dcca4f0` |
 | `op2_d500k_previous.npz` | 이전에 공개된 경계층 오퍼레이터(d500k; 배포된 체인에는 포함되지 않음) | `3c9e8d031fd4` |
 | `airfrans_surface_tokens.npz` | 형상 잠재 벡터용 표면 점 토큰 | `cd27519b76dc` |
 | `airfrans_train_stats.npz` | 유동장 디코더 출력 정규화 | `3da1cefe69d2` |
@@ -395,8 +424,29 @@ XFOIL 표면 해가 아예 없으므로 비교하는 모든 모델에 같은 행
 R² 값이 음수인 마지막 행이 바로 전진 적분 방식 대신 적합된 닫힘식(`fitted_poly2`)이 배포 기본값인 이유입니다.
 닫힘식 선택 과정의 전체 경위는 `results/FINDING_closure_track.json`(발견 F3–F16)을 참조하십시오.
 
-**유동장 디코더**(AirfRANS `full_test`, n = 200, k–ω SST RANS 유동장. 모든 격자 노드에 대한 채널별 표준화 MSE이며, σ는 800개 사례 학습 분할에서
-구했습니다. 디코더마다 배포된 가중치 파일 하나이며 시드 통계는 없습니다):
+**배포된 유동장 디코더**(모든 격자 노드에 대한 채널별 표준화 MSE, 사례마다 같은 가중치를 둔 평균입니다. σ는 200개 사례의
+희소 태스크 학습 분할에서 뽑은 50개 사례의 모든 노드로 구했습니다. 공표된 값은 해당 태스크 학습 분할의 모든 노드로 σ를
+구하므로, 이 값은 그에 비해 보수적입니다. `results/cotrain_score_cmx_20261015T023434Z.json`):
+
+| 집합 | ux | uy | p | nut |
+|---|---|---|---|---|
+| AirfRANS `full_test`, n = 200 (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
+| 학습에서 보지 않은 비-NACA UIUC 단면 16개(k–ω SST, AirfRANS 생성기) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
+| 홀드아웃 UniFoil 익형 150개(Spalart–Allmaras; 저장된 행의 부분 표본이며 위의 행들과 비교할 수 없음) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+
+같은 수의 최적화 스텝으로 학습한 AirfRANS 전용 디코더 대비 쌍체 사례 부트스트랩 오차비는 AirfRANS에서 1.00, 1.36,
+0.57, 0.51이며(NACA 속도 오차의 개선은 학습 길이에서 옵니다), 비-NACA 단면 16개에서는 0.39, 0.30, 0.44, 0.50으로
+모두 1보다 낮습니다(`results/stepmatch_score_20261015T070933Z.json`).
+
+**RANS 계수 보정**(`results/rans_correction_nn_20261015.json`; 내보낸 가중치는 적합의 예측을 2e-16 이내로 재현합니다,
+`results/rans_correction_nn_export_check.json`): AirfRANS 시험 분할(n = 200)에서 RANS 대비 표면 브랜치의 양력 / 항력
+평균 상대 오차는 7.7% / 25.9%에서 2.9% / 4.3%로, 모멘트 MAE는 0.0082에서 0.0028로 줄어듭니다. 학습에서 보지 않은
+비-NACA SST 단면 107개에서는 양력 MAE가 0.037에서 0.028로, 항력 오차가 30.2%에서 8.9%로, 모멘트 MAE가
+0.0096에서 0.0071로 줄어듭니다. 보정된 계수와 유동장 디코더의 적분 계수가 일치하도록 제약하지는 않았으며, 시험 분할에서
+두 값의 차이는 양력 6.8%, 항력 14.1%입니다(`results/consistency_field_vs_corrected_20261029.json`).
+
+**AirfRANS 전용 유동장 디코더**(원고의 제거 실험용 디코더이며 릴리스 2.0.0은 오퍼레이터 조건부 디코더를 배포했습니다.
+AirfRANS `full_test`, n = 200, 같은 지표):
 
 | 디코더(배포된 가중치) | ux | uy | p | nut | 출처 |
 |---|---|---|---|---|---|
@@ -417,16 +467,16 @@ ux, p, nut에서는 낮고(0.83×, 0.89×, 0.74×) uy에서는 높습니다(1.13
   편향을 보정한 C_l로도 일부만 회복됩니다(ux 1.08)(`cl_substitution_vs_CM`).
 - **박리 규칙 민감도.** 평가 시 두 뒷전 형상 계수의 최댓값 대신 평균을 넣으면
   1.05 [1.02, 1.10] / 1.13 [1.08, 1.19] / 1.14 [1.03, 1.55] / 1.01 [0.89, 1.14]입니다(`eval_rule_sensitivity_CMm_over_CM`).
-- **받음각 구간**(원고 표 12; `results/band_table_f0cm_s1.json`, n = 55 / 79 / 44 / 22): XFOIL 조건부 디코더 대비 개선은
+- **받음각 구간**(`results/band_table_f0cm_s1.json`, n = 55 / 79 / 44 / 22): XFOIL 조건부 디코더 대비 개선은
   [12, 16)°에서 가장 크며 모든 채널에서 0.41–0.70×입니다. MARIO의 통합 집계값과 비교하면 [−6, 0)°와 [0, 8)° 구간은
   모든 채널에서 MARIO보다 낮고, [8, 12)°는 ux(1.23×)와 uy(1.60×)에서 MARIO보다 높으며, [12, 16)°는 네 채널 모두에서
   MARIO보다 높습니다(1.68× / 3.73× / 5.45× / 4.89×).
 - **앞 단계 입력.** 페인트의 순환 스케일을 정하는 시트의 순환 양력은 200개 시험 사례에서 XFOIL의 강제 천이 양력 대비
   R² 0.970을 기록합니다(`results/step2_eval_f0cm_20260925T213247Z/result.json`, `provider_vs_xfoil_diagnostic.cl_R2`).
 
-원고의 그림 6 `figures/vf_field_f0cm_tp_pos.{pdf,png}`(저장된 수치는 `figures/vf_field_f0cm_tp_pos_numbers.json`)은
+`figures/vf_field_f0cm_tp_pos.{pdf,png}`(저장된 수치는 `figures/vf_field_f0cm_tp_pos_numbers.json`)은
 시험 사례 `airFoil2D_SST_39.31_8.883_4.707_0.0_12.552`(U∞ = 39.3 m/s, α = 8.88°, 두께 12.6%인 대칭 NACA 네 자리 단면)에서
-배포된 오퍼레이터 조건부 디코더를 RANS 참값과 나란히 그려 보여 줍니다. 이 사례는 그림을 그리기 전에 정한 규칙으로
+AirfRANS 전용 오퍼레이터 조건부 디코더(2.0.0에서 배포)를 RANS 참값과 나란히 그려 보여 줍니다. 이 사례는 그림을 그리기 전에 정한 규칙으로
 골랐습니다. α ≥ 8°인 시험 사례 66개 중에서 디코더의 표준화된 전체 격자 MSE 네 개의 평균이 가장 낮은 사례이며(실행 1,
 `results/step2_eval_f0cm_20260925T213247Z/per_case.npz`, `mse_all_*_s1`), 전체 200개 중 14위입니다. 각 채널은 RANS 열과
 디코더 열이 함께 쓰는 자기 색 눈금을 가집니다. u∥(자유류 방향)는 자유류 속도를 가운데로 둔 coolwarm으로, 빠르면 빨강,
@@ -437,7 +487,7 @@ ux, p, nut에서는 낮고(0.83×, 0.89×, 0.74×) uy에서는 높습니다(1.13
 
 `results/_speed_confirmed_summary.json`(생성 스크립트: `code/reproduce/vf_speed_surface.py`, `vf_speed_nf.py`, `sepeval/xfoil_time_win.py`)에는 배치 크기 1–2737에서의 표면 체인 사례당 비용(시트 오퍼레이터 + Cl^γ 판독 9.95 µs; 계수 체인은 시트와 경계층 순전파에 두 고정 닫힘식을 더한 것으로 모멘트와 정체점 위치 판독을 제외하며, 노트북 CPU, TF 2.10 즉시 실행에서 B = 1024일 때 사례당 318 µs; 역방향 모드 형상 기울기는 Cl^γ에 대해 시트 순전파의 2.34×, 배포된 Cl은 계수 체인의 3.13×, Cd는 3.12×이며, 둘 다 경계층 오퍼레이터의 역전파를 공유하고 `results/_grad_check_*.json`에서 중심 유한 차분과 대조해 검증했습니다), 같은 행에 대한 NeuralFoil xlarge(배치 처리 사례당 28.8 µs, 단일 질의 0.691 ms), XFOIL 단일 프로세스(사례당 중앙값 0.104 s, Xeon), 그리고 장치가 다른 참고값으로서 MARIO가 공표한 88 ms/sample(A100)이 들어 있습니다. 절대값은 호스트 부하에 좌우되며, 같은 실행 안에서의 비율이 안정적인 통계량입니다.
 
-유동장 경로: 배포된 오퍼레이터 조건부 디코더의 구성 요소별 마이크로벤치마크(원고 표 17; `results/_speed_confirmed_field_f0cm_20261002T053715Z.json`, 생성 스크립트 `code/reproduce/vf_speed_field.py`; NumPy 인코더와 디코더, 각 시험 사례를 자신의 RANS 격자 노드에서 질의, 세 사례에서 사례당 점 수의 중앙값 172,029개)입니다. 사례당 조건 입력 0.0131 s, 물리 페인트 5.38 s, 최근접 패널과 중복 거리 탐색 2.90 s, 형상 인코더 0.0000876 s, 디코더 1.29 s(10³개 점당 7.35 ms)입니다. 이는 구성 요소별 시간이며 종단 간 지연 시간이 아닙니다. MARIO의 0.088 s는 하드웨어와 시간 측정 경계가 다른 공표값이므로 속도비는 계산하지 않습니다.
+유동장 경로: AirfRANS 전용 오퍼레이터 조건부 디코더의 구성 요소별 마이크로벤치마크(배포된 디코더도 구조와 입력은 같습니다; `results/_speed_confirmed_field_f0cm_20261002T053715Z.json`, 생성 스크립트 `code/reproduce/vf_speed_field.py`; NumPy 인코더와 디코더, 각 시험 사례를 자신의 RANS 격자 노드에서 질의, 세 사례에서 사례당 점 수의 중앙값 172,029개)입니다. 사례당 조건 입력 0.0131 s, 물리 페인트 5.38 s, 최근접 패널과 중복 거리 탐색 2.90 s, 형상 인코더 0.0000876 s, 디코더 1.29 s(10³개 점당 7.35 ms)입니다. 이는 구성 요소별 시간이며 종단 간 지연 시간이 아닙니다. MARIO의 0.088 s는 하드웨어와 시간 측정 경계가 다른 공표값이므로 속도비는 계산하지 않습니다.
 
 구현 조건(`code/reproduce/vf_speed_surface_modes.py`, `results/_speed_modes_*.json`): 배포된 즉시 실행 CPU 수치는 상한입니다. 같은 계수 체인을 `tf.function`으로 컴파일하면(XLA 없음) 노트북 CPU에서 B = 1024일 때 163 µs/case(즉시 실행은 317), 단일 질의는 1.30 ms(11.3 ms)가 되고, RTX 4060 Ti(8 GB, Windows)에서는 컴파일된 체인이 B = 512에서 126 µs/case에 이르며 기울기는 ~395 µs/case입니다. 반면 GPU의 즉시 실행은 훨씬 느리며(단일 질의 93 ms), 이 구현에서는 배치 ≥ 1024가 카드의 메모리를 모두 소진합니다.
 
@@ -452,7 +502,7 @@ ux, p, nut에서는 낮고(0.83×, 0.89×, 0.74×) uy에서는 높습니다(1.13
 # TF 2.10 환경 — 표면/항력 수치를 비트 단위로 그대로 재현합니다
 python code/smoke_confirmed_chain.py
 
-# `airfrans` 패키지가 있는 TF 2.18 환경 — 배포된 유동장 디코더의 순전파만 수행합니다
+# `airfrans` 패키지가 있는 TF 2.18 환경 — AirfRANS 전용 유동장 디코더(2.0.0에서 배포)의 순전파
 python code/smoke_field_decoder.py
 ```
 
@@ -465,22 +515,25 @@ python code/reproduce/surface_contract_cst16.py <out.npz> <out.json>
 # 홀드아웃 스키마를 따르는 임의의 타깃 npz에 대한 물리 항력 경로 + NeuralFoil
 python code/reproduce/eval_on_targets.py data/eval/holdout_targets.npz <out.npz> [op2_weights]
 
-# AirfRANS full_test에서의 원고 유동장 수치(외부 데이터셋 필요)
+# AirfRANS full_test에서의 AirfRANS 전용 디코더 유동장 수치(외부 데이터셋 필요)
 export AIRFRANS_ROOT=/path/to/AirfRANS/Dataset
-python code/field/f0cm_final_rescore.py --workers 8    # 표 11-12, 쌍체 비율, 드롭인, C_l 대체, s 규칙 민감도
+python code/field/f0cm_final_rescore.py --workers 8    # 유동장 오차, 구간, 쌍체 비율, 드롭인, C_l 대체, s 규칙 민감도
 python code/field/f0cm_final_rescore.py --limit 2      # 빠른 점검: 제공된 기록의 0-1행, 아무것도 쓰지 않음
 python code/field/step2_eval_f0c.py                    # 오퍼레이터 조건부 실행 세 개(results/step2_eval_f0cm_*)
 python code/field/validate_predict_field.py            # 배포된 평가에 대한 predict_field.py 검증(results/predict_field_validation.json)
 python code/field/validate_field_surface.py            # RANS 벽면 값에 대한 predict_field.surface() 검증(results/field_surface_validation.json)
 
-# 그림 6
+# AirfRANS 전용 디코더의 유동장 그림
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
 python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
     --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
     --case-tag pos --p-qinf --print
 
-# 유동장 시간 측정(표 17)
+# 유동장 시간 측정
 python code/reproduce/vf_speed_field.py
+
+# 임의 단면의 RANS 보정 계수(배포된 보정)
+vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 ```
 
 배포된 실행을 고른 검증 점수는 `code/field/field_holdout_score.py`에서 나오며, 이 스크립트에는 학습 코퍼스가
@@ -502,13 +555,18 @@ python code/reproduce/vf_speed_field.py
   유동장 디코더와 유동장 그림은 AirfRANS로부터 만들어집니다. 출처 표시, 고지 사항, 전체 파일 목록은
   [`DATA_LICENSES.md`](DATA_LICENSES.md)에 있습니다. AirfRANS를 다루는 모든 작업에는 `AIRFRANS_ROOT`를 로컬 `Dataset/`
   디렉터리로 설정하십시오(`code/README_code.md` 참조).
+- **UniFoil**(Kanchi et al., 2025; CC BY-SA 4.0)은 외부 데이터셋이며 여기서 재배포하지 않습니다. UniFoil 익형을 사용해
+  학습한 디코더(`weights/field_decoder_cmx_s*.npz`, `field_decoder_cmd_s*.npz`)는 그 출처 표시와 함께 CC BY-SA 4.0에 따라
+  제공합니다(`DATA_LICENSES.md`).
 - **`data/eval/`** 디렉터리에는 이 README의 모든 수치를 만드는 데 쓴 XFOIL 평가 타깃이 있습니다. `holdout_targets.npz`(부착 유동 홀드아웃,
   2,880행 격자를 2,737행으로 걸러낸 것), `attached_surface_targets_v2.npz`와 `sep_eval_targets_v2.npz`(부착 유동과 박리 유동의
   표면/경계층 타깃이며, 후자는 NeuralFoil의 32개 스테이션에서의 경계층 상태를 담고 있습니다), 그리고 `sep_eval_coords.npz`(박리 유동 집합의
   질의 좌표)입니다.
 - 학습 코퍼스(XFOIL 경계층 데크, AirfRANS 유동장 학습용 npz 파일)는 제공되지 않습니다. 각각 0.5–3.1 GB이고, 유동장 코퍼스는
   AirfRANS의 파생물이기 때문입니다. 오퍼레이터 조건부 디코더는 `_nf_train_v5_full800_provider_maxs.npz`(sha256
-  `a387d918…`, 각 `field_decoder_f0cm_s*.npz`의 `run_config`에 명시됨)로 학습했으며, 이 파일도 제공되지 않습니다.
+  `a387d918…`, 각 `field_decoder_f0cm_s*.npz`의 `run_config`에 명시됨)로 학습했으며, 이 파일도 제공되지 않습니다. 배포된
+  디코더는 `_nf_unifoil_train_full_thin3_provider.npz`(sha256 `1e6ed4cf…`, 각 `field_decoder_cmx_s*.npz`의 `run_config`에
+  명시됨)를 추가로 사용하며, 이 파일도 제공되지 않습니다.
   `code/README_code.md`에 각 코퍼스를 만드는 스크립트가 나와 있습니다.
 
 ## 수치의 출처

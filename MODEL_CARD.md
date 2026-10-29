@@ -23,7 +23,9 @@ outputs are.
 - Teaching or inspection of a physically structured surrogate.
 
 This is an XFOIL-state model for the surface branch. It predicts what XFOIL would
-return, not what a RANS solver or an experiment would return.
+return, not what a RANS solver or an experiment would return. The optional RANS
+coefficient correction below maps its coefficients to the RANS reference state with
+the surface operators and closures frozen.
 
 Inputs are expected inside the training range: incidence −10° to 18° and Reynolds number 5×10⁴ to 10⁷ (the evaluation
 sets cover −4° to 12° and 2×10⁵ to 3×10⁶). Outside it the package issues `vortfoil.RangeWarning`.
@@ -155,24 +157,69 @@ statement.
 ## Field decoder
 
 A separately trained RANS field decoder also ships, in the package and in the repository (the installed `vortfoil`
-command and `code/field/predict_field.py` run it for any section from its coordinates): `weights/field_decoder_f0cm_s1.npz`, conditioned on the sheet's uncorrected circulation
-lift and on a boundary-layer-derived separation scalar, s_sep = clip((max(H_TE^u, H_TE^l) − 2)/8,
-0, 1). It is trained and tested on k–ω SST AirfRANS fields only (780 training cases, 200 test
-cases), a different reference state from the XFOIL surface branch; the two are never compared in
-absolute terms.
+command and `code/field/predict_field.py` run it for any section from its coordinates): `weights/field_decoder_cmx_s0.npz`.
+Its architecture and conditioning are unchanged: the sheet's uncorrected circulation lift and a
+boundary-layer-derived separation scalar, s_sep = clip((max(H_TE^u, H_TE^l) − 2)/8, 0, 1).
+It is trained on the 780 AirfRANS k–ω SST cases together with 16,923 non-NACA UniFoil airfoils
+(fully turbulent Spalart–Allmaras, M ≤ 0.2; every third stored row; 150 airfoils held out), with
+no turbulence-model input. The RANS fields are a different reference state from the XFOIL
+surface branch; the two are never compared in absolute terms.
+
+Run 0 of three was selected by the lowest mean of the four standardized channel MSEs on the
+20 AirfRANS validation cases: 0.00257 (runs 1 and 2: 0.00458 and 0.00330;
+`results/cotrain_score_cmx_20261015T023434Z.json`). The fixed spatial-feature and point-cloud
+budgets leave discretization independence untested.
+
+### Deployed field errors
+
+Per-channel standardized MSE over all mesh nodes, case-equal mean
+(`results/cotrain_score_cmx_20261015T023434Z.json`):
+
+| Population | u_x | u_y | p | ν_t |
+|---|---|---|---|---|
+| AirfRANS test, 200 cases (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
+| 16 unseen non-NACA UIUC sections (k–ω SST) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
+| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+
+The UniFoil row is not comparable with the rows above. The metric's σ comes from all nodes of
+a 50-case sample of the 200-case scarce-task training split. The published convention takes
+every node of the task's training split, so these values are conservative against published ones.
+
+On the 16 unseen non-NACA sections, the errors are 14 / 15 / 46 / 38 times the decoder's NACA
+test level in u_x / u_y / p / ν_t; the AirfRANS-only `f0cm_s1` decoder is at 27 / 35 / 68 / 40
+times. Every non-NACA input carries a family warning; the decoder also warns outside incidence
+−5° to 15° and Re 2×10⁶ to 6×10⁶.
+
+Against an AirfRANS-only decoder trained for as many optimizer steps, the paired error ratios
+(deployed / control, u_x / u_y / p / ν_t) are 1.00 / 1.36 / 0.57 / 0.51 on AirfRANS and
+0.39 / 0.30 / 0.44 / 0.50 on the 16 non-NACA sections
+(`results/stepmatch_score_20261015T070933Z.json`). The NACA velocity gains come from training
+length; the non-NACA gains come from the UniFoil airfoils.
+
+**Wall values in the RANS state** (the manuscript's RANS-reference evaluation: the AirfRANS force
+routine on the predicted fields, friction from Spalding's law 2×10⁻⁴ chord off the wall): on the
+200 AirfRANS test cases, wall-pressure
+standardized MSE is 4.5e-3; lift mean relative error is 5.4% (Spearman 0.9995); drag mean
+relative error is 45.5% from the wall gradient and 12.8% with wall-function friction
+(Spearman 0.641 and 0.743); moment MAE is 0.0023 (`results/table4_row_cmx_s0.json`).
+
+### AirfRANS-only decoder
+
+The AirfRANS-only `weights/field_decoder_f0cm_s1.npz`, deployed in 2.0.0, is trained on the
+780 AirfRANS cases alone. The 3D wing's RANS state keeps it (`wing_nll.WING_DECODER`). The
+following measurements are for that decoder.
 
 - Against an XFOIL-conditioned decoder trained on the same cases, its paired error-ratio 95%
   confidence intervals lie below unity on u_x, u_y and p and include unity on ν_t.
 - It has lower aggregate errors than MARIO's published values on u_x, p and ν_t, but not on u_y.
   Above 8 degrees incidence its u_x and u_y errors exceed MARIO's published aggregate; in the
   [12, 16) degree band all four channels do.
-- Its deployed weight is one of three training runs, selected by validation score; the
+- Its weight is one of three training runs, selected by validation score; the
   case-bootstrap intervals do not measure variation across training seeds.
-- Its fixed spatial-feature and point-cloud budgets leave discretization independence untested.
-- Run for a new section by `code/field/predict_field.py`: from dense coordinates alone it matches the deployed evaluation
+- **Coordinates alone:** the historical coordinate-only validation of `f0cm_s1` matched the 2.0.0 evaluation
   (mean errors 0.99, 0.99, 1.07, 1.03 times on the 200 test cases); a sparse 161-point section raises near-wall errors
-  on a RANS mesh (u_y 3.8 times) but changes a 0.01-chord grid by under 6% of the decoder's error. Outside AirfRANS's
-  NACA 4/5-digit sections, −5° to 15° and Re 2×10⁶ to 6×10⁶ it warns.
+  on a RANS mesh (u_y 3.8 times) but changes a 0.01-chord grid by under 6% of the decoder's error
+  (`results/predict_field_validation.json`).
 - **Wall values in the RANS state:** `predict_field.surface()` reads the decoder's wall pressure and takes friction from a
   wall function (the decoder's velocity 2×10⁻⁴ chord off the wall, Spalding's law), because the decoder does not resolve the
   wall gradient (friction from that gradient is 2.3 times the RANS friction). On the 200 test cases, from coordinates alone,
@@ -185,12 +232,29 @@ absolute terms.
   of the 200 cases, mostly from 8° on. The leading edge (x/c < 0.1) is not validated (10% upper, 48% lower). Separated stations
   are few (373 of 38,421). The viewer draws it from x/c 0.1; outside the decoder's training range it is often not read at all
   (`results/field_boundary_layer_validation.json`).
-- **Other airfoil families:** on ten UIUC sections computed with the AirfRANS protocol inside those ranges, its errors were
+- **Other airfoil families:** on ten UIUC sections computed with the AirfRANS protocol within incidence −5° to 15°
+  and Re 2×10⁶ to 6×10⁶, its errors were
   1.5 to 80 times its NACA test level (26 times on average for u_x), largest near the wall. Only near-NACA shapes (RAE 2822,
-  NACA 64₂-415, DU 84-132V) stayed within the test tail. The shape-code distance did not flag them, so every non-NACA input
-  carries a family warning.
+  NACA 64₂-415, DU 84-132V) stayed within the test tail. The shape-code distance did not flag them.
 
 The numbers are in the README's results summary.
+
+## RANS coefficient correction
+
+`vortfoil.rans` uses `weights/rans_correction_nn.npz`: five 5-32-32-3 tanh networks on the surface
+branch's (C_l, ln C_d, C_m, α, log₁₀ Re), with every operator and closure frozen. Their mean gives
+the RANS-level coefficients C_l + f_l, C_d·exp(f_d) and C_m + f_m, with no shape or boundary-layer-state
+input. They are fitted on the 780 AirfRANS k–ω SST training cases under a pre-specified protocol
+(`results/rans_correction_nn_20261015_PRESPEC.md`). `predict(..., rans=True)` returns `cl_rans`,
+`cd_rans` and `cm_rans`; `vortfoil predict|sweep --rans` prints them. Outside incidence −5° to 15°
+or Re 2×10⁶ to 6×10⁶, `vortfoil.RangeWarning` is issued.
+
+On the 200-case AirfRANS test split, mean relative lift / drag errors against RANS fall from 7.7% / 25.9%
+to 2.9% / 4.3%, and moment MAE from 0.0082 to 0.0028. On 107 unseen non-NACA SST sections, lift
+MAE falls from 0.037 to 0.028, drag error from 30.2% to 8.9%, and moment MAE from 0.0096 to 0.0071
+(`results/rans_correction_nn_20261015.json`). The corrected coefficients and the field decoder's
+integrated ones are not constrained to agree; they differ by 6.8% in lift and 14.1% in drag on the
+test split (`results/consistency_field_vs_corrected_20261029.json`).
 
 ## Attribution and license
 
@@ -201,6 +265,9 @@ The package is licensed under the GNU GPL v3 or later; see [`LICENSE`](LICENSE).
 boundary-layer closures (`xfoil_closures.py`) are translated from XFOIL 6.99 (Drela and
 Youngren, GPL v2 or later); see [`NOTICE`](NOTICE). Data attributions are in
 [`DATA_LICENSES.md`](DATA_LICENSES.md).
+
+The UniFoil-trained weights (`field_decoder_cmx_s*`, `field_decoder_cmd_s*`) are made available
+under CC BY-SA 4.0 with attribution; see [`DATA_LICENSES.md`](DATA_LICENSES.md).
 
 Authors: Sang-Hyun Rhie (Kyung Hee University), Gyuwon Kim (Kyung Hee
 University), Suhyeong Lim (Kyung Hee University), Jeongsu Lee (Kyung Hee University).
