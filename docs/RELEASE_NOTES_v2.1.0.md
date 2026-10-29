@@ -89,9 +89,11 @@ Run 0 of three is selected on the 20 AirfRANS validation cases. Its mean standar
 is 0.00257; runs 1 and 2 give 0.00458 and 0.00330
 (`results/cotrain_score_cmx_20261015T023434Z.json`, `selection`).
 
-The experimental three-dimensional wing's RANS state keeps the AirfRANS-only decoder of 2.0.0,
-`field_decoder_f0cm_s1.npz` (`wing_nll.WING_DECODER`). This change of the two-dimensional default
-does not change that wing's decoder.
+The experimental three-dimensional wing's RANS state uses the deployed decoder too, as the
+manuscript's wing does. Its section tables span the decoder's AirfRANS incidences (−5° to 15°), C_l
+continues linearly outside a table, and the lifting-line solve takes a root with every strip inside
+the table. On the research's five wings at 45 m/s (NACA 0012, 0018, 2412, 4412 and 23012), C_L
+agrees with the research within 0.0009 in the RANS state and 0.0015 in the XFOIL state.
 
 ## Recorded scores
 

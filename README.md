@@ -78,7 +78,7 @@ convention for research-tree artifacts that are *not* shipped here are all in
    upper and lower surfaces enter separately). It is the viscous-decambering correction to the
    sheet's circulation lift; the deployed Cl is this closed value. The field decoder below still
    consumes the uncorrected Cl^γ.
-5. **Field decoder** — `weights/field_decoder_cmx_s0.npz`, the deployed decoder: a geometry-agnostic
+5. **Field decoder** — `weights/field_decoder_cmx_s0.npz`, the deployed decoder (the 2D views and the 3D wing's RANS state): a geometry-agnostic
    RANS field decoder (five-layer width-248 non-residual trunk, four-band Fourier features, a PointNet
    shape latent z ∈ R^16 over the real surface point cloud, physics-paint inputs; ≈305k parameters)
    trained on 780 AirfRANS k–ω SST cases (the 800-case training split less 20 held out for validation)
@@ -87,7 +87,7 @@ convention for research-tree artifacts that are *not* shipped here are all in
    the lowest mean of the four standardized channel MSEs on the 20 validation cases, 0.00257 (runs 1
    and 2: 0.00458 and 0.00330; `results/cotrain_score_cmx_20261015T023434Z.json`, `selection`). The
    manuscript's ablations ship with it: the AirfRANS-only decoders described next (release 2.0.0
-   deployed `field_decoder_f0cm_s1.npz`, and the 3D wing's RANS state still uses it), an AirfRANS-only
+   deployed `field_decoder_f0cm_s1.npz`), an AirfRANS-only
    decoder trained for as many optimizer steps as the deployed one (`field_decoder_sml2_s*.npz`, run 2
    selected; `results/stepmatch_score_20261015T070933Z.json`) and one trained with 1,346 UniFoil
    airfoils (`field_decoder_cmd_s*.npz`, run 2 selected; `results/cotrain_score_cmd_20261015T032838Z.json`).
@@ -128,7 +128,7 @@ convention for research-tree artifacts that are *not* shipped here are all in
 | `field_decoder_f0a_s1.npz` | field decoder, XFOIL-conditioned, run 1 | `118face2a9e8` |
 | `field_decoder_f0a_s2.npz` | field decoder, XFOIL-conditioned, run 2 (selected) | `1440f8f4dbd3` |
 | `field_decoder_f0cm_s0.npz` | field decoder, AirfRANS-only operator-conditioned, run 0 | `e1da6228e827` |
-| `field_decoder_f0cm_s1.npz` | field decoder, AirfRANS-only operator-conditioned, run 1 (selected; deployed in 2.0.0; the 3D wing's RANS state) | `5e72da181372` |
+| `field_decoder_f0cm_s1.npz` | field decoder, AirfRANS-only operator-conditioned, run 1 (selected; deployed in 2.0.0) | `5e72da181372` |
 | `field_decoder_f0cm_s2.npz` | field decoder, AirfRANS-only operator-conditioned, run 2 | `fed72563ca1e` |
 | `field_decoder_cmx_s0.npz` | field decoder, AirfRANS + 16,923 UniFoil, run 0 (deployed) | `3a8a14810969` |
 | `field_decoder_cmx_s1.npz` | field decoder, AirfRANS + 16,923 UniFoil, run 1 | `fdeaa79f5701` |

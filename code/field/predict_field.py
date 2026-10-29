@@ -293,7 +293,7 @@ def _closed_upper_first(g):
 FAMILY_NOTE = ("the field decoder's SST training sections are NACA 4- and 5-digit sections only (its non-NACA training "
                "airfoils are Spalart-Allmaras solutions); on 16 unseen non-NACA SST sections its errors were 14 to 46 times "
                "its NACA test level, largest near the wall: read this field as indicative")
-# the AirfRANS-only decoders (release 2.0.0's field_decoder_f0cm_s1.npz, which the 3D wing's RANS state keeps, and the rext run)
+# the AirfRANS-only decoders (release 2.0.0's field_decoder_f0cm_s1.npz and the rext run)
 FAMILY_NOTE_AIRFRANS = ("the field decoder was trained on NACA 4- and 5-digit sections only; on ten UIUC sections of other "
                         "families its errors were 1.5 to 80 times its NACA test level (26 times on average for u_x), largest "
                         "near the wall: read this field as indicative")

@@ -74,15 +74,15 @@ paper/            원고 초록
    예측된 뒷전 상태에 대한 2차 다항식입니다(같은 학습 행 325,370개에서 릿지 회귀로 적합해 고정한 28개 계수이며,
    윗면과 아랫면이 따로 들어갑니다). 시트의 순환 양력에 대한 점성 캠버 감소 보정이며, 배포된 Cl은
    닫힘식을 적용한 이 값입니다. 아래의 유동장 디코더는 여전히 보정되지 않은 Cl^γ를 입력으로 받습니다.
-5. **유동장 디코더** — `weights/field_decoder_cmx_s0.npz`, 배포된 디코더입니다. 이는 형상 비의존 RANS 유동장
+5. **유동장 디코더** — `weights/field_decoder_cmx_s0.npz`, 배포된 디코더입니다(2차원 보기와 3차원 날개의 RANS 상태). 이는 형상 비의존 RANS 유동장
    디코더(폭 248의 다섯 층 비잔차 트렁크, 네 대역 푸리에 특징, 실제 표면 점군에 대한 PointNet 형상 잠재 벡터
    z ∈ R^16, 물리 페인트 입력; ≈305k 매개변수)로서 AirfRANS k–ω SST 사례 780개(800개 사례 학습 분할에서
    검증용으로 20개를 제외한 것)와 비-NACA UniFoil 익형 16,923개(완전 난류 Spalart–Allmaras, M ≤ 0.2;
    익형 150개는 홀드아웃)를 함께 사용해 학습했으며, 난류 모델 입력은 없습니다. 세 번의 학습 실행 가운데 배포된
    실행은 검증 사례 20개에서 표준화된 네 채널 MSE의 평균이 0.00257로 가장 낮습니다(실행 1과 2는 0.00458과
    0.00330; `results/cotrain_score_cmx_20261015T023434Z.json`, `selection`). 원고의 제거 실험용 디코더도 함께
-   제공합니다. 아래에 설명하는 AirfRANS 전용 디코더들(릴리스 2.0.0은 `field_decoder_f0cm_s1.npz`를 배포했으며,
-   3차원 날개의 RANS 상태는 여전히 이를 사용함), 배포된 디코더와 같은 수의 최적화 스텝으로 학습한 AirfRANS 전용
+   제공합니다. 아래에 설명하는 AirfRANS 전용 디코더들(릴리스 2.0.0은 `field_decoder_f0cm_s1.npz`를 배포함),
+   배포된 디코더와 같은 수의 최적화 스텝으로 학습한 AirfRANS 전용
    디코더(`field_decoder_sml2_s*.npz`, 실행 2 선택; `results/stepmatch_score_20261015T070933Z.json`), 그리고
    UniFoil 익형 1,346개를 함께 사용해 학습한 디코더(`field_decoder_cmd_s*.npz`, 실행 2 선택;
    `results/cotrain_score_cmd_20261015T032838Z.json`)입니다. AirfRANS 전용 오퍼레이터 조건부 디코더
@@ -118,7 +118,7 @@ paper/            원고 초록
 | `field_decoder_f0a_s1.npz` | 유동장 디코더, XFOIL 조건부, 실행 1 | `118face2a9e8` |
 | `field_decoder_f0a_s2.npz` | 유동장 디코더, XFOIL 조건부, 실행 2(선택됨) | `1440f8f4dbd3` |
 | `field_decoder_f0cm_s0.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 0 | `e1da6228e827` |
-| `field_decoder_f0cm_s1.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 1(선택됨; 2.0.0에서 배포; 3차원 날개의 RANS 상태) | `5e72da181372` |
+| `field_decoder_f0cm_s1.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 1(선택됨; 2.0.0에서 배포) | `5e72da181372` |
 | `field_decoder_f0cm_s2.npz` | 유동장 디코더, AirfRANS 전용 오퍼레이터 조건부, 실행 2 | `fed72563ca1e` |
 | `field_decoder_cmx_s0.npz` | 유동장 디코더, AirfRANS + UniFoil 16,923개, 실행 0(배포됨) | `3a8a14810969` |
 | `field_decoder_cmx_s1.npz` | 유동장 디코더, AirfRANS + UniFoil 16,923개, 실행 1 | `fdeaa79f5701` |

@@ -15,7 +15,11 @@ Accompanies the revised manuscript.
   input; run 0 of three, selected on the 20 AirfRANS validation cases. `predict_field`, `vortfoil view` and the 2D
   application use it. Its non-NACA family warning now gives its own errors on 16 unseen non-NACA SST sections (14 to 46
   times its NACA test level, against 27 to 68 for the AirfRANS-only decoder).
-- The 3D wing's RANS state (`vortfoil_exp`) keeps the AirfRANS-only decoder of 2.0.0 (`wing_nll.WING_DECODER`).
+- The 3D wing's RANS state (`vortfoil_exp`) uses the deployed decoder, as the manuscript's wing does. Its section tables span
+  the decoder's AirfRANS incidences (-5 to 15 deg), C_l continues linearly outside a table, and the lifting-line solve takes a
+  root with every strip inside the table, trying the clamped form first (as 2.0.0 solved). On the research's five 45 m/s
+  wings (NACA 0012, 0018, 2412, 4412, 23012) C_L agrees with the research within 0.0009 (RANS state) and 0.0015 (XFOIL
+  state); a NACA 23012 tip strip no longer settles at a spurious incidence, and the default wing keeps C_L 0.6261.
 - `vortfoil sweep --coords` measures the incidence from the fitted chord line, as `predict` does (a section rotated by
   2 deg gave C_l off by 0.22).
 - The validation scripts of the field pathway pin the decoder their shipped records were written with.

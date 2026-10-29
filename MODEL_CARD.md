@@ -206,8 +206,7 @@ relative error is 45.5% from the wall gradient and 12.8% with wall-function fric
 ### AirfRANS-only decoder
 
 The AirfRANS-only `weights/field_decoder_f0cm_s1.npz`, deployed in 2.0.0, is trained on the
-780 AirfRANS cases alone. The 3D wing's RANS state keeps it (`wing_nll.WING_DECODER`). The
-following measurements are for that decoder.
+780 AirfRANS cases alone. The following measurements are for that decoder.
 
 - Against an XFOIL-conditioned decoder trained on the same cases, its paired error-ratio 95%
   confidence intervals lie below unity on u_x, u_y and p and include unity on ν_t.
