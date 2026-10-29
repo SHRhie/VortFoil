@@ -24,6 +24,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import vortfoil_paths as VP                         # noqa: E402
 VP.add_paths()
+# The shipped record was written with release 2.0.0's deployed decoder, the AirfRANS-only run; release 2.1.0 deploys the
+# co-trained decoder (predict_field.DECODER), so this check pins the decoder its record was made with.
+DEC = os.path.join(VP.WEIGHTS, "field_decoder_f0cm_s1.npz")
 sys.path.insert(0, HERE)
 
 RECORD = os.path.join(VP.RESULTS, "f0cm_final_rescore_20261002T051450Z", "per_case.npz")   # the 200 full_test cases
@@ -53,7 +56,7 @@ def _work(nm):
     U, a, prm = case_params(nm); Re = U / NU_AIR
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        c = PF.prepare(analytic_polyline(prm), a, Re, family="naca")    # boundary_layer(), step by step, to keep its rays
+        c = PF.prepare(analytic_polyline(prm), a, Re, decoder=DEC, family="naca")    # boundary_layer(), step by step, to keep its rays
         w = PF._wall(c, Re)
         dec = PF._boundary_layer(c, Re, w)
     i, k, tn, nn, X = PF.bl_rays(c["poly"], w["upper"])

@@ -292,9 +292,12 @@ def cases(PF):
     station)"""
     import view_airfoil as V
     loop = PF.naca_coords("2412")
-    return {k: ("NACA 2412", a, Re) + V.compute(loop, a, Re, 0.25, "naca") for k, (a, Re) in
-            {"in": (4.0, 3e6), "in_high": (12.0, 3e6), "rans_out": (17.0, 3e6), "rans_out_re": (4.0, 5e5), "both_out": (20.0, 3e5),
-             "none_read": (-10.0, 5e4)}.items()}
+    out = {k: ("NACA 2412", a, Re) + V.compute(loop, a, Re, 0.25, "naca") for k, (a, Re) in
+           {"in": (4.0, 3e6), "in_high": (12.0, 3e6), "rans_out": (17.0, 3e6), "rans_out_re": (4.0, 5e5), "both_out": (20.0, 3e5)}.items()}
+    # no layer read anywhere: the AirfRANS-only decoder of 2.0.0 gives that state at -10 deg, Re 5e4 (the co-trained one reads a few)
+    f0cm = os.path.join(os.path.dirname(PF.DECODER), "field_decoder_f0cm_s1.npz")
+    out["none_read"] = ("NACA 2412", -10.0, 5e4) + V.compute(loop, -10.0, 5e4, 0.25, "naca", decoder=f0cm)
+    return out
 
 
 def legend_hits(fig):

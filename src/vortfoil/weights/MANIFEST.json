@@ -1,6 +1,6 @@
 {
   "schema": "VORTFOIL_BUILD_MANIFEST_V1",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "built": "2026-09-20",
   "model": {
     "description": "vortex-panel-informed neural operator for steady airfoil flow (surface branch)",
@@ -9,7 +9,8 @@
       "boundary-layer operator: four heads giving momentum and displacement thickness on a 121-node uniform x/c grid per surface (402,948 parameters)",
       "drag closure: frozen degree-2 polynomial in (log theta_TE, H_TE, u_e,TE), ten coefficients, clipped to [1e-4, 0.1]",
       "lift closure: frozen degree-2 polynomial in (C_l^gamma, theta_TE per surface, delta*_TE per surface, u_e,TE), 28 coefficients; the viscous-decambering correction to the circulation lift",
-      "readouts from the same sheet: surface pressure on 240 panel midpoints, circulation lift, quarter-chord moment, stagnation point (no stagnation label in the objective), trailing-edge edge velocity"
+      "readouts from the same sheet: surface pressure on 240 panel midpoints, circulation lift, quarter-chord moment, stagnation point (no stagnation label in the objective), trailing-edge edge velocity",
+      "RANS coefficient correction (vortfoil.rans; predict(..., rans=True)): five 5-32-32-3 tanh networks on (C_l, ln C_d, C_m, alpha, log10 Re) of the deployed coefficients, fitted on the 780 AirfRANS training cases against k-omega SST; C_l + f_l, C_d exp(f_d), C_m + f_m"
     ]
   },
   "weights": {
@@ -32,6 +33,11 @@
       "file": "cd_closure_poly2.npz",
       "sha256": "1e37b6e3dfb4639477d7e57b300a071f8dcee666f0c6ceefb710da701cc34736",
       "bytes": 1588
+    },
+    "rans_correction": {
+      "file": "rans_correction_nn.npz",
+      "sha256": "86286dcca4f0218febbe77b9fdfd8eeb9a12702df8f5d21ec7412eea9ea8dc50",
+      "bytes": 59534
     }
   },
   "training": {
@@ -99,7 +105,8 @@
     "both closures are empirical fits over their training range and are validated only on the two evaluation sets",
     "the model is behind NeuralFoil's extra-large model on all three coefficients on both sets; the only measured advantage is profile drag at negative incidence",
     "a blunt trailing edge cannot be represented by the 16-parameter form",
-    "training range: incidence -10 to 18 deg and Reynolds number 5e4 to 1e7 (XFOIL, Ncrit 7, incompressible); the evaluation sets cover -4 to 12 deg and 2e5 to 3e6. predict() issues vortfoil.RangeWarning outside the training range, for a 16-parameter fit error above 0.5% chord or a trailing-edge gap above 1% chord, and flags those rows in result.info['outside_training_range']"
+    "training range: incidence -10 to 18 deg and Reynolds number 5e4 to 1e7 (XFOIL, Ncrit 7, incompressible); the evaluation sets cover -4 to 12 deg and 2e5 to 3e6. predict() issues vortfoil.RangeWarning outside the training range, for a 16-parameter fit error above 0.5% chord or a trailing-edge gap above 1% chord, and flags those rows in result.info['outside_training_range']",
+    "the RANS coefficient correction is fitted on AirfRANS NACA 4/5-digit sections (k-omega SST, alpha -5 to 15 deg, Re 2e6 to 6e6) and tested on 107 non-NACA SST sections; outside that range it warns (vortfoil.RangeWarning)"
   ],
   "citation": "Rhie, S.-H., Kim, G., Lim, S., Lee, J. VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction.",
   "attribution": "The anti-derivative approximator and the NeuroFoil staged-operator base are Prof. Jeongsu Lee's; this package packages the VortFoil build of that line.",

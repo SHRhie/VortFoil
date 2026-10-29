@@ -4,6 +4,46 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - unreleased
+
+Accompanies the revised manuscript.
+
+### Changed
+
+- The deployed field decoder is `field_decoder_cmx_s0.npz`: the same architecture and conditioning, trained on the 780
+  AirfRANS k-omega SST cases together with 16,923 non-NACA UniFoil airfoils (Spalart-Allmaras), with no turbulence-model
+  input; run 0 of three, selected on the 20 AirfRANS validation cases. `predict_field`, `vortfoil view` and the 2D
+  application use it. Its non-NACA family warning now gives its own errors on 16 unseen non-NACA SST sections (14 to 46
+  times its NACA test level, against 27 to 68 for the AirfRANS-only decoder).
+- The 3D wing's RANS state (`vortfoil_exp`) uses the deployed decoder, as the manuscript's wing does. Its section tables span
+  the decoder's AirfRANS incidences (-5 to 15 deg), C_l continues linearly outside a table, and the lifting-line solve takes a
+  root with every strip inside the table, trying the clamped form first (as 2.0.0 solved). On the research's five 45 m/s
+  wings (NACA 0012, 0018, 2412, 4412, 23012) C_L agrees with the research within 0.0009 (RANS state) and 0.0015 (XFOIL
+  state); a NACA 23012 tip strip no longer settles at a spurious incidence, and the default wing keeps C_L 0.6261.
+- `vortfoil sweep --coords` measures the incidence from the fitted chord line, as `predict` does (a section rotated by
+  2 deg gave C_l off by 0.22).
+- The validation scripts of the field pathway pin the decoder their shipped records were written with.
+
+### Added
+
+- `vortfoil.rans`, the RANS coefficient correction (`weights/rans_correction_nn.npz`, packaged): five 5-32-32-3
+  networks on the surface branch's (C_l, ln C_d, C_m, alpha, log10 Re), fitted on the 780 AirfRANS training cases.
+  `predict(..., rans=True)` returns `cl_rans`, `cd_rans`, `cm_rans`; `vortfoil predict|sweep --rans` prints them; a
+  RangeWarning is issued outside alpha -5 to 15 deg or Re 2e6 to 6e6.
+- The decoders of the manuscript's ablations: `field_decoder_cmx_s{1,2}`, the step-matched AirfRANS-only
+  `field_decoder_sml2_s*` and the 1,346-airfoil `field_decoder_cmd_s*`, with the records behind the new numbers
+  (`results/cotrain_score_*`, `stepmatch_score_*`, `rans_correction_nn_*`, `table4_row_cmx_s0.json`,
+  `consistency_field_vs_corrected_20261029.json`).
+- `DATA_LICENSES.md`: UniFoil (its Harvard Dataverse record is CC0 1.0; the dataset paper calls it CC-BY-SA) and the
+  weights trained with it, released under this repository's license with an attribution. The wheel now carries
+  `DATA_LICENSES.md` beside `LICENSE` and `NOTICE`, so the AirfRANS notice and the attributions travel with the weights it
+  ships.
+
+### Fixed
+
+- The README described the field metric's standard deviation as the full training split's; it is computed from a
+  50-case sample of the scarce-task training split, which makes comparisons with published values conservative.
+
 ## [2.0.0] - 2026-10-13
 
 First published version, accompanying the manuscript. The 2.0.0 version number matches the manuscript's model
