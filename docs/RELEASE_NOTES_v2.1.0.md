@@ -103,14 +103,15 @@ in the channel order u_x, u_y, p and ν_t
 
 | set | u_x | u_y | p | ν_t |
 |---|---|---|---|---|
-| AirfRANS test, 200 cases (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
-| 16 unseen non-NACA UIUC sections (k–ω SST) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
-| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+| AirfRANS test, 200 cases (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
+| 16 unseen non-NACA UIUC sections (k–ω SST) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
-The UniFoil row is not comparable with the SST rows. The metric's σ comes from all nodes of a
-50-case sample of the 200-case scarce-task training split, rather than the full training split
-previously described in the README. The published convention takes every node of the task's
-training split; the values here are therefore conservative against published ones.
+The UniFoil row is not comparable with the SST rows. The metric's σ comes from every node of the
+200-case AirfRANS scarce-task training split, the normalization of MARIO's published values. The
+score files use σ from a 50-case sample of that split (the README of 2.0.0 described the full
+training split); the values here are those scores times 0.978, 0.913, 0.697 and 0.841
+(`results/std_rescore_20261030.json`).
 
 Against an AirfRANS-only decoder trained for as many optimizer steps, the paired error ratios
 (deployed / control) are 1.00, 1.36, 0.57 and 0.51 on AirfRANS and 0.39, 0.30, 0.44 and 0.50 on
@@ -130,7 +131,7 @@ The RANS correction gives the following coefficient errors against SST values
 | | moment MAE | 0.0096 | 0.0071 |
 
 The field's own wall readouts use the same routine as before. On the 200 AirfRANS test cases
-(`results/table4_row_cmx_s0.json`), wall-pressure standardized MSE is 4.5e-3, lift mean relative
+(`results/table4_row_cmx_s0.json`), wall-pressure standardized MSE is 3.1e-3, lift mean relative
 error is 5.4% (Spearman 0.9995), and moment MAE is 0.0023. Drag mean relative error is 45.5%
 from the wall gradient and 12.8% with wall-function friction (Spearman 0.641 and 0.743).
 

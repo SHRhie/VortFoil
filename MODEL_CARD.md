@@ -177,13 +177,14 @@ Per-channel standardized MSE over all mesh nodes, case-equal mean
 
 | Population | u_x | u_y | p | ν_t |
 |---|---|---|---|---|
-| AirfRANS test, 200 cases (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
-| 16 unseen non-NACA UIUC sections (k–ω SST) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
-| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+| AirfRANS test, 200 cases (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
+| 16 unseen non-NACA UIUC sections (k–ω SST) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
-The UniFoil row is not comparable with the rows above. The metric's σ comes from all nodes of
-a 50-case sample of the 200-case scarce-task training split. The published convention takes
-every node of the task's training split, so these values are conservative against published ones.
+The UniFoil row is not comparable with the rows above. The metric's σ comes from every node of
+the 200-case AirfRANS scarce-task training split, the normalization of MARIO's published values.
+The score files use σ from a 50-case sample of that split; the values here are those scores times
+0.978, 0.913, 0.697 and 0.841 (`results/std_rescore_20261030.json`).
 
 On the 16 unseen non-NACA sections, the errors are 14 / 15 / 46 / 38 times the decoder's NACA
 test level in u_x / u_y / p / ν_t; the AirfRANS-only `f0cm_s1` decoder is at 27 / 35 / 68 / 40
@@ -199,7 +200,7 @@ length; the non-NACA gains come from the UniFoil airfoils.
 **Wall values in the RANS state** (the manuscript's RANS-reference evaluation: the AirfRANS force
 routine on the predicted fields, friction from Spalding's law 2×10⁻⁴ chord off the wall): on the
 200 AirfRANS test cases, wall-pressure
-standardized MSE is 4.5e-3; lift mean relative error is 5.4% (Spearman 0.9995); drag mean
+standardized MSE is 3.1e-3; lift mean relative error is 5.4% (Spearman 0.9995); drag mean
 relative error is 45.5% from the wall gradient and 12.8% with wall-function friction
 (Spearman 0.641 and 0.743); moment MAE is 0.0023 (`results/table4_row_cmx_s0.json`).
 

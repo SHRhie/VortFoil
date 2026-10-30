@@ -491,15 +491,16 @@ The negative-R² row is why the fitted closure (`fitted_poly2`) is the deployed 
 of the marched route: see `results/FINDING_closure_track.json` (findings F3–F16) for the full
 closure-selection story.
 
-**Field decoder, deployed** (per-channel standardized MSE over all mesh nodes, case-equal mean; σ from all nodes of a
-50-case sample of the 200-case scarce-task training split, so the values are conservative against published ones, which take
-σ from every node of the task's training split; `results/cotrain_score_cmx_20261015T023434Z.json`):
+**Field decoder, deployed** (per-channel standardized MSE over all mesh nodes, case-equal mean; σ from every node of the 200-case AirfRANS
+scarce-task training split, the normalization of MARIO's published values. The score files use σ from a 50-case sample of
+that split; the values here are those scores times 0.978, 0.913, 0.697 and 0.841, `results/std_rescore_20261030.json`;
+`results/cotrain_score_cmx_20261015T023434Z.json`):
 
 | set | ux | uy | p | nut |
 |---|---|---|---|---|
-| AirfRANS `full_test`, n = 200 (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
-| 16 unseen non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
-| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample, not comparable with the rows above) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+| AirfRANS `full_test`, n = 200 (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
+| 16 unseen non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample, not comparable with the rows above) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
 Against the AirfRANS-only decoder trained for as many optimizer steps, the paired case-bootstrap error ratios are 1.00,
 1.36, 0.57 and 0.51 on AirfRANS (the NACA velocity gains come from training length) and 0.39, 0.30, 0.44 and 0.50 on the 16
@@ -514,19 +515,20 @@ decoder's integrated ones; the two differ by 6.8% in lift and 14.1% in drag on t
 (`results/consistency_field_vs_corrected_20261029.json`).
 
 **AirfRANS-only field decoders** (the manuscript's ablations; release 2.0.0 deployed the operator-conditioned one; AirfRANS
-`full_test`, n = 200, the same metric):
+`full_test`, n = 200, the same metric and normalization):
 
 | decoder (selected run) | ux | uy | p | nut | source |
 |---|---|---|---|---|---|
-| operator-conditioned (`field_decoder_f0cm_s1`, run 1) | 1.26e-3 | 1.27e-3 | 2.13e-3 | 7.06e-3 | `results/f0cm_final_rescore_20261002T051450Z/result.json` (`mean.CM`) |
-| XFOIL-conditioned (`field_decoder_f0a_s2`, run 2) | 1.61e-3 | 2.07e-3 | 3.54e-3 | 9.34e-3 | same file (`mean.XF2`); `evaluation_runs/_nf_shape_f0a_s2__*` |
+| operator-conditioned (`field_decoder_f0cm_s1`, run 1) | 1.23e-3 | 1.16e-3 | 1.48e-3 | 5.94e-3 | `results/f0cm_final_rescore_20261002T051450Z/result.json` (`mean.CM`) |
+| XFOIL-conditioned (`field_decoder_f0a_s2`, run 2) | 1.58e-3 | 1.89e-3 | 2.46e-3 | 7.86e-3 | same file (`mean.XF2`); `evaluation_runs/_nf_shape_f0a_s2__*` |
 | MARIO, published aggregate | 1.52e-3 | 1.13e-3 | 2.40e-3 | 9.60e-3 | Catalani et al. 2025 |
 
 Both decoders are trained on the same 780 AirfRANS cases. Against the XFOIL-conditioned decoder, the
 operator-conditioned decoder's paired case-bootstrap error ratios (95% CI; cases improved of 200) lie below
 unity on ux, uy and p and include unity on nut: 0.78 [0.64, 0.91] (131), 0.62 [0.46, 0.81] (133),
 0.60 [0.28, 0.96] (114), 0.76 [0.33, 1.63] (155) (`paired_vs_xfoil_conditioned_run2.CM` in the same file). It is
-below MARIO's published error on ux, p and nut (0.83×, 0.89×, 0.74×) and above it on uy (1.13×) (`vs_MARIO.CM`).
+below MARIO's published error on ux, p and nut (0.81×, 0.62×, 0.62×) and above it on uy (1.03×) (`vs_MARIO.CM` in the
+score file's normalization, converted as above).
 MARIO publishes only these four aggregate numbers.
 
 - **Drop-in.** The XFOIL-conditioned decoder fed the operators' inputs without retraining is worse on every
@@ -540,7 +542,7 @@ MARIO publishes only these four aggregate numbers.
 - **Incidence bands** (`results/band_table_f0cm_s1.json`, n = 55 / 79 / 44 / 22): the
   improvement over the XFOIL-conditioned decoder is largest in [12, 16)°, 0.41–0.70× on every channel. Against
   MARIO's pooled aggregate, the [−6, 0)° and [0, 8)° bands are below MARIO on every channel; [8, 12)° is above
-  it on ux (1.23×) and uy (1.60×); [12, 16)° is above it on all four channels (1.68× / 3.73× / 5.45× / 4.89×).
+  it on ux (1.20×) and uy (1.46×); [12, 16)° is above it on all four channels (1.65× / 3.40× / 3.80× / 4.11×).
 - **Upstream input.** The sheet's circulation lift that sets the paint's circulation scale scores R² 0.970
   against XFOIL's forced-transition lift on the 200 test cases
   (`results/step2_eval_f0cm_20260925T213247Z/result.json`, `provider_vs_xfoil_diagnostic.cl_R2`).
@@ -598,7 +600,16 @@ python code/field/step2_eval_f0c.py                    # the three operator-cond
 python code/field/validate_predict_field.py            # predict_field.py against the AirfRANS-only decoder's evaluation (results/predict_field_validation.json)
 python code/field/validate_field_surface.py            # predict_field.surface() against the RANS wall values (results/field_surface_validation.json)
 
-# The AirfRANS-only decoder's field figure
+# The manuscript's figures (--v3: its two-column layout; each PNG matches the shipped figures/ pixel for pixel)
+ATTACHED_CP_TARGETS=<attached_surface_targets.npz> python code/figures/vf_surface_cst16_fig.py surface.json --v3
+VORTFOIL_RAW=<folder with sep_eval_preds*.npz> python code/figures/vf_drag_closure_fig.py --v3
+python code/field/step2_store_preds.py --weights-tag cmx --seed 0 --name airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985
+python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0
+python code/figures/vf_domains_fig.py
+python code/figures/make_wing3d_figure.py --v3
+python code/figures/make_wing25d_surface.py --v3
+
+# The AirfRANS-only decoder's field figure (2.0.0)
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
 python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
     --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
@@ -667,8 +678,11 @@ XFOIL-conditioned decoder's stored paint channels bit for bit; the check covers 
 `REFACTOR_MANIFEST_v2.json` records the source and sha256 of the copied files.
 `figures/` holds the manuscript figures alongside the `*_numbers.json` files the figure-provenance
 discipline requires: each figure's numbers are saved next to its generator, not read off the rendered plot.
-The shipped figures are the generators' `--print` renders, drawn at the manuscript's text width (5.40 in) and
-included there at full size.
+The shipped figures are the generators' `--v3` renders, in the manuscript's two-column layout (7.22 in for a full-width
+figure, 3.49 in for a column) and included there at full size; `vf_field_f0cm_tp_pos`, the AirfRANS-only decoder's
+figure of 2.0.0, is the `--print` render at the earlier one-column width (5.40 in). Inputs behind the manuscript's
+figures that the full data sets would otherwise supply are shipped as the plotted arrays (`results/vf_domains_points.npz`)
+or the saved results (`results/wing3d/`).
 
 ## License
 

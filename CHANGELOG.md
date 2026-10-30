@@ -34,6 +34,12 @@ Accompanies the revised manuscript.
   `field_decoder_sml2_s*` and the 1,346-airfoil `field_decoder_cmd_s*`, with the records behind the new numbers
   (`results/cotrain_score_*`, `stepmatch_score_*`, `rans_correction_nn_*`, `table4_row_cmx_s0.json`,
   `consistency_field_vs_corrected_20261029.json`).
+- The revised manuscript's figures in `figures/` (two-column layout), with their generators: `--v3` for the surface and
+  drag generators, and `vf_field_contour_v3.py`, `vf_domains_fig.py`, `make_wing3d_figure.py` and `make_wing25d_surface.py`;
+  each re-render matches the shipped PNG pixel for pixel. Their inputs: the step-matched scoring's per-case errors
+  (`results/stepmatch_score_20261015T070933Z_per_case.npz`), the domain figure's plotted arrays
+  (`results/vf_domains_points.npz`) and the 2.5D wing results (`results/wing3d/`). `paper/abstract.md` is the revised
+  manuscript's abstract.
 - `DATA_LICENSES.md`: UniFoil (its Harvard Dataverse record is CC0 1.0; the dataset paper calls it CC-BY-SA) and the
   weights trained with it, released under this repository's license with an attribution. The wheel now carries
   `DATA_LICENSES.md` beside `LICENSE` and `NOTICE`, so the AirfRANS notice and the attributions travel with the weights it
@@ -41,8 +47,10 @@ Accompanies the revised manuscript.
 
 ### Fixed
 
-- The README described the field metric's standard deviation as the full training split's; it is computed from a
-  50-case sample of the scarce-task training split, which makes comparisons with published values conservative.
+- The README described the field metric's standard deviation as the full training split's; the score files compute it
+  from a 50-case sample of the scarce-task training split. The documents now report field errors in the normalization
+  of MARIO's published values (every node of that split): the recorded scores times 0.978, 0.913, 0.697 and 0.841
+  (`results/std_rescore_20261030.json`), as the manuscript does.
 
 ## [2.0.0] - 2026-10-13
 

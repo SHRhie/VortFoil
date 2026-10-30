@@ -1,0 +1,32 @@
+{
+ "figure": "fig_wing25d_surface",
+ "source": "results/wing3d/wing_viz3d_n2412_sst.json",
+ "source_sha256": "d92300475162e86cb405ad88edacccdfff21770392899dde00be9c0d8de66ad2",
+ "case": {
+  "section": "NACA 2412",
+  "alpha_deg": 6.0,
+  "V_ms": 45.0,
+  "state": "SST (RANS field decoder: wall pressure, wall-function friction)",
+  "span_m": 10.0,
+  "CL": 0.6203130588337264,
+  "CDi": 0.014044361145131799,
+  "CD0": 0.009864609019999625,
+  "e": 0.9808685284640551
+ },
+ "strips": 40,
+ "points_per_strip_side": 41,
+ "cp_min": -1.3273,
+ "cp_max": 0.9977,
+ "colour": {
+  "cmap": "RdYlBu_r",
+  "vmin": -1.5,
+  "vcenter": 0.0,
+  "vmax": 1.0
+ },
+ "view": {
+  "elev": 35.0,
+  "azim": -20.0,
+  "frame": "wind",
+  "scale": "true"
+ }
+}

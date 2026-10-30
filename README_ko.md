@@ -432,14 +432,15 @@ R² 값이 음수인 마지막 행이 바로 전진 적분 방식 대신 적합�
 닫힘식 선택 과정의 전체 경위는 `results/FINDING_closure_track.json`(발견 F3–F16)을 참조하십시오.
 
 **배포된 유동장 디코더**(모든 격자 노드에 대한 채널별 표준화 MSE, 사례마다 같은 가중치를 둔 평균입니다. σ는 200개 사례의
-희소 태스크 학습 분할에서 뽑은 50개 사례의 모든 노드로 구했습니다. 공표된 값은 해당 태스크 학습 분할의 모든 노드로 σ를
-구하므로, 이 값은 그에 비해 보수적입니다. `results/cotrain_score_cmx_20261015T023434Z.json`):
+AirfRANS 희소 태스크 학습 분할의 모든 노드로 구했으며, MARIO가 공표한 값과 같은 정규화입니다. 점수 파일은 그 분할에서 뽑은
+50개 사례로 구한 σ를 쓰며, 여기의 값은 그 점수에 채널별로 0.978, 0.913, 0.697, 0.841을 곱한 것입니다(`results/std_rescore_20261030.json`;
+`results/cotrain_score_cmx_20261015T023434Z.json`):
 
 | 집합 | ux | uy | p | nut |
 |---|---|---|---|---|
-| AirfRANS `full_test`, n = 200 (k–ω SST) | 6.52e-4 | 9.69e-4 | 1.52e-3 | 3.52e-3 |
-| 학습에서 보지 않은 비-NACA UIUC 단면 16개(k–ω SST, AirfRANS 생성기) | 9.13e-3 | 1.50e-2 | 7.04e-2 | 1.34e-1 |
-| 홀드아웃 UniFoil 익형 150개(Spalart–Allmaras; 저장된 행의 부분 표본이며 위의 행들과 비교할 수 없음) | 3.00e-4 | 9.27e-5 | 2.20e-4 | 5.45e-5 |
+| AirfRANS `full_test`, n = 200 (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
+| 학습에서 보지 않은 비-NACA UIUC 단면 16개(k–ω SST, AirfRANS 생성기) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 홀드아웃 UniFoil 익형 150개(Spalart–Allmaras; 저장된 행의 부분 표본이며 위의 행들과 비교할 수 없음) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
 같은 수의 최적화 스텝으로 학습한 AirfRANS 전용 디코더 대비 쌍체 사례 부트스트랩 오차비는 AirfRANS에서 1.00, 1.36,
 0.57, 0.51이며(NACA 속도 오차의 개선은 학습 길이에서 옵니다), 비-NACA 단면 16개에서는 0.39, 0.30, 0.44, 0.50으로
@@ -457,15 +458,15 @@ AirfRANS `full_test`, n = 200, 같은 지표):
 
 | 디코더(선택된 실행) | ux | uy | p | nut | 출처 |
 |---|---|---|---|---|---|
-| 오퍼레이터 조건부(`field_decoder_f0cm_s1`, 실행 1) | 1.26e-3 | 1.27e-3 | 2.13e-3 | 7.06e-3 | `results/f0cm_final_rescore_20261002T051450Z/result.json` (`mean.CM`) |
-| XFOIL 조건부(`field_decoder_f0a_s2`, 실행 2) | 1.61e-3 | 2.07e-3 | 3.54e-3 | 9.34e-3 | 같은 파일(`mean.XF2`); `evaluation_runs/_nf_shape_f0a_s2__*` |
+| 오퍼레이터 조건부(`field_decoder_f0cm_s1`, 실행 1) | 1.23e-3 | 1.16e-3 | 1.48e-3 | 5.94e-3 | `results/f0cm_final_rescore_20261002T051450Z/result.json` (`mean.CM`) |
+| XFOIL 조건부(`field_decoder_f0a_s2`, 실행 2) | 1.58e-3 | 1.89e-3 | 2.46e-3 | 7.86e-3 | 같은 파일(`mean.XF2`); `evaluation_runs/_nf_shape_f0a_s2__*` |
 | MARIO, 공표된 집계값 | 1.52e-3 | 1.13e-3 | 2.40e-3 | 9.60e-3 | Catalani et al. 2025 |
 
 두 디코더는 같은 AirfRANS 사례 780개로 학습했습니다. XFOIL 조건부 디코더 대비 오퍼레이터 조건부 디코더의 쌍체 사례 부트스트랩 오차비
 (95% 신뢰구간; 200개 중 개선된 사례 수)는 ux, uy, p에서는 두 디코더의 오차가 같음을 뜻하는 값보다 낮고, nut에서는 그 값을 포함합니다:
 0.78 [0.64, 0.91] (131), 0.62 [0.46, 0.81] (133), 0.60 [0.28, 0.96] (114), 0.76 [0.33, 1.63] (155)
 (같은 파일의 `paired_vs_xfoil_conditioned_run2.CM`). 오퍼레이터 조건부 디코더의 오차는 MARIO가 공표한 오차보다
-ux, p, nut에서는 낮고(0.83×, 0.89×, 0.74×) uy에서는 높습니다(1.13×)(`vs_MARIO.CM`). MARIO는 이 네 개의 집계값만 공표합니다.
+ux, p, nut에서는 낮고(0.81×, 0.62×, 0.62×) uy에서는 높습니다(1.03×)(`vs_MARIO.CM`을 위와 같이 환산). MARIO는 이 네 개의 집계값만 공표합니다.
 
 - **드롭인(drop-in).** 재학습 없이 오퍼레이터가 공급하는 입력을 받은 XFOIL 조건부 디코더는 모든 채널에서 더 나쁩니다:
   2.38 [1.84, 3.14] / 3.79 [2.63, 5.57] / 2.97 [1.54, 7.50] / 3.41 [2.02, 6.80]. 양력 입력만 바꾸면
@@ -476,8 +477,8 @@ ux, p, nut에서는 낮고(0.83×, 0.89×, 0.74×) uy에서는 높습니다(1.13
   1.05 [1.02, 1.10] / 1.13 [1.08, 1.19] / 1.14 [1.03, 1.55] / 1.01 [0.89, 1.14]입니다(`eval_rule_sensitivity_CMm_over_CM`).
 - **받음각 구간**(`results/band_table_f0cm_s1.json`, n = 55 / 79 / 44 / 22): XFOIL 조건부 디코더 대비 개선은
   [12, 16)°에서 가장 크며 모든 채널에서 0.41–0.70×입니다. MARIO의 통합 집계값과 비교하면 [−6, 0)°와 [0, 8)° 구간은
-  모든 채널에서 MARIO보다 낮고, [8, 12)°는 ux(1.23×)와 uy(1.60×)에서 MARIO보다 높으며, [12, 16)°는 네 채널 모두에서
-  MARIO보다 높습니다(1.68× / 3.73× / 5.45× / 4.89×).
+  모든 채널에서 MARIO보다 낮고, [8, 12)°는 ux(1.20×)와 uy(1.46×)에서 MARIO보다 높으며, [12, 16)°는 네 채널 모두에서
+  MARIO보다 높습니다(1.65× / 3.40× / 3.80× / 4.11×).
 - **앞 단계 입력.** 페인트의 순환 스케일을 정하는 시트의 순환 양력은 200개 시험 사례에서 XFOIL의 강제 천이 양력 대비
   R² 0.970을 기록합니다(`results/step2_eval_f0cm_20260925T213247Z/result.json`, `provider_vs_xfoil_diagnostic.cl_R2`).
 
@@ -530,7 +531,16 @@ python code/field/step2_eval_f0c.py                    # 오퍼레이터 조건�
 python code/field/validate_predict_field.py            # AirfRANS 전용 디코더의 평가에 대한 predict_field.py 검증(results/predict_field_validation.json)
 python code/field/validate_field_surface.py            # RANS 벽면 값에 대한 predict_field.surface() 검증(results/field_surface_validation.json)
 
-# AirfRANS 전용 디코더의 유동장 그림
+# 원고 그림(--v3: 원고의 2단 배치이며, 각 PNG는 함께 제공되는 figures/와 픽셀 단위로 같습니다)
+ATTACHED_CP_TARGETS=<attached_surface_targets.npz> python code/figures/vf_surface_cst16_fig.py surface.json --v3
+VORTFOIL_RAW=<sep_eval_preds*.npz가 있는 폴더> python code/figures/vf_drag_closure_fig.py --v3
+python code/field/step2_store_preds.py --weights-tag cmx --seed 0 --name airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985
+python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0
+python code/figures/vf_domains_fig.py
+python code/figures/make_wing3d_figure.py --v3
+python code/figures/make_wing25d_surface.py --v3
+
+# AirfRANS 전용 디코더의 유동장 그림(2.0.0)
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
 python code/figures/vf_field_f2_contour.py --preds results/preds_f0cm_s1 --tag vf_field_f0cm_tp --layout truth_pred \
     --frame wind --label "operator-conditioned decoder" --case airFoil2D_SST_39.31_8.883_4.707_0.0_12.552 \
@@ -588,7 +598,10 @@ vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 페인트 채널이 비트 단위로 똑같이 재현된다는 원고의 서술을 뒷받침하며, 이 점검은 800개 사례 중 세 개를 대상으로 합니다.
 `REFACTOR_MANIFEST_v2.json`에는 복사된 파일의 출처와 sha256이 기록되어 있습니다. `figures/`에는 원고 그림과 함께, 그림 출처 규율이 요구하는
 `*_numbers.json` 파일이 있습니다. 각 그림의 수치는 그려진 플롯에서 읽은 것이 아니라 그 생성 스크립트 옆에 저장됩니다.
-제공되는 그림은 생성 스크립트의 `--print` 렌더링이며, 원고의 본문 폭(5.40 in)으로 그려져 원고에 원래 크기 그대로 삽입됩니다.
+제공되는 그림은 생성 스크립트의 `--v3` 렌더링이며, 원고의 2단 배치(전체 폭 그림 7.22 in, 단 폭 그림 3.49 in)로 그려져 원고에 원래 크기
+그대로 삽입됩니다. 2.0.0의 AirfRANS 전용 디코더 그림인 `vf_field_f0cm_tp_pos`는 이전의 1단 폭(5.40 in)으로 그린 `--print`
+렌더링입니다. 원고 그림의 입력 가운데 전체 데이터 집합이 필요한 것은 그림에 찍힌 배열(`results/vf_domains_points.npz`)이나
+저장된 결과(`results/wing3d/`)로 함께 제공합니다.
 
 ## 라이선스
 

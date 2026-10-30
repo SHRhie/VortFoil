@@ -1,0 +1,58 @@
+{
+ "case_name": "airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985",
+ "selection": {
+  "n_alpha_ge_8": 66,
+  "rank_in_band": 33,
+  "mean4_mse": 0.000707680748982909,
+  "rank_overall": 152
+ },
+ "arm": "cmx_s0",
+ "checkpoint_sha256": "3a8a14810969fdf7910b7542e5d2cd08779bf184f66138b522de8de3ecca2692",
+ "frame": "wind",
+ "alpha_deg": 14.068,
+ "channels": {
+  "ux": {
+   "colour_rule": "U_inf +- p99 |u - U_inf| (both rows)",
+   "range": [
+    -26.595355683327547,
+    124.79335568332755
+   ],
+   "window_MSE_over_sigma2": 0.00034564261108458827
+  },
+  "uy": {
+   "colour_rule": "+- p99 |RANS|",
+   "range": [
+    -124.01404244078836,
+    124.01404244078836
+   ],
+   "window_MSE_over_sigma2": 0.0006893792271019313
+  },
+  "p": {
+   "colour_rule": "+-U_inf^2/2 (C_p = +-1)",
+   "range": [
+    -1205.3559004999997,
+    1205.3559004999997
+   ],
+   "window_MSE_over_sigma2": 0.00011053708318052244
+  },
+  "nut": {
+   "colour_rule": "linear, 0 to the 99th percentile of the RANS nu_t in the window (both rows)",
+   "range": [
+    0.0,
+    0.029617440700531
+   ],
+   "window_MSE_over_sigma2": 0.0017560884654583982
+  }
+ },
+ "nut_log_companion": {
+  "rule": "log scale of nu_t/nu, nu = 1.56e-5 m^2/s (AirfRANS): from 1 to the 99.5th percentile of the RANS ratio in the window; values below 1, non-positive predictions included, take the lowest colour",
+  "range": [
+   1.0,
+   2040.822901882421
+  ],
+  "window_fraction_below_1": {
+   "rans": 0.6657803304261505,
+   "decoder": 0.660556855515375
+  }
+ }
+}
