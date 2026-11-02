@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Smoke test of the deployed operator-conditioned field decoder (weights/field_decoder_f0cm_s1.npz).
+"""Smoke test of the AirfRANS-only operator-conditioned field decoder (weights/field_decoder_f0cm_s1.npz; deployed in 2.0.0).
 
 Runs supervised_field.nf_eval_shape.encode_np + fwd_np on a synthetic 1,000-point query
 with a synthetic shape token, and asserts the four output channels are finite and

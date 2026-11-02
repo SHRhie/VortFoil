@@ -148,10 +148,18 @@ closed section; `state_for` passes it the NACA polyline, as before.
 | `plot_style.py` | NCFE 2026 figure style — camera-ready conference defaults. |
 | `vf_surface_cst16_fig.py` | Figs. 2–3: Cp, stagnation and Cm readouts of the confirmed single model against XFOIL truth on the 2,678 converged attached rows (layout copy of the sealed generator with the converged-row mask). |
 | `vf_drag_closure_fig.py` | Figures for the manuscript's profile-drag section. Generator + saved numbers, per the figure-provenance rule. |
-| `vf_field_f2_contour.py` | Fig. 6: RANS truth against a decoder's stored prediction (`--preds`, from `code/field/step2_store_preds.py`; `--case NAME --case-tag TAG` renders one named case, `--p-qinf` limits the pressure scale to C_p = ±1). |
+| `vf_field_f2_contour.py` | The AirfRANS-only decoder's field figure of 2.0.0: RANS truth against a decoder's stored prediction (`--preds`, from `code/field/step2_store_preds.py`; `--case NAME --case-tag TAG` renders one named case, `--p-qinf` limits the pressure scale to C_p = ±1). |
+| `vf_field_contour_v3.py` | The deployed decoder's field figure and its log-scale ν_t companion (`vf_field_cmx_median_hi{,_nutlog}`): the median-error test case at α ≥ 8°, from `results/preds_cmx_s0/` (`step2_store_preds.py --weights-tag cmx --seed 0`) and the per-case scores in `results/stepmatch_score_20261015T070933Z_per_case.npz`; uses the helpers of `vf_field_f2_contour.py`. |
+| `vf_domains_fig.py` | The geometry-coverage and training-domain figure (`vf_domains`), drawn from the plotted arrays the research generator saved (`results/vf_domains_points.npz`); the data sets themselves are not shipped. |
+| `make_wing3d_figure.py` | The 2.5D wing against 3D RANS (`fig_wing3d_validation`) and the LaTeX of its table and caption, from `results/wing3d/wing3d_results.json`; the table is read back and checked against the results file. |
+| `make_wing25d_surface.py` | The surface C_p the 2.5D model puts on the NACA 2412 wing at 6° in the RANS state (`fig_wing25d_surface`), from `results/wing3d/wing_viz3d_n2412_sst.json`. |
 
-With `--print`, each generator reproduces its files in `figures/`: drawn at the manuscript's text width (5.40 in)
-with 11 pt titles and labels and 10 pt ticks and legends. Without it, they draw the earlier smaller-text layout.
+With `--v3`, the generators reproduce the manuscript's figures in `figures/` in its two-column layout (7.22 in for a
+full-width figure, 3.49 in for a column, 8 pt titles and labels, 7 pt ticks and legends); each PNG is pixel-identical to
+the manuscript's render (`vf_field_contour_v3.py` and `vf_domains_fig.py` draw only that layout). `--print` draws the
+one-column layout of 2.0.0 (5.40 in, 11/10 pt), the render of `vf_field_f0cm_tp_pos`; without either, the earlier
+smaller-text layout. The surface and drag generators read inputs this release does not ship (`ATTACHED_CP_TARGETS`,
+`VORTFOIL_RAW`, see their headers).
 
 ## `code/view_airfoil.py`
 

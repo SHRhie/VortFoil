@@ -37,7 +37,9 @@ vortfoil_paths.add_paths()            # this checkout's vortfoil package (src) a
 NU_AIR = 1.5e-5                 # m^2/s, air at about 20 C
 AR_MIN, SWEEP_MAX_DEG = 4.0, 10.0      # lifting-line validity: aspect ratio; quarter-chord sweep (its effects are not modelled)
 TABLE_X = np.arange(-10.0, 18.001, 0.25)  # XFOIL state: section incidences tabulated (deg), the surface model's training range
-TABLE_S = np.arange(-8.0, 16.001, 1.0)    # RANS state: section incidences tabulated (deg; research 0.5)
+TABLE_S = np.arange(-5.0, 15.001, 1.0)    # RANS state: section incidences tabulated (deg; research 0.5): the field decoder's
+# AirfRANS training incidences. The deployed decoder (AirfRANS + UniFoil) turns non-monotonic below them for some sections
+# (NACA 23012: c_l -0.607 at -7 deg, -0.592 at -8 deg), which gave a spurious tip root on wider tables (research, 2026-10-15).
 RE_GRID = 0.05                  # RANS state: per shape, tables on this log10(Re) grid (decades) where that needs fewer tables
                                 # than the strips' own Re values, linear in log10(Re); None: every table at a strip's Re.
 # Why (Mac M5 Pro, serial, 0.088 s per decoder call): the research tables (0.5 deg, every strip's Re) took 88 s for the
@@ -412,15 +414,22 @@ def solve(w, V, alpha_deg, polar, tol=1e-10, it_max=60, v=None):
         v = horseshoe_v(w.P, w.A, w.B, u)                                             # (n, n, 3)
     dA = w.c * w.ds
     al0 = np.arctan2(w.un @ u, w.ua @ u)
-    # the usual start; when Newton fails from it (near zero lift it can drift to a non-physical root at the tip strips, e.g. a
-    # NACA 0009 wing at 1 deg: tip incidence 71 deg), once more from zero circulation
-    for G in (0.5 * V * w.c * polar(al0)[0] * 0.7, np.zeros(w.n)):
+    # Starts: the usual one, and zero circulation when Newton fails from it (near zero lift it can drift to a non-physical root
+    # at the tip strips, e.g. a NACA 0009 wing at 1 deg: tip incidence 71 deg). A table polar has such roots outside its table
+    # in either form (clamped: a flat branch; continued: the edge slope carried on), so a converged root with every strip
+    # inside the table (polar.lo..hi) is taken first: the clamped form (release 2.0.0's solve), then the continued form; when
+    # no root lies inside the table, the first converged one is kept and compute() flags its strips out of range.
+    lo, hi = getattr(polar, "lo", -np.inf), getattr(polar, "hi", np.inf)
+    plans = [(getattr(polar, "clamped", polar), z) for z in (True, False)] + ([(polar, True), (polar, False)] if hasattr(polar, "clamped") else [])
+    kept = None
+    for pol, usual in plans:
+        G = 0.5 * V * w.c * pol(al0)[0] * 0.7 if usual else np.zeros(w.n)
         for k in range(it_max):
             Vi = V * u + np.einsum("ijk,j->ik", v, G)
             wv = np.cross(Vi, w.dl); nw = np.linalg.norm(wv, axis=1)
             va, vn = np.sum(Vi * w.ua, 1), np.sum(Vi * w.un, 1)
             ai = np.arctan2(vn, va)
-            cl, dcl, cd, cm = polar(ai)
+            cl, dcl, cd, cm = pol(ai)
             F = nw * G - 0.5 * V ** 2 * dA * cl
             if np.max(np.abs(F)) / (0.5 * V ** 2 * np.max(dA)) < tol:
                 break
@@ -432,14 +441,20 @@ def solve(w, V, alpha_deg, polar, tol=1e-10, it_max=60, v=None):
             for om in (1.0, 0.5, 0.25, 0.125, 0.0625):                                       # backtracking: accept a decrease
                 Gt = G + om * step
                 Vt = V * u + np.einsum("ijk,j->ik", v, Gt)
-                Ft = np.linalg.norm(np.cross(Vt, w.dl), axis=1) * Gt - 0.5 * V ** 2 * dA * polar(np.arctan2(np.sum(Vt * w.un, 1), np.sum(Vt * w.ua, 1)))[0]
+                Ft = np.linalg.norm(np.cross(Vt, w.dl), axis=1) * Gt - 0.5 * V ** 2 * dA * pol(np.arctan2(np.sum(Vt * w.un, 1), np.sum(Vt * w.ua, 1)))[0]
                 if np.max(np.abs(Ft)) < f0:
                     break
             G = Gt
         if np.max(np.abs(F)) / (0.5 * V ** 2 * np.max(dA)) < 1e-6:   # the residual compute() calls converged
-            break
+            Vi = V * u + np.einsum("ijk,j->ik", v, G); ai = np.arctan2(np.sum(Vi * w.un, 1), np.sum(Vi * w.ua, 1))
+            if np.all((ai >= lo - 1e-9) & (ai <= hi + 1e-9)):
+                kept = None
+                break
+            kept = kept or (G, F, k, pol)                                                # converged, outside the table
+    if kept is not None:
+        G, F, k, pol = kept
     Vi = V * u + np.einsum("ijk,j->ik", v, G); ai = np.arctan2(np.sum(Vi * w.un, 1), np.sum(Vi * w.ua, 1))
-    cl, _, cd, cm = polar(ai)
+    cl, _, cd, cm = pol(ai)
     Fs = G[:, None] * np.cross(Vi, w.dl)                                                # strip forces, rho = 1
     Ft = np.sum(Fs, axis=0)
     q = 0.5 * V ** 2 * w.S; uL = np.array([-np.sin(a), 0.0, np.cos(a)])
@@ -469,23 +484,35 @@ def solve(w, V, alpha_deg, polar, tol=1e-10, it_max=60, v=None):
 
 
 def table_polar(tab, deg=12):
-    """per-section C_l(alpha) as a Chebyshev fit (continuous slope for Newton); C_d, C_m interpolated in the table"""
+    """per-section C_l(alpha) as a Chebyshev fit (continuous slope for Newton); C_d, C_m interpolated in the table. Outside the
+    table C_l continues linearly with the edge slope (research, 2026-10-15: clamping it left a flat branch on which Newton could
+    settle a strip at a spurious incidence); f.clamped is the clamped form release 2.0.0 solved with, f.lo and f.hi (rad) the
+    table's incidences, which solve() uses to prefer a root inside the table"""
     A = tab["alpha"]; C = np.polynomial.Chebyshev
     fits = [C.fit(A, row, deg) for row in tab["cl"]]; d = [f.deriv() for f in fits]
     tab["cl_fit_max_err"] = float(max(np.max(np.abs(f(A) - row)) for f, row in zip(fits, tab["cl"])))
-    def f(ai):
-        ai = np.clip(ai, A[0], A[-1])
-        cl = np.array([fits[i](x) for i, x in enumerate(ai)]); dcl = np.array([d[i](x) for i, x in enumerate(ai)])
-        cd = np.array([np.interp(x, A, tab["cd"][i]) for i, x in enumerate(ai)])
-        cm = np.array([np.interp(x, A, tab["cm"][i]) for i, x in enumerate(ai)])
-        return cl, dcl, cd, cm
-    f.alpha_stall = A[np.argmax(tab["cl"], axis=1)]                                     # incidence of each section's largest C_l
+    def form(continued):
+        def f(ai):
+            x = np.clip(ai, A[0], A[-1])
+            cl = np.array([fits[i](v) for i, v in enumerate(x)]); dcl = np.array([d[i](v) for i, v in enumerate(x)])
+            if continued:
+                cl = cl + dcl * (ai - x)
+            cd = np.array([np.interp(v, A, tab["cd"][i]) for i, v in enumerate(x)])
+            cm = np.array([np.interp(v, A, tab["cm"][i]) for i, v in enumerate(x)])
+            return cl, dcl, cd, cm
+        f.alpha_stall = A[np.argmax(tab["cl"], axis=1)]                                 # incidence of each section's largest C_l
+        f.lo, f.hi = A[0], A[-1]
+        return f
+    f = form(True)
+    f.clamped = form(False)
     return f
 
 
 # ------------------------------------------------------------------------------------------- the application's wing
 SST_KINDS = (("the field decoder was trained on NACA", "are not NACA 4/5-digit sections (the decoder's training family): read "
-              "their values as indicative"), ("the coordinates were not in the chord frame", "were normalized to the chord frame"),
+              "their values as indicative"),
+             ("the field decoder's SST training sections are NACA", "are not NACA 4/5-digit sections (the decoder's SST training "
+              "family): read their values as indicative"), ("the coordinates were not in the chord frame", "were normalized to the chord frame"),
              ("the 16-parameter form deviates", "deviate from their 16-parameter form (the operator state is the fitted shape's)"),
              ("trailing-edge gap", "have a trailing-edge gap, closed for the decoder"),
              ("the section's shape code", "are unlike the decoder's NACA training sections (shape code)"))
@@ -759,19 +786,22 @@ def input_ranges(defn, scale=1.0, V=None, decoder=None, current_is_naca=False):
         say["at_V"] = f"{V:g} m/s: " + ("inside both." if not bad else (f"{fit[0]} only; " if fit else "") + "; ".join(bad) + ".")
     naca = all(is_naca(t["section"]) or (t["section"] == "current" and current_is_naca) for t in d["stations"])
     if not naca:
-        say["family"] = ("RANS state: trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; "
+        say["family"] = ("RANS state: SST-trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; "
                          "prefer the XFOIL state.")
     return dict(xfoil=x, sst=s, chord=(c0, c1), naca=naca, sentences=say, text=" ".join(t for t in say.values() if t))
 
 
 # ------------------------------------------------------------------------------------------- checks
-REGRESSION = (      # research results (wing_viz3d free wake; matrix 60 m/s: exact planform area), C_L at 2/6/10 deg, C_D or None
-    ("Full-scale wing (span 10 m)", 45.0, "xfoil", (0.2817, 0.6265, 1.0001), None, 3e-3),
-    ("Full-scale wing (span 10 m)", 45.0, "sst", (0.2743, 0.6242, 0.9588), None, 4e-3),
-    ("Full-scale wing (span 10 m)", 60.0, "xfoil", (0.2850, 0.6218, 0.9938), (0.00877, 0.02060, 0.04505), None),
-    ("Full-scale wing (span 10 m)", 60.0, "sst", (0.2777, 0.6255, 0.9643), (0.01247, 0.02455, 0.04558), None),
-    ("Kinked wing (4415 to 2412, dihedral)", 60.0, "xfoil", (0.4068, 0.7330, 1.0890), None, None),
-    ("Kinked wing (4415 to 2412, dihedral)", 60.0, "sst", (0.3821, 0.7236, 1.0558), None, None),
+F0CM = "field_decoder_f0cm_s1.npz"      # the AirfRANS-only decoder of release 2.0.0, which the older RANS-state results used
+REGRESSION = (      # research results (wing_viz3d free wake; matrix 60 m/s: exact planform area), C_L at 2/6/10 deg, C_D or None,
+    # C_L tolerance, RANS-state decoder (None: the deployed one; its row is the research's re-solve of 2026-10-15)
+    ("Full-scale wing (span 10 m)", 45.0, "xfoil", (0.2817, 0.6265, 1.0001), None, 3e-3, None),
+    ("Full-scale wing (span 10 m)", 45.0, "sst", (0.2726, 0.6202, 0.9606), None, 4e-3, None),
+    ("Full-scale wing (span 10 m)", 45.0, "sst", (0.2743, 0.6242, 0.9588), None, 4e-3, F0CM),
+    ("Full-scale wing (span 10 m)", 60.0, "xfoil", (0.2850, 0.6218, 0.9938), (0.00877, 0.02060, 0.04505), None, None),
+    ("Full-scale wing (span 10 m)", 60.0, "sst", (0.2777, 0.6255, 0.9643), (0.01247, 0.02455, 0.04558), None, F0CM),
+    ("Kinked wing (4415 to 2412, dihedral)", 60.0, "xfoil", (0.4068, 0.7330, 1.0890), None, None, None),
+    ("Kinked wing (4415 to 2412, dihedral)", 60.0, "sst", (0.3821, 0.7236, 1.0558), None, None, F0CM),
 )   # not listed: the Clark Y wing's RANS state, which departs from the research on purpose (+32-65% C_D0; see strip_loops)
 
 
@@ -814,14 +844,15 @@ def check(regression=False):
     if regression:
         bad = []
         print(f"{'wing':38s} {'V':>4s} {'state':5s} {'alpha':>5s} {'C_L ref':>8s} {'C_L':>8s} {'diff':>8s} {'C_D ref':>8s} {'C_D':>8s} {'diff':>7s}")
-        for name, V, state, CL, CD, tol in REGRESSION:
+        for name, V, state, CL, CD, tol, dec in REGRESSION:
             t = time.perf_counter()
-            res = compute(PRESETS[name], V, 6.0, state)                                # the polar holds 2, 6 and 10 deg
+            dec = dec and os.path.join(vortfoil_paths.WEIGHTS, dec)
+            res = compute(PRESETS[name], V, 6.0, state, decoder=dec)                   # the polar holds 2, 6 and 10 deg
             for k, a in enumerate((2.0, 6.0, 10.0)):
                 j = int(np.flatnonzero(res["polar"]["alpha"] == a)[0])
                 cl, cd = res["polar"]["CL"][j], res["polar"]["CD"][j]
                 ok = abs(cl - CL[k]) < (tol or 0.01 * abs(CL[k])) and (CD is None or abs(cd / CD[k] - 1) < 0.03)
-                bad += [] if ok else [f"{name} {V:g} m/s {state} {a:g} deg"]
+                bad += [] if ok else [f"{name} {V:g} m/s {state} {a:g} deg {os.path.basename(dec) if dec else ''}"]
                 print(f"{name:38s} {V:4.0f} {state:5s} {a:5.0f} {CL[k]:8.4f} {cl:8.4f} {cl - CL[k]:+8.4f} "
                       + (f"{CD[k]:8.5f} {cd:8.5f} {cd / CD[k] - 1:+7.2%}" if CD else f"{'':8s} {cd:8.5f}") + ("" if ok else "  FAIL"))
             print(f"  ({time.perf_counter() - t:.1f} s; tables built {res['timing']['built']}, reused {res['timing']['reused']})")

@@ -4,23 +4,28 @@ Sang-Hyun Rhie, Gyuwon Kim, Suhyeong Lim, Jeongsu Lee — Department of Mechanic
 
 ## Abstract
 
-VortFoil links aerodynamic coefficients to predicted states through a fixed-resolution neural
-operator. Network-predicted panelwise rates are projected onto a fixed Fourier basis and
-analytically integrated to form an effective vortex sheet. A projection enforces the discrete
-Kutta condition, and panel readouts provide surface pressure, circulation lift, moment, and
-stagnation location without stagnation-position labels. A boundary-layer operator predicts
-thickness profiles in parallel from the same geometry and operating conditions. Drag and lift
-follow from state-conditioned empirical closures fitted by ridge regression and frozen at
-deployment. Selected readouts condition a separately trained Reynolds-averaged Navier–Stokes
-(RANS) field decoder. On the attached XFOIL holdout of 80 unseen airfoils, median
-pressure-coefficient relative L2 and stagnation-location errors are 0.100 and 0.77 panels. Drag R²
-is 0.920 (attached set) and 0.934 (separated set); NeuralFoil achieves higher lift, drag, and
-moment R² on both sets. Trained on the same AirfRANS cases as an XFOIL-conditioned decoder, the
-operator-conditioned field decoder has paired error-ratio 95% confidence intervals, relative to that
-decoder, below unity on u_x, u_y and p; the ν_t interval includes unity. It has lower aggregate
-errors than a published field-operator baseline on u_x, p and ν_t, but not on u_y, and its velocity
-errors above 8° incidence exceed that baseline's published aggregate. Surface lift and drag shape
-gradients are checked against finite differences of the same single-precision forward map.
+VortFoil is a vortex-panel-informed neural operator framework that connects airfoil
+aerodynamic performance prediction with RANS flow reconstruction through continuous
+aerodynamic-state representations. Vortex-sheet strength and boundary-layer thickness
+distributions are represented as continuous profiles along the surface by analytic integration
+of network-predicted spatial rates. A discrete Kutta projection and deterministic panel readouts
+give surface pressure, circulation lift, moment and stagnation location, and frozen empirical
+closures map the trailing-edge states to lift and drag. Selected readouts condition a RANS decoder
+trained jointly on AirfRANS and 16,923 non-NACA UniFoil airfoils without a turbulence-model input
+or inference-time XFOIL calls. Against XFOIL on 80 unseen UIUC airfoils (−10°–18°), attached-set
+(−4°–12°, n = 2678) median pressure-coefficient relative L2 error is 0.100 and label-free
+stagnation error 0.77 panels; separated-set drag R² is 0.934 versus 0.685 for the marched wake.
+In AirfRANS-only ablations, operators' states lower velocity and pressure errors relative to
+XFOIL conditioning, most strongly at high incidence. The field decoder has the lowest
+surface-pressure error among the compared models and field-integrated lift R² 0.9990 against
+RANS; its 5.4% mean relative lift error exceeds those of forced-transition NeuralFoil and XFOIL.
+With surface weights frozen, a neural RANS correction lowers mean relative NACA lift/drag errors
+from 7.7%/25.9% to 2.9%/4.3%, and drag error from 30.2% to 8.9% on 107 unseen non-NACA SST
+sections. Against equally long AirfRANS-only training, UniFoil airfoils lower all four errors on
+unseen non-NACA SST sections (ratios 0.30–0.50), but not AirfRANS errors; Spalart–Allmaras
+standardized MSEs are 4.58e-5–2.94e-4 on 150 held-out UniFoil airfoils. Coupled through a
+nonlinear lifting line, the sectional predictions reproduce three-dimensional RANS wing lift
+within a mean absolute error of 5.1% at moderate incidence.
 
 ---
 

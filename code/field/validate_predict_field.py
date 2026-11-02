@@ -28,6 +28,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import vortfoil_paths as VP                         # noqa: E402
 VP.add_paths()
+# The shipped record was written with release 2.0.0's deployed decoder, the AirfRANS-only run; release 2.1.0 deploys the
+# co-trained decoder (predict_field.DECODER), so this check pins the decoder its record was made with.
+DEC = os.path.join(VP.WEIGHTS, "field_decoder_f0cm_s1.npz")
 sys.path.insert(0, HERE)
 
 RECORD = os.path.join(VP.RESULTS, "f0cm_final_rescore_20261002T051450Z", "per_case.npz")
@@ -41,7 +44,7 @@ def _init():
     import predict_field as PF
     import vf_field_fast as F
     F.install()
-    _PF, _W, _PROV = PF, PF.load_decoder(), PF.provider()
+    _PF, _W, _PROV = PF, PF.load_decoder(DEC), PF.provider()
 
 
 def _metrics(pred, TR, std, masks):
@@ -77,7 +80,7 @@ def _work(nm):
         coarse = np.asarray(naca_generator(np.array(prm), nb_samples=80, cosine_spacing=True, verbose=False, CTE=True), np.float64)
         prep = {}
         for tag, loop in (("U", poly), ("C", coarse)):
-            c = prep[tag] = PF.prepare(loop, a, Re, family="naca")    # AirfRANS sections are NACA 4/5-digit
+            c = prep[tag] = PF.prepare(loop, a, Re, decoder=DEC, family="naca")    # AirfRANS sections are NACA 4/5-digit
             PU = c["to_frame"](P)
             inp = PF.field_inputs(PU, c["poly"], c["alpha"], Re, c["cl"], c["s"], surf=sm)
             inside = (inp["d"] <= 0.0) & ~sm

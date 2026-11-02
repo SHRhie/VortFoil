@@ -5,6 +5,9 @@ import json
 import os
 import sys
 
+import copy
+import warnings
+
 import numpy as np
 import pytest
 
@@ -26,6 +29,38 @@ def cache(tmp_path, monkeypatch):
 
 def test_lifting_line_checks():
     WG.check()
+
+
+def test_solve_prefers_a_root_inside_the_table():
+    """Outside its table the polar continues C_l linearly (research, 2026-10-15); solve() takes a root with every strip inside the
+    table, trying the clamped form first. On the default wing the continued polar alone settles the tip strips near 72 deg."""
+    res = WG.compute(WG.PRESETS[FULL], 45.0, 6.0)
+    t, d = res["tables"], res["defn"]
+    pol = WG.table_polar(dict(alpha=np.radians(t["alpha_deg"]), cl=t["cl"], cd=t["cd"], cm=t["cm"]))
+    w = WG.Wing(stations=d["stations"], n=d["n"])
+    edge = np.full(w.n, pol.hi)
+    assert np.allclose(pol(edge + 0.1)[0], pol(edge)[0] + 0.1 * pol(edge)[1]) and np.allclose(pol.clamped(edge + 0.1)[0], pol(edge)[0])
+    bare = lambda ai: pol(ai)                       # the continued form without its table range: the first converged root
+    s0, s = WG.solve(w, 45.0, 6.0, bare), WG.solve(w, 45.0, 6.0, pol)
+    assert max(s0["alpha_eff"]) > 60 and s0["residual"] < 1e-6                         # the spurious tip root
+    assert -10 < min(s["alpha_eff"]) and max(s["alpha_eff"]) < 18 and abs(s["CL"] - 0.6265) < 3e-3
+
+
+def test_naca_23012_wing_rans_state():
+    """The research's failure case (2026-10-15): with the deployed decoder a NACA 23012 tip strip settled at -62 deg on a table
+    over -8..16 deg. Tables over the decoder's training incidences and the in-table root give the research's re-solved C_L
+    (0.1958, 0.5421, 0.8912 at 2, 6, 10 deg; free wake) with every strip inside the table."""
+    d = copy.deepcopy(WG.PRESETS[FULL])
+    for st in d["stations"]:
+        st["section"] = "23012"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = WG.compute(d, 45.0, 6.0, "sst")
+    al = r["polar"]["alpha"]
+    cl = [r["polar"]["CL"][int(np.flatnonzero(al == a)[0])] for a in (2.0, 6.0, 10.0)]
+    assert np.allclose(cl, (0.1958, 0.5421, 0.8912), atol=4e-3), cl
+    ae = np.asarray(r["strips"]["alpha_eff_deg"])
+    assert -5 < ae.min() and ae.max() < 15 and r["coef"]["in_range"]
 
 
 def test_full_scale_wing_xfoil_state():
@@ -178,7 +213,7 @@ def test_polar_follows_the_state_training_range(cache, monkeypatch):
 def test_sst_warnings_are_grouped():
     import predict_field as PF
     lo = "Reynolds number 1e+06 lies outside the decoder's training range 2e+06 to 6e+06"
-    out = WG._sst_warnings([[lo], [lo, PF.FAMILY_NOTE], [], ["incidence 15.50 deg lies outside ..."]], [1e6, 1e6, 3e6, 7e6], 2e6, 6e6)
+    out = WG._sst_warnings([[lo], [lo, PF.FAMILY_NOTE_AIRFRANS], [], ["incidence 15.50 deg lies outside ..."]], [1e6, 1e6, 3e6, 7e6], 2e6, 6e6)
     assert out == ["RANS decoder: 2 of 4 strips at Re below its training range 2e6-6e6",
                    "RANS decoder: 1 of 4 strips are not NACA 4/5-digit sections (the decoder's training family): read their values as indicative",
                    "RANS decoder: 1 of 4 strips at incidences outside its training range -5 to 15 deg"]
@@ -237,7 +272,7 @@ def test_input_ranges():
     st = WG.PRESETS[KINKED]["stations"]                                             # a kinked wing with a UIUC section at its kink
     k = at(60, dict(WG.PRESETS[KINKED], stations=[st[0], dict(st[1], section="uiuc:e387"), st[2]]))
     assert not k["naca"] and WG.input_ranges(WG.PRESETS[KINKED])["naca"] and k["sentences"]["family"] == (
-        "RANS state: trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; prefer the XFOIL state.")
+        "RANS state: SST-trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; prefer the XFOIL state.")
     assert k["text"].endswith(k["sentences"]["family"]) and k["sst"]["inside"] and "RANS state 59.9-60.7 m/s." in k["text"]
     near3 = WG.input_ranges(dict(stations=[dict(y=0, chord=1.5, section="2412"), dict(y=5, chord=0.487, section="2412")]))
     assert near3["sst"]["possible"] and "RANS state about 61.6 m/s only." in near3["text"]                    # strip chord ratio just under 3

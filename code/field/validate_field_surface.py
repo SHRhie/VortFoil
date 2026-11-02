@@ -19,6 +19,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import vortfoil_paths as VP                         # noqa: E402
 VP.add_paths()
+# The shipped record was written with release 2.0.0's deployed decoder, the AirfRANS-only run; release 2.1.0 deploys the
+# co-trained decoder (predict_field.DECODER), so this check pins the decoder its record was made with.
+DEC = os.path.join(VP.WEIGHTS, "field_decoder_f0cm_s1.npz")
 sys.path.insert(0, HERE)
 
 RECORD = os.path.join(VP.RESULTS, "f0cm_final_rescore_20261002T051450Z", "per_case.npz")
@@ -44,7 +47,7 @@ def _work(nm):
     cp_true = np.asarray(sim.pressure, np.float64).ravel()[sm] / (0.5 * U ** 2)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = _PF.surface(analytic_polyline(prm), a, Re, family="naca")
+        r = _PF.surface(analytic_polyline(prm), a, Re, decoder=DEC, family="naca")
     A = np.c_[r["x"], r["y"]]; B = np.roll(A, -1, axis=0); ca, cb = r["cp"], np.roll(r["cp"], -1)   # closed section, segment by segment
     AB = B - A; tt = np.clip(np.einsum("wsk,sk->ws", Pw[:, None] - A[None], AB) / np.sum(AB ** 2, 1)[None], 0, 1)
     k = np.argmin(np.sum((Pw[:, None] - (A[None] + tt[..., None] * AB[None])) ** 2, axis=2), axis=1)
@@ -52,7 +55,7 @@ def _work(nm):
     cp = ca[k] + tk * (cb[k] - ca[k])                                                # projected on the nearest segment
     (cd, cdp, cdv), (cl, clp, _) = sim.force_coefficient(reference=True)
     mid = (Pw[:, 0] >= 0.05) & (Pw[:, 0] <= 0.95)
-    std_p = float(_PF.load_decoder()["std"][2])
+    std_p = float(_PF.load_decoder(DEC)["std"][2])
     return dict(case=nm, alpha=a, Re=Re, cl=r["cl"], cd=r["cd"], cd_pressure=r["cd_pressure"], cd_friction=r["cd_friction"],
                 yplus=r["yplus_median"], cl_rans=float(cl), clp_rans=float(clp), cdp_rans=float(cdp), cdv_rans=float(cdv), cd_rans=float(cd), cp_rmse=float(np.sqrt(np.mean((cp - cp_true) ** 2))), cp_rmse_mid=float(np.sqrt(np.mean((cp[mid] - cp_true[mid]) ** 2))),
                 p_std_mse=float(np.mean(((cp - cp_true) * 0.5 * U ** 2 / std_p) ** 2)), secs=time.time() - t0)

@@ -16,18 +16,20 @@ XFOIL run is needed:
   3. physics paint: the panel solve on the section at the incidence with circulation C_l^gamma (paint_points_v2), the
      wall distance and the nearest panel's normal at every query point.
   4. shape code: the PointNet latent of 256 leading-edge-weighted points of the section (nf_extract_shape.resample_le).
-  5. decoder: weights/field_decoder_f0cm_s1.npz (the deployed run) at the query points.
+  5. decoder: weights/field_decoder_cmx_s0.npz (the deployed run) at the query points.
 Units follow AirfRANS: chord 1 m, air with nu = 1.56e-5 m^2/s, so U = Re * nu; u, v in m/s, p as p/rho in m^2/s^2,
 nu_t in m^2/s. Normalized copies are stored too: u/U, v/U, Cp = p/(U^2/2), nu_t/(U c).
 
-Domain. The decoder was trained on 780 AirfRANS k-omega SST cases only: NACA 4- and 5-digit sections at incidences of
--5 to 15 deg and Reynolds numbers of 2e6 to 6e6. Outside those ranges, or for a section whose shape code lies farther from
-every training section than the training sections lie from each other, a FieldRangeWarning is issued and recorded.
-Families. Ten UIUC sections of other families, run with the AirfRANS protocol (k-omega SST, inside the ranges above),
-gave mean errors 26 times the decoder's NACA test level for u_x (1.5 to 80 times per section: the near-NACA rae2822,
-naca642415 and du84132v stay in the test tail, cambered high-lift and thin low-Re sections are far off), largest near the
-wall; the shape-code distance did not flag any of them. So every section that is not given as a NACA designation
-(family="naca") gets a FieldRangeWarning saying so.
+Domain. The decoder was trained on 780 AirfRANS k-omega SST cases (NACA 4- and 5-digit sections at incidences of -5 to
+15 deg and Reynolds numbers of 2e6 to 6e6) together with 16,923 non-NACA UniFoil airfoils (fully turbulent Spalart-Allmaras,
+-2 to 6 deg), with no turbulence-model input. Its SST reference is AirfRANS: outside the AirfRANS ranges, or for a section
+whose shape code lies farther from every AirfRANS training section than those sections lie from each other, a
+FieldRangeWarning is issued and recorded.
+Families. On the 16 unseen non-NACA UIUC test sections of the manuscript, run with the AirfRANS protocol (k-omega SST,
+inside the ranges above), its mean errors are 14 (u_x), 15 (u_y), 46 (p) and 38 (nu_t) times its NACA test level; the
+AirfRANS-only decoder of release 2.0.0 (weights/field_decoder_f0cm_s1.npz) is at 27, 35, 68 and 40 times. Errors are
+largest near the wall. So every section that is not given as a NACA designation (family="naca") still gets a
+FieldRangeWarning saying so.
 The validation of this pathway against the deployed evaluation is code/field/validate_predict_field.py.
 """
 import os, sys, json, hashlib, warnings
@@ -39,7 +41,7 @@ import vortfoil_paths as VP                         # noqa: E402
 VP.add_paths()
 sys.path.insert(0, HERE)
 
-DECODER = os.path.join(VP.WEIGHTS, "field_decoder_f0cm_s1.npz")    # the deployed operator-conditioned decoder (run 1)
+DECODER = os.path.join(VP.WEIGHTS, "field_decoder_cmx_s0.npz")     # the deployed decoder: AirfRANS + 16,923 UniFoil (run 0)
 # Experimental, for personal checks (local branch exp/rext-decoder, not released): the same recipe retrained with 89 more
 # NACA cases at Re 1e6-2e6 and 6e6-1e7 (2026-10-10). It did not pass its pre-registered test: better than the deployed run
 # outside 2e6-6e6 on all four channels, but p and nu_t were not shown non-inferior inside. Used only when asked for.
@@ -288,16 +290,20 @@ def _closed_upper_first(g):
     return np.r_[g, g[:1]]
 
 
-FAMILY_NOTE = ("the field decoder was trained on NACA 4- and 5-digit sections only; on ten UIUC sections of other "
-               "families its errors were 1.5 to 80 times its NACA test level (26 times on average for u_x), largest near "
-               "the wall: read this field as indicative")
+FAMILY_NOTE = ("the field decoder's SST training sections are NACA 4- and 5-digit sections only (its non-NACA training "
+               "airfoils are Spalart-Allmaras solutions); on 16 unseen non-NACA SST sections its errors were 14 to 46 times "
+               "its NACA test level, largest near the wall: read this field as indicative")
+# the AirfRANS-only decoders (release 2.0.0's field_decoder_f0cm_s1.npz and the rext run)
+FAMILY_NOTE_AIRFRANS = ("the field decoder was trained on NACA 4- and 5-digit sections only; on ten UIUC sections of other "
+                        "families its errors were 1.5 to 80 times its NACA test level (26 times on average for u_x), largest "
+                        "near the wall: read this field as indicative")
 
 
 def prepare(loop, alpha, Re, decoder=DECODER, family=None):
     """Everything the decoder needs about the section and the flow condition; the query points come later.
     Coordinates with at least 2 x 220 nodes are used as given (the training sections had 441); sparser ones are
     resampled to 441 nodes through every given point (section_polygon). An open trailing edge is closed first."""
-    msgs = [] if family == "naca" else [FAMILY_NOTE]
+    msgs = [] if family == "naca" else [FAMILY_NOTE if os.path.abspath(decoder) == os.path.abspath(DECODER) else FAMILY_NOTE_AIRFRANS]
     w = load_decoder(decoder)
     g, rot, to_frame, li = field_frame(loop)
     closed = np.allclose(np.asarray(loop, np.float64)[0], np.asarray(loop, np.float64)[-1])

@@ -13,10 +13,11 @@ import os
 os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")   # the vortfoil command (cli, app) enters here, before numpy: OpenBLAS
 # threads beside TensorFlow's made a field-route panel solve 0.35 s on Windows (1.5 ms single); no effect on macOS (Accelerate)
 from .api import VortFoil, SurfacePrediction, RangeWarning, BL_X, manifest
-from . import geometry
+from . import geometry, rans
 
-__version__ = "2.0.0"
-__all__ = ["VortFoil", "SurfacePrediction", "RangeWarning", "BL_X", "load_model", "about", "manifest", "geometry", "__version__"]
+__version__ = "2.1.0"
+__all__ = ["VortFoil", "SurfacePrediction", "RangeWarning", "BL_X", "load_model", "about", "manifest", "geometry", "rans",
+           "__version__"]
 
 _CACHE = {}
 

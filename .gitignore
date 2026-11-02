@@ -5,3 +5,5 @@ build/
 *.egg-info/
 .pytest_cache/
 .DS_Store
+# field predictions the README commands write (code/field/step2_store_preds.py); generated, not shipped
+results/preds_*/

@@ -95,7 +95,7 @@ def fetch(url, path):
 
 def load_section(kind, value):
     """(coordinates, display name, family) of a NACA designation, a UIUC database name or a coordinate file; family is
-    "naca" for a designation (the decoder's training family) and None otherwise (the field gets a family warning)."""
+    "naca" for a designation (the decoder's SST training family) and None otherwise (the field gets a family warning)."""
     import predict_field as PF
     if kind == "naca":
         code = value.upper().replace("NACA", "").strip()

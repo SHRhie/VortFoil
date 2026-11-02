@@ -1330,7 +1330,7 @@ def test_a_failing_selftest_write_ends_the_selftest(tk, tmp_path, capsys, monkey
 # ------------------------------------------------------------------------------------------------ the gray row of ranges; the Airfoil box's section on rows
 SPEEDS = "Speeds that keep every strip inside the training Re: XFOIL state 1-102 m/s, RANS state 40-61.2 m/s. "     # the 40 strips' chords
 INCIDENCE = "Strip incidence: XFOIL -10 to 18 deg, RANS -5 to 15 deg."
-FAMILY = "RANS state: trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; prefer the XFOIL state."
+FAMILY = "RANS state: SST-trained on NACA 4/5-digit sections only; this wing's other sections give indicative values; prefer the XFOIL state."
 
 
 def test_the_gray_row_of_ranges(tk, monkeypatch):

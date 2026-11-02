@@ -103,6 +103,9 @@ class SurfacePrediction:
     theta: np.ndarray              # (N, 2, 121) momentum thickness, [upper, lower], at x/c = BL_X
     dstar: np.ndarray              # (N, 2, 121) displacement thickness, [upper, lower], at x/c = BL_X
     info: dict = _field(default_factory=dict)
+    cl_rans: np.ndarray = None     # with predict(..., rans=True): the RANS coefficient correction (vortfoil.rans)
+    cd_rans: np.ndarray = None
+    cm_rans: np.ndarray = None
 
     def __len__(self):
         return len(self.cl)
@@ -110,7 +113,7 @@ class SurfacePrediction:
     def as_dict(self):
         return {k: getattr(self, k) for k in
                 ("cl", "cl_gamma", "cd", "cm", "cp", "stagnation", "n_crossings", "ue_te", "theta_te", "dstar_te",
-                 "x_cp", "theta", "dstar")}
+                 "x_cp", "theta", "dstar", "cl_rans", "cd_rans", "cm_rans") if getattr(self, k) is not None}
 
 
 class VortFoil:
@@ -147,7 +150,7 @@ class VortFoil:
         from ._staged.common.lift_closure_tf import cl_closed_tf, load_lift_closure
         self.mode = mode
         self.max_batch = int(max_batch or _DEFAULT_MAX_BATCH[self.device_kind])
-        w = weights_dir or _weights_dir()
+        w = self._weights_dir = weights_dir or _weights_dir()
         self.weights = {"sheet": os.path.join(w, "op1_supervised_eps0.50.scr_bd128.npz"),
                         "boundary_layer": os.path.join(w, "op2_m325_BT.npz"),
                         "lift_closure": os.path.join(w, "lift_closure_poly2.npz")}
@@ -237,6 +240,7 @@ class VortFoil:
                 raise ValueError(f"{k} has {m} values for {n} shapes: give one value, one per shape, or a single shape")
         alpha = np.broadcast_to(np.asarray(alpha, np.float32).reshape(-1, 1), (n, 1)).copy()
         Re = np.broadcast_to(np.asarray(Re, np.float32).reshape(-1, 1), (n, 1)).copy()
+        info["alpha_given"] = alpha.ravel().copy()          # the flow angle in the given frame (the RANS correction's input)
         if "chord_rotation_deg" in info:
             alpha = alpha - info["chord_rotation_deg"].reshape(-1, 1).astype(np.float32)
             info["alpha_used"] = alpha.ravel().copy()
@@ -248,13 +252,16 @@ class VortFoil:
             yield i, min(i + self.max_batch, n)
 
     # ---------------------------------------------------------------- public
-    def predict(self, cst=None, coords=None, alpha=0.0, Re=1e6):
+    def predict(self, cst=None, coords=None, alpha=0.0, Re=1e6, rans=False):
         """Evaluate the chain. Give either ``cst`` (N,16) or ``coords`` ((N,)P,2); scalars broadcast, and a
         single shape is repeated over arrays of ``alpha`` and ``Re`` (a polar straight from coordinates).
 
         When ``coords`` is given the shape is fitted to the CST form first and the incidence is
         measured from the fitted chord line, so a rotated section is handled correctly; the fit
         residual and the rotation are returned in ``result.info``.
+
+        ``rans=True`` also returns the RANS-level coefficients ``cl_rans``, ``cd_rans``, ``cm_rans`` of the frozen
+        coefficient correction (``vortfoil.rans``), fitted on AirfRANS NACA sections against k-omega SST.
         """
         tf = self._tf
         cst, a, r, info = self._prep(cst, coords, alpha, Re)
@@ -266,6 +273,10 @@ class VortFoil:
                     acc.setdefault(k, []).append(v.numpy())
         res = {k: np.concatenate(v) for k, v in acc.items()}
         ut = res.pop("ut")
+        if rans:
+            from .rans import correct
+            res["cl_rans"], res["cd_rans"], res["cm_rans"] = correct(res["cl"], res["cd"], res["cm"], info["alpha_given"],
+                                                                     r.ravel(), weights_dir=self._weights_dir)
         return SurfacePrediction(stagnation=_stagnation(ut), info=info, **res)
 
     def sweep(self, cst, alphas, Re=1e6):

@@ -1,0 +1,21 @@
+{
+ "tag": "cmx_s0",
+ "weights": "supervised_field/_nf_shape_cmx_s0.npz",
+ "n": 200,
+ "surface_p": 0.004457008985044346,
+ "surface_p_median": 0.00026952762487504725,
+ "cl_mean_rel": 0.05402579868931867,
+ "rho_L": 0.9994539863496589,
+ "cm_mae": 0.0022981183839286203,
+ "force_routine": {
+  "cd_mean_rel": 0.4548438098420708,
+  "rho_D": 0.6406780169504238,
+  "cd_mean_ratio": 1.43568019796219
+ },
+ "wall_function": {
+  "cd_mean_rel": 0.12756111295039962,
+  "rho_D": 0.7428665716642917,
+  "cd_mean_ratio": 0.9802359009406725
+ },
+ "check_rans_cl_cd_vs_reference": 4.440892098500626e-16
+}
