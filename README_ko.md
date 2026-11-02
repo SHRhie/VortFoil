@@ -31,7 +31,7 @@ VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터
 > **상태.** 버전 2.1.0은 수정된 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
 > (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 유동장 디코더는 AirfRANS와 비-NACA UniFoil 익형 16,923개를 함께 사용해
 > 학습했으며, 표면 브랜치의 RANS 계수 보정이 추가되었습니다(`CHANGELOG.md`).
-> 버전 2.0.0은 2026-10-13에 GitHub과 PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의
+> 버전 2.1.0은 2026-11-02에, 2.0.0은 2026-10-13에 GitHub과 PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의
 > [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871)에 보관됩니다.
 > 라이선스는 GPL-3.0-or-later입니다(아래의 *라이선스* 참조).
 

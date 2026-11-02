@@ -1,6 +1,6 @@
 # VortFoil 2.1.0
 
-Release date: unreleased.
+Release date: 2026-11-02.
 
 Accompanies the revised manuscript. The deployed two-dimensional field decoder is now trained on
 AirfRANS together with 16,923 non-NACA UniFoil airfoils, and a frozen correction maps the surface
@@ -30,7 +30,7 @@ pip install --no-deps vortfoil
 
 Python 3.10 or newer. The tests and the self-check run on TensorFlow 2.10, 2.15 and 2.18 on CPU, and the model was
 timed on an NVIDIA GPU; the uv installation is tested on Windows, macOS and Linux with the TensorFlow it resolves
-(2.21 when the 2.0.0 release was prepared). The README lists the steps to uninstall.
+(2.21 when this release was prepared). The README lists the steps to uninstall.
 
 ## Use
 
