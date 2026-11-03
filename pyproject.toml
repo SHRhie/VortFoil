@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vortfoil"
-version = "2.1.0"
+version = "2.1.1"
 description = "A vortex-panel-informed neural operator for steady airfoil flow: surface pressure, lift, moment and the stagnation point from a predicted vortex sheet, drag and a lift correction from a parallel boundary-layer state"
 readme = "README.md"
 requires-python = ">=3.10"

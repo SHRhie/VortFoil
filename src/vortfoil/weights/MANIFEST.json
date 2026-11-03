@@ -1,6 +1,6 @@
 {
   "schema": "VORTFOIL_BUILD_MANIFEST_V1",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "built": "2026-09-20",
   "model": {
     "description": "vortex-panel-informed neural operator for steady airfoil flow (surface branch)",
