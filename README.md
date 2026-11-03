@@ -33,7 +33,8 @@ record; the abstract here is a mirror and is never edited in place.
 > **Status.** Version 2.1.0 accompanies the revised manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
 > for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee): its field decoder is trained on AirfRANS together
 > with 16,923 non-NACA UniFoil airfoils, and a RANS coefficient correction of the surface branch is added (`CHANGELOG.md`).
-> Version 2.1.0 was released on 2026-11-02 and 2.0.0 on 2026-10-13, on GitHub and PyPI. Every version is archived on Zenodo under
+> Version 2.1.1 (2026-11-03) shows the RANS coefficient correction in the application; 2.1.0 was released on 2026-11-02
+> and 2.0.0 on 2026-10-13, on GitHub and PyPI. Every version is archived on Zenodo under
 > [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871). The license is GPL-3.0-or-later (see *License* below).
 
 ## Layout
@@ -113,7 +114,8 @@ convention for research-tree artifacts that are *not* shipped here are all in
    (their mean), with no shape or boundary-layer-state input. They are fitted on the 780 AirfRANS
    training cases (k–ω SST) under a protocol fixed before the fit
    (`results/rans_correction_nn_20261015_PRESPEC.md`); `vf.predict(..., rans=True)` returns `cl_rans`,
-   `cd_rans` and `cm_rans`, and `vortfoil predict --rans` prints them. Outside the fitted range
+   `cd_rans` and `cm_rans`, and `vortfoil predict --rans` prints them; the application and `vortfoil view` show them in the
+   RANS state's box and in the exported coefficients. Outside the fitted range
    (α −5° to 15°, Re 2×10⁶ to 6×10⁶) `vortfoil.RangeWarning` is issued.
 
 ## Weights

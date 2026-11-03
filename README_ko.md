@@ -31,7 +31,8 @@ VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터
 > **상태.** 버전 2.1.0은 수정된 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
 > (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 유동장 디코더는 AirfRANS와 비-NACA UniFoil 익형 16,923개를 함께 사용해
 > 학습했으며, 표면 브랜치의 RANS 계수 보정이 추가되었습니다(`CHANGELOG.md`).
-> 버전 2.1.0은 2026-11-02에, 2.0.0은 2026-10-13에 GitHub과 PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의
+> 버전 2.1.1(2026-11-03)은 애플리케이션에 RANS 계수 보정값을 보여 줍니다. 2.1.0은 2026-11-02에, 2.0.0은
+> 2026-10-13에 GitHub과 PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의
 > [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871)에 보관됩니다.
 > 라이선스는 GPL-3.0-or-later입니다(아래의 *라이선스* 참조).
 
@@ -103,7 +104,8 @@ paper/            원고 초록
    RANS 수준의 계수 C_l + f_l, C_d·exp(f_d), C_m + f_m으로 변환하며, 그 평균을 사용합니다. 형상이나 경계층 상태는
    입력받지 않습니다. 적합 전에 고정한 프로토콜(`results/rans_correction_nn_20261015_PRESPEC.md`)에 따라
    AirfRANS 학습 사례 780개(k–ω SST)로 적합했습니다. `vf.predict(..., rans=True)`는 `cl_rans`, `cd_rans`,
-   `cm_rans`를 반환하고, `vortfoil predict --rans`는 이를 출력합니다. 적합 범위(α −5°에서 15°, Re 2×10⁶에서
+   `cm_rans`를 반환하고, `vortfoil predict --rans`는 이를 출력합니다. 애플리케이션과 `vortfoil view`는 이 값을
+   RANS 상태 상자와 내보낸 계수 파일에 보여 줍니다. 적합 범위(α −5°에서 15°, Re 2×10⁶에서
    6×10⁶)를 벗어나면 `vortfoil.RangeWarning`을 발생시킵니다.
 
 ## 가중치

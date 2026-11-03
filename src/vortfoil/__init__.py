@@ -15,7 +15,7 @@ os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")   # the vortfoil command (cli
 from .api import VortFoil, SurfacePrediction, RangeWarning, BL_X, manifest
 from . import geometry, rans
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 __all__ = ["VortFoil", "SurfacePrediction", "RangeWarning", "BL_X", "load_model", "about", "manifest", "geometry", "rans",
            "__version__"]
 

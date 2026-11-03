@@ -12,7 +12,8 @@ The airfoil is a NACA 4- or 5-digit designation or a coordinate file (Selig or L
          (the vortfoil package: vortex sheet and boundary-layer operator, trained on XFOIL; C_l, C_d, C_m, the circulation
          lift, the stagnation point) and the RANS state (the field decoder's wall values, trained on AirfRANS k-omega SST
          fields: C_l, C_d with its pressure and friction parts, C_m, the boundary layer read from its flow, and the
-         wall-function C_f), with every range warning.
+         wall-function C_f) with the RANS coefficient correction of the surface model's C_l, C_d and C_m (vortfoil.rans),
+         and every range warning.
 The two states have their own training domains, and each warns about its own. figure(..., states=...) shows either state or
 both (the application's two boxes); a state outside its training range (meta["xfoil_in_range"], meta["rans_in_range"]) is
 drawn faded and labelled, and so are the field panels when the RANS state is the one outside.
@@ -55,21 +56,29 @@ def compute(loop, alpha, Re, h, family=None, decoder=None):
     the XFOIL state (r, the surface model) and the RANS state (meta: the field decoder's wall values meta["wall"] and boundary
     layer meta["boundary_layer"]). meta["xfoil_in_range"] / meta["rans_in_range"]: the incidence and the Reynolds number lie
     inside that model's training ranges (incidence and Re only: shape warnings, such as the surface model's 16-parameter fit
-    and trailing-edge gap or the decoder's family and shape distance, do not count)."""
+    and trailing-edge gap or the decoder's family and shape distance, do not count). meta["rans_correction"]: the surface model's
+    C_l, C_d and C_m through the RANS coefficient correction (as predict(..., rans=True)), whether its fitted range holds the
+    incidence and Reynolds number, and its range warnings."""
     global _MODEL
     import vortfoil
     import predict_field as PF
+    from vortfoil.rans import correct
     if _MODEL is None:
         _MODEL = vortfoil.load_model()                        # once per process (the application runs many cases)
     with warnings.catch_warnings(record=True) as ws:
         warnings.simplefilter("always")
         r = _MODEL.predict(coords=loop, alpha=alpha, Re=Re)
     surf_w = [str(w.message) for w in ws if issubclass(w.category, vortfoil.RangeWarning)]
+    with warnings.catch_warnings(record=True) as ws:
+        warnings.simplefilter("always")
+        cl, cd, cm = (float(v[0]) for v in correct(r.cl, r.cd, r.cm, r.info["alpha_given"], Re))
+    rc_w = [str(w.message) for w in ws if issubclass(w.category, vortfoil.RangeWarning)]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PF.FieldRangeWarning)          # kept in meta["warnings"]
         out, meta = PF.predict(loop, alpha, Re, h=h, family=family, wall=True, bl=True, decoder=decoder or PF.DECODER)
     meta["xfoil_in_range"] = not bool(r.info["outside_training_range"][0])
     meta["rans_in_range"] = meta["in_training_range"]
+    meta["rans_correction"] = dict(cl=cl, cd=cd, cm=cm, in_range=not rc_w, warnings=rc_w)
     return r, surf_w, out, meta
 
 
@@ -246,8 +255,13 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape", 
             lines += [("  boundary layer, x/c 0.1 to 1: " + ("not checked here" if pale else "checked vs RANS"), pale)]
             if not pale and meta["alpha_used"] >= 8.0:     # 1 test case in 3 from 8 deg on (field_boundary_layer_validation.json)
                 lines += [("  lower surface: often 20%+ off at this alpha", False)]
+    rc = meta.get("rans_correction") if "rans" in states else None
+    if rc:                                               # the surface model's coefficients at the RANS level (vortfoil.rans)
+        pale = not rc["in_range"]
+        lines += [("RANS correction: outside its fitted range" if pale else "RANS correction of the surface coefficients", pale),
+                  (f"  C_l {rc['cl']: .4f}   C_d {rc['cd']: .5f}   C_m {rc['cm']: .4f}", pale)]
     lines += [("C_m about the quarter chord, nose up positive", False), ("", False), ("warnings:", False)]
-    warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]
+    warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]     # the RANS correction's range (the field's) is in its heading; the CSV lists its warning
     lines += [(l, False) for m in (warn or ["none: inside both training domains"]) for l in
               textwrap.wrap(f"- {m}", WRAP[layout], subsequent_indent="  ")]
     field = "RANS field decoder, wind frame" + ("" if inr["rans"] else ", outside its range")
@@ -338,13 +352,17 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
         w.writerow(["airfoil", "alpha_given_deg", "alpha_used_deg", "Re", "Cl", "Cl_circulation", "Cd", "Cm_quarter_chord",
                     "stagnation_arc_fraction", "ue_TE_over_U", "theta_TE_over_c", "dstar_TE_over_c", "field_Cl_gamma",
                     "field_s_sep", "field_Cl_RANS", "field_Cd_RANS", "field_Cd_RANS_pressure", "field_Cd_RANS_friction", "warnings",
-                    "field_Cm_RANS", "XFOIL_state_in_training_range", "RANS_state_in_training_range"])
+                    "field_Cm_RANS", "XFOIL_state_in_training_range", "RANS_state_in_training_range",
+                    "Cl_RANS_corrected", "Cd_RANS_corrected", "Cm_RANS_corrected", "RANS_correction_in_fitted_range"])
         wl = meta.get("wall") or dict(cl=np.nan, cd=np.nan, cd_pressure=np.nan, cd_friction=np.nan, cm=np.nan)
+        rc = meta.get("rans_correction") or dict(cl=np.nan, cd=np.nan, cm=np.nan, in_range=True, warnings=[])
         w.writerow([name, alpha, a, Re] + [f"{float(v):.8g}" for v in (r.cl[0], r.cl_gamma[0], r.cd[0], r.cm[0], r.stagnation[0],
                                                                        r.ue_te[0], r.theta_te[0], r.dstar_te[0], meta["cl_gamma"], meta["s_sep"],
                                                                        wl["cl"], wl["cd"], wl["cd_pressure"], wl["cd_friction"])]
-                   + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]), f"{float(wl['cm']):.8g}",
-                      int(meta.get("xfoil_in_range", True)), int(meta.get("rans_in_range", True))])
+                   + [" | ".join([f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]
+                                 + [f"RANS correction: {m}" for m in rc["warnings"]]), f"{float(wl['cm']):.8g}",
+                      int(meta.get("xfoil_in_range", True)), int(meta.get("rans_in_range", True))]
+                   + [f"{float(rc[k]):.8g}" for k in ("cl", "cd", "cm")] + [int(rc["in_range"])])
     paths.append(p)
     side = np.where(np.arange(r.cp.shape[1]) < r.cp.shape[1] // 2, 0, 1)
     table("surface", ["panel", "lower_surface", "x_over_c", "Cp"], [np.arange(r.cp.shape[1]), side, r.x_cp[0], r.cp[0]])
@@ -380,7 +398,10 @@ _coefficients.csv    the surface model (vortex sheet + boundary-layer operator +
                      column; then the RANS state's C_m about the quarter chord (field_Cm_RANS, nose up positive, from the
                      wall pressure and wall-function friction of _wall.csv) and, for each state, 1 if the incidence and the
                      Reynolds number lie inside its training range, 0 if not (the figure draws a state outside its range
-                     faded).
+                     faded); last, the surface model's C_l, C_d and C_m through the RANS coefficient correction
+                     (Cl_RANS_corrected, Cd_RANS_corrected, Cm_RANS_corrected; vortfoil.rans: networks fitted on the 780
+                     AirfRANS training cases against k-omega SST, with no shape input) and 1 if the incidence and the
+                     Reynolds number lie inside the range it was fitted on (-5 to 15 deg, Re 2e6 to 6e6), 0 if not.
 _surface.csv         C_p of the vortex sheet at the 240 panel midpoints: panels 0-119 run from the trailing edge to the
                      leading edge on the upper surface (lower_surface 0), 120-239 back on the lower surface (1).
 _boundary_layer.csv  momentum (theta) and displacement (dstar) thickness of both surfaces at x/c = 0..1 (121 stations), of the

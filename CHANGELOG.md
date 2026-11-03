@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.1] - 2026-11-03
+
+### Added
+
+- The application and `vortfoil view` show the RANS coefficient correction of the surface model's C_l, C_d and C_m
+  (`vortfoil.rans`, as `predict(..., rans=True)`) in the RANS state's box, pale under its own heading outside the range it
+  was fitted on (-5 to 15 deg, Re 2e6 to 6e6). The exported `_coefficients.csv` appends
+  `Cl_RANS_corrected`, `Cd_RANS_corrected`, `Cm_RANS_corrected` and `RANS_correction_in_fitted_range`; the earlier columns
+  keep their places, and the warnings column also lists the correction's range warning.
+
 ## [2.1.0] - 2026-11-02
 
 Accompanies the revised manuscript.

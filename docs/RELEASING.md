@@ -96,8 +96,8 @@ manuscript with the DOI in place.
     author placeholder for exactly this) and in the manuscript's code-and-data-availability
     section, then rebuild the manuscript.
 
-## State as of 2026-11-02
+## State as of 2026-11-03
 
-Version `2.1.0` agrees across `src/vortfoil/__init__.py`, `pyproject.toml` and
-`src/vortfoil/weights/MANIFEST.json`. Versions 2.0.0 (2026-10-13) and 2.1.0 (2026-11-02) are released on GitHub and
-PyPI, and Zenodo archives every version under the concept DOI 10.5281/zenodo.23336871.
+Version `2.1.1` agrees across `src/vortfoil/__init__.py`, `pyproject.toml` and
+`src/vortfoil/weights/MANIFEST.json`. Versions 2.0.0 (2026-10-13), 2.1.0 (2026-11-02) and 2.1.1 (2026-11-03) are released on
+GitHub and PyPI, and Zenodo archives every version under the concept DOI 10.5281/zenodo.23336871.
