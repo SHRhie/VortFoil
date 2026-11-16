@@ -10,6 +10,7 @@ relatively, the reproduction tree by absolute name. Everything else must match.
 import hashlib
 import os
 import re
+from collections import Counter
 
 import pytest
 
@@ -67,3 +68,16 @@ def test_no_module_is_in_the_package_but_missing_from_the_reproduction_tree():
             if f.endswith(".py") and not os.path.exists(os.path.join(REPRO, sub, f)):
                 extra.append(os.path.join(sub, f))
     assert not extra, f"packaged modules with no counterpart in the reproduction tree: {extra}"
+
+
+@pytest.mark.skipif(not os.path.exists(os.path.join(ROOT, "README_ko.md")), reason="Korean README not present")
+def test_korean_readme_keeps_the_english_overview_and_numbers():
+    """README_ko.md translates README.md, and a translation drifts unnoticed. It carries the overview paragraph in
+    English verbatim, and the same numbers; single digits are left out, since Korean writes some English words as one
+    ("two-column" is 2단)."""
+    en, ko = (open(os.path.join(ROOT, f), encoding="utf-8").read() for f in ("README.md", "README_ko.md"))
+    assert re.search(r"\n(VortFoil embeds .*?)\n\n", en, re.S).group(1) in ko, "README_ko.md lacks README.md's overview"
+    nums = lambda t: Counter(v for v in re.findall(r"\d+(?:[.,]\d+)*", re.sub(r"\]\([^)]*\)|https?://\S+", " ", t))
+                             if len(v) > 1)
+    a, b = nums(en), nums(ko)
+    assert a == b, f"numbers only in README.md: {dict(a - b)}; only in README_ko.md: {dict(b - a)}"

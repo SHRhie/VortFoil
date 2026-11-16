@@ -32,6 +32,9 @@ jobs:
           n=$(echo "$files" | grep -v -E '\.md$|^docs/|^CITATION\.cff$|^LICENSE$|^NOTICE$' | grep -c . || true)
           echo "code=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+      - name: Korean README matches the English one   # here, so documentation-only changes are checked too
+        run: pipx run pytest -q tests/test_release_consistency.py -k korean_readme
+
   test:
     name: py${{ matrix.python }} / tf${{ matrix.tensorflow }}
     needs: changes

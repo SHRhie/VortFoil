@@ -11,22 +11,30 @@
 **"VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction."** 논문에
 딸린 코드, 학습된 가중치, 봉인된 결과 파일, 그림입니다.
 
-VortFoil은 고전적인 와류 패널 공기역학을 신경망 오퍼레이터의 순전파 안에 내장합니다. 네트워크가
-변화율 함수를 예측하고, 그 닫힌 형태의 역도함수가 표면 와류 시트가 됩니다. 선형 사영이 이산 쿠타
-조건을 정확히 부과합니다. 표면 압력, 순환 양력 `Cl^γ`, ¼ 시위 모멘트, 정체점, 뒷전의 경계층 가장자리
-속도는 이 시트의 패널법 판독값이며, 따로 학습되는 양이 아닙니다. 두 번째 헤드 묶음이 적분 경계층을
-예측합니다. 배포된 두 힘 계수는 순수한 시트 판독값이 *아닙니다*. 형상 항력은 예측된 뒷전 상태에 대한
-릿지 회귀 닫힘식이고, 배포된 양력은 순환 판독값에 같은 상태에서 읽어 낸 릿지 회귀 점성 캠버 감소
-보정을 더한 값입니다. 형상 비의존 유동장 디코더는 외부 솔버가 아니라 시트의 순환과 경계층의 뒷전 상태를
-조건으로 하여 2차원 RANS 유동장을 복원합니다. **이 저장소는 확정된 표면 모델 하나, 이를 조건으로 하는
-유동장 디코더, 그리고 표면 계수에 대한 고정된 RANS 보정을 제공하며**, 원고에서 비교하는 디코더들도 함께 제공합니다. 형상만으로 계수를
-회귀하는 모델은 없으며, 세 단계 어디에서도 추론 시점에 XFOIL이나 CFD 프로세스를 실행하지 않습니다.
-이는 외부 솔버 호출에 관한 진술일 뿐, 적합이나 선형대수에 관한 진술이 아닙니다. 두 힘 닫힘식은 배포
-시점에 고정된 경험적 적합이며, 유동장 경로의 물리 페인트(physics paint)는 여전히 모델 내부에서
-결정론적인 패널 풀이를 수행합니다.
+VortFoil은 와류 패널법을 신경망 오퍼레이터의 순전파 안에 넣어, 익형 형상·받음각·레이놀즈 수로부터 표면 압력,
+경계층, 양력·항력·모멘트 계수, 2차원 RANS 유동장을 예측합니다. 추론 중에 XFOIL이나 CFD 같은 외부 솔버를
+호출하지 않습니다. 아래 개요는 주장의 범위를 정확히 전하기 위해 영어 원문 그대로 둡니다.
 
-원고의 초록은 [`paper/abstract.md`](paper/abstract.md)를 참고하십시오. 정본은 원고이며, 이곳의 초록은 미러(사본)이므로
-이곳에서 직접 수정하지 않습니다.
+VortFoil embeds classical vortex-panel aerodynamics inside a neural operator's forward pass. A
+network predicts a rate function whose closed-form anti-derivative is the surface vortex sheet;
+a linear projection imposes the discrete Kutta condition exactly. Surface pressure, the
+circulation lift `Cl^γ`, the quarter-chord moment, the stagnation point and the trailing-edge
+edge velocity are panel-method readouts of that sheet, not separately learned quantities. A
+second bank of heads predicts the integral boundary layer. The two deployed force coefficients
+are *not* pure sheet readouts: profile drag is a ridge-fitted closure on the predicted
+trailing-edge state, and the deployed lift is the circulation readout plus a ridge-fitted
+viscous-decambering correction read from that same state. A geometry-agnostic field decoder
+reconstructs the 2D RANS field, conditioned on the sheet's circulation and the boundary-layer
+trailing-edge state rather than on an external solver. **This repository ships one confirmed
+surface model, the field decoder conditioned on it and a frozen RANS correction of the surface
+coefficients**, together with the decoders the manuscript compares it with. There is no geometry-only coefficient regressor, and no XFOIL or CFD process is
+launched at inference time in any of the three stages. That is a statement about external
+solver calls, not about fitting and not about linear algebra: both force closures are empirical
+fits frozen at deployment, and the field pathway's physics paint still carries deterministic
+panel solves inside the model.
+
+원고 초록은 [`paper/abstract.md`](paper/abstract.md)에 영어 원문 그대로 있습니다. 기준은 원고이며, 이 파일은 원고 초록의
+사본이므로 따로 고치지 않습니다.
 
 > **상태.** 버전 2.1.0은 수정된 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
 > (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 유동장 디코더는 AirfRANS와 비-NACA UniFoil 익형 16,923개를 함께 사용해
@@ -141,20 +149,20 @@ paper/            원고 초록
 
 ## <a id="install"></a>설치
 
-**애플리케이션과 `vortfoil` 명령(Windows, macOS, Linux).** Python도 함께 제공하는 [uv](https://docs.astral.sh/uv/)로 설치합니다:
+**애플리케이션과 `vortfoil` 명령(Windows, macOS, Linux).** Python까지 함께 설치해 주는 [uv](https://docs.astral.sh/uv/)로 설치합니다:
 
 1. uv를 한 번만 설치합니다:
    - Windows: `winget install --id=astral-sh.uv -e`
    - macOS: `brew install uv`
    - Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-2. VortFoil을 설치합니다: `uv tool install --python 3.12 --managed-python vortfoil`. 이 저장소의 사본에서 설치하려면: `uv tool install --python 3.12 --managed-python ./VortFoil`. `--managed-python`은 uv가 자체 Python을 쓰도록 하며, 이 Python에는 창에 필요한 Tk가 들어 있습니다. Ubuntu의 Python 같은 시스템 Python에는 Tk가 없을 수 있습니다.
+2. VortFoil을 설치합니다: `uv tool install --python 3.12 --managed-python vortfoil`. 내려받은 저장소에서 설치하려면 `uv tool install --python 3.12 --managed-python ./VortFoil`을 씁니다. `--managed-python`을 주면 uv가 자기 Python을 쓰며, 여기에는 창에 필요한 Tk가 들어 있습니다. Ubuntu의 Python 같은 시스템 Python에는 Tk가 없을 수 있습니다.
 3. 터미널에서 `vortfoil`을 입력합니다. 애플리케이션 창이 열립니다([데스크톱 애플리케이션](#desktop-application) 참조).
 
-같은 명령에는 다음 하위 명령이 있으며, 각 하위 명령은 `--help`를 받습니다:
+`vortfoil`에는 다음 하위 명령이 있으며, 각각 `--help`로 사용법을 볼 수 있습니다.
 
-- `vortfoil view`: 명령줄에서 하나의 창에 하나의 익형을 띄웁니다;
-- `vortfoil predict`와 `vortfoil sweep`;
-- `vortfoil about`과 `vortfoil selfcheck`.
+- `vortfoil view`: 명령줄에서 익형 하나를 창 하나에 띄웁니다.
+- `vortfoil predict`, `vortfoil sweep`
+- `vortfoil about`, `vortfoil selfcheck`
 
 `uv tool upgrade vortfoil`로 업데이트합니다. Linux에서는 창을 띄우려면 데스크톱 세션(디스플레이)이 필요합니다.
 
@@ -162,15 +170,15 @@ paper/            원고 초록
 
 - `vortfoil`은 논문의 2차원 모델, 즉 한 단면에 대한 표면 모델(XFOIL 상태)과 RANS 유동장 디코더(RANS 상태)를
   애플리케이션 창과 위의 하위 명령에서 실행합니다. 이 창에는 3차원 날개가 없습니다(`vortfoil app --experimental`은 거부됩니다).
-- `vortfoil_exp`는 같은 명령에 애플리케이션 창의 기능이 하나 더해진 것으로, 그 기능은 **실험적** 준3차원 날개입니다(단면 이름 옆의
-  "3D wing" 상자). 이는 두 상태 중 어느 쪽의 VortFoil 단면이든 적용할 수 있는 고전적인 비선형 양력선(Phillips and Snyder, 2000)이며,
-  크기와 관계없이 직선형에서 중간 정도의 후퇴각을 가진 평면형까지, 꺾임, 상반각, 그리고 NACA, UIUC 또는 파일 단면을 다룰 수 있습니다.
-  논문에서 검증한 주장에는 포함되지 않습니다. `vortfoil_exp view`, `predict`, `sweep`, `about`, `selfcheck`는
-  `vortfoil`의 것과 같습니다. 저장소 체크아웃에서는 `python code/vortfoil_app.py --experimental`입니다.
-  `Section model` 행 아래의 회색 줄은 입력이 지켜야 할 조건을 알려 줍니다. 즉 모든 띠가 각 상태의 학습 레이놀즈 수 범위 안에 들도록 하는
-  속도(이 속도는 띠의 시위에 따라 달라지며, 시위는 표, `Scale x`, `Strips`에서 정해집니다), 띠의 받음각 한계, 입력한 속도가 적합한지 여부,
-  그리고 RANS 상태가 NACA 4/5자리 단면만으로 학습되었다는 점(단면이 그에 해당하지 않을 때에만 표시됩니다)입니다. UIUC 단면을
-  날개에 적용하려면 `Airfoil` 상자에서 그 단면을 고르고(목록을 검색할 수 있습니다) `Geometry` 창에서
+- `vortfoil_exp`는 여기에 애플리케이션 창의 기능 하나, 즉 **실험적인** 준3차원 날개(단면 이름 옆의 "3D wing" 상자)를
+  더한 것입니다. 고전적인 비선형 양력선(Phillips and Snyder, 2000)에 두 상태 중 어느 쪽의 VortFoil 단면이든 얹을 수 있으며,
+  크기에 관계없이 직선 날개부터 후퇴각이 중간 정도인 날개까지, 꺾임과 상반각, NACA·UIUC·파일 단면을 다룹니다.
+  논문에서 검증한 주장에는 들어가지 않습니다. `vortfoil_exp`의 `view`, `predict`, `sweep`, `about`, `selfcheck`는
+  `vortfoil`의 것과 같습니다. 저장소 체크아웃에서는 `python code/vortfoil_app.py --experimental`로 실행합니다.
+  `Section model` 행 아래의 회색 줄은 입력이 지켜야 할 조건을 알려 줍니다. 모든 스트립이 각 상태의 학습 레이놀즈 수 범위 안에
+  드는 속도(스트립의 시위를 따르므로 표, `Scale x`, `Strips`에 따라 달라집니다), 스트립의 받음각 한계, 입력한 속도가 맞는지,
+  그리고 단면이 NACA 4/5자리가 아니면 RANS 상태가 NACA 4/5자리 단면으로만 학습되었다는 점입니다. UIUC 단면을
+  날개에 쓰려면 `Airfoil` 상자에서 그 단면을 고르고(목록을 검색할 수 있습니다) `Geometry` 창에서
   **Selected row(s)** 또는 **All rows** 버튼을 누릅니다.
 
 ### <a id="uninstall"></a>제거
@@ -178,25 +186,25 @@ paper/            원고 초록
 1. 프로그램을 제거합니다.
    - uv로 설치한 경우: `uv tool uninstall vortfoil`.
    - pip로 설치한 경우: `pip uninstall vortfoil`.
-   - 체크아웃용으로 만든 환경: `conda env remove -n vortfoil`을 실행하거나 venv 폴더를 삭제한 다음, 저장소 폴더를 삭제합니다.
+   - 체크아웃에서 실행하려고 만든 환경: `conda env remove -n vortfoil`을 실행하거나 venv 폴더를 지운 다음, 저장소 폴더를 지웁니다.
 2. 애플리케이션이 보관하는 항목(UIUC 목록, 열어 본 단면, 로그)을 삭제합니다. Windows에서는 `%LOCALAPPDATA%\vortfoil`에, macOS와 Linux에서는 `~/.cache/vortfoil`에 있습니다.
 3. `--shortcut`으로 만든 런처를 삭제합니다. Windows에서는 바탕 화면의 **VortFoil**, Linux에서는 `~/.local/share/applications/vortfoil.desktop`입니다(`--experimental`을 쓴 경우: **VortFoil (experimental)** 또는 `vortfoil-exp.desktop`). macOS에는 없습니다.
 4. 다른 uv 도구가 사용하지 않는다면 uv의 Python과 다운로드 캐시를 제거합니다: `uv python uninstall 3.12`를 실행한 다음 `uv cache clean`을 실행합니다.
-5. VortFoil 때문에만 uv를 설치했다면 마지막에, 즉 uv가 필요한 4단계 뒤에 제거합니다:
+5. uv를 VortFoil 때문에만 설치했다면, uv가 필요한 4단계까지 마친 뒤 마지막으로 제거합니다:
    - Windows: `winget uninstall --id=astral-sh.uv -e`
    - macOS: `brew uninstall uv`
    - Linux: `rm ~/.local/bin/uv ~/.local/bin/uvx`
 
-**Python 라이브러리로 사용하는 경우**, 자신의 환경에 설치합니다:
+**Python 라이브러리로 쓰려면** 사용 중인 환경에 설치합니다:
 
 ```bash
 pip install vortfoil            # PyPI에서
 pip install -e .                # 이 저장소에서 설치(새 환경에서는 TensorFlow도 설치됩니다)
 ```
 
-버전이 고정된 TensorFlow가 이미 있는 환경에서는 그것을 건드리지 않고 설치합니다:
-`pip install --no-deps -e .`. Python 3.10에서 TensorFlow 2.10(CPU와 NVIDIA RTX
-4060 Ti), 그리고 TensorFlow 2.18 / Keras 3.12로 검증했으며, 세 환경 모두 기록된 점수를 재현합니다.
+특정 버전의 TensorFlow가 이미 설치된 환경에서는 TensorFlow를 그대로 두고 설치합니다:
+`pip install --no-deps -e .`. Python 3.10의 TensorFlow 2.10(CPU와 NVIDIA RTX
+4060 Ti)과 TensorFlow 2.18 / Keras 3.12에서 검증했으며, 세 환경 모두 기록된 점수를 재현합니다.
 
 ```python
 import vortfoil, numpy as np
@@ -210,12 +218,12 @@ r.x_cp, r.theta, r.dstar                         # Cp의 가로 좌표; x/c = vo
 
 vf.sweep(cst16, np.linspace(-4, 12, 33))         # 한 형상, 여러 받음각, 한 배치
 vf.predict(coords=xy, alpha=np.linspace(-4, 12, 33), Re=1e6)   # 좌표로부터 같은 결과(적합은 한 번)
-vf.gradients(cst=cst16, alpha=4.0, of="cl")      # 전체 체인을 통한 역방향 모드 d/dCST16
+vf.gradients(cst=cst16, alpha=4.0, of="cl")      # 전체 체인을 거치는 역방향 자동미분 d/dCST16
 vortfoil.about()                                 # 가중치, 레시피, 모집단, 점수, 한계
 ```
 
-CST 계수 대신 좌표를 주면, 형상을 먼저 16개 매개변수 형태로 적합하고 받음각은 적합된 시위선을 기준으로
-측정하므로, 회전되거나 크기가 조정된 단면도 올바르게 처리됩니다. 적합 잔차와 회전은 `result.info`로 반환됩니다.
+CST 계수 대신 좌표를 주면 먼저 형상을 16개 매개변수 형태로 적합하고, 받음각은 적합한 시위선을 기준으로 잽니다.
+그래서 회전하거나 크기를 바꾼 단면도 올바르게 처리됩니다. 적합 잔차와 회전각은 `result.info`에 담겨 반환됩니다.
 
 명령줄:
 
@@ -233,13 +241,13 @@ vortfoil selfcheck --data data/eval/holdout_targets.npz     # 기록된 점수�
 표면 모델은 받음각 −10°에서 18°, 레이놀즈 수 5×10⁴에서 10⁷ 범위(비압축성, Ncrit 7, 닫힌 뒷전)의 XFOIL 해석 결과로
 학습했고, −4°에서 12°, 2×10⁵에서 3×10⁶ 범위에서 평가했습니다. 학습 범위를 벗어나면 `predict()`, `sweep()`,
 `gradients()`는 `vortfoil.RangeWarning`을 발생시키고 해당 행을 `result.info["outside_training_range"]`에 표시합니다.
-좌표가 16개 매개변수 적합에서 시위의 0.5%보다 많이 벗어나거나 뒷전 간극이 시위의 1%를 넘을 때도 경고합니다.
+좌표가 16개 매개변수 적합 형상과 시위의 0.5%보다 크게 어긋나거나, 뒷전 간극이 시위의 1%를 넘을 때도 경고합니다.
 
 ### 임의 단면의 유동장
 
-설치된 패키지에는 RANS 유동장 디코더(배포된 실행)가 들어 있으며, `vortfoil view`와 애플리케이션에서 이를 실행합니다.
-저장소 체크아웃에서는 `code/field/predict_field.py`가 임의의 단면, 받음각, 레이놀즈 수에 대해 좌표만으로,
-AirfRANS 파일도 XFOIL도 없이 이를 실행합니다:
+설치된 패키지에는 RANS 유동장 디코더(배포한 학습 실행)가 들어 있으며, `vortfoil view`와 애플리케이션이 이를 실행합니다.
+저장소 체크아웃에서는 `code/field/predict_field.py`가 임의의 단면, 받음각, 레이놀즈 수에 대해 AirfRANS 파일도
+XFOIL도 없이 좌표만으로 이를 실행합니다:
 
 ```bash
 python code/field/predict_field.py --coords section.dat --alpha 4 --Re 3e6 --out field.npz --png field.png
@@ -255,16 +263,16 @@ x 방향으로 −0.5에서 1.5, y 방향으로 −0.5에서 0.5 시위의 범�
 비-NACA UniFoil 익형 16,923개(Spalart–Allmaras, −2°에서 6°)를 함께 사용해 학습했습니다. AirfRANS 범위를 벗어나면
 `FieldRangeWarning`을 발생시킵니다.
 
-**다른 익형 계열: 정확도가 훨씬 낮습니다.** AirfRANS 프로토콜(k–ω SST, OpenFOAM v2112, 위의 범위 안)로 계산한 미관측 비-NACA UIUC 시험 단면 16개에서, 배포된 디코더의 평균 오차는 u_x, u_y, p, ν_t에서 각각 NACA 시험 수준의 14, 15, 46, 38배이며, 2.0.0의 AirfRANS 전용 디코더는 각각 27, 35, 68, 40배입니다(`results/cotrain_score_cmx_20261015T023434Z.json`). 아래의 단면별 수치는 그 AirfRANS 전용 디코더로 UIUC 단면 열 개에서 측정한 것입니다. 그 오차는 단면별로 해당 디코더의 NACA 시험 수준의 1.5배에서 80배였고, u_x는 평균 26배였습니다.
+**다른 익형 계열: 정확도가 훨씬 낮습니다.** AirfRANS 프로토콜(k–ω SST, OpenFOAM v2112, 위의 범위 안)로 계산한 학습에 쓰지 않은 비-NACA UIUC 시험 단면 16개에서, 배포된 디코더의 평균 오차는 u_x, u_y, p, ν_t에서 각각 NACA 시험 수준의 14, 15, 46, 38배이며, 2.0.0의 AirfRANS 전용 디코더는 각각 27, 35, 68, 40배입니다(`results/cotrain_score_cmx_20261015T023434Z.json`). 아래의 단면별 수치는 그 AirfRANS 전용 디코더로 UIUC 단면 열 개에서 측정한 것입니다. 그 오차는 단면별로 해당 디코더의 NACA 시험 수준의 1.5배에서 80배였고, u_x는 평균 26배였습니다.
 
 - 오차는 벽 근처에서 가장 크지만, 물체에서 떨어진 곳에서도 큽니다.
 - NACA 형상에 가까운 단면은 시험 오차 분포의 꼬리 안에 머물렀습니다: RAE 2822 1.5배, NACA 64₂-415 2.8배, DU 84-132V 2.9배.
 - 나머지는 크게 벗어났습니다: FX 63-137 7.7배, Clark Y 10배, NLF(1)-0416 13배, SD7003 15배, E387 26배, AH 79-100C 51배, S1223 80배.
 
-형상 코드 거리 검사는 이들 중 어느 것도 걸러 내지 못했으므로, 익형 계열을 판별하는 장치가 아닙니다. 따라서 NACA 번호(`--naca`, 뷰어나 애플리케이션에서 고른 NACA 익형)로 주어지지 않은 모든 단면에는 그 사실을 알리는 `FieldRangeWarning`이 표시됩니다. 이런 유동장은 참고용으로만 읽으십시오. 표면 결과는 별도의 표면 모델에서 나오므로 영향을 받지 않습니다.
+형상 코드 거리 검사로는 이 중 어느 것도 걸러 내지 못했으므로, 이 검사로 익형 계열을 가릴 수는 없습니다. 그래서 NACA 번호(`--naca`, 뷰어나 애플리케이션에서 고른 NACA 익형)로 주어지지 않은 모든 단면에는 그 사실을 알리는 `FieldRangeWarning`이 표시됩니다. 이런 유동장은 참고용으로만 보십시오. 표면 결과는 별도의 표면 모델에서 나오므로 영향을 받지 않습니다.
 
-AirfRANS 시험 사례 200개에서 이 경로를 검증한 결과이며, 평가를 재현하는 대상인 2.0.0의 AirfRANS 전용 디코더로 실행했습니다
-(`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
+이 경로를 AirfRANS 시험 사례 200개에서 검증한 결과입니다. 검증에는 2.0.0의 AirfRANS 전용 디코더를 썼으며, 이 경로는 그
+디코더의 평가를 재현합니다(`code/field/validate_predict_field.py`, `results/predict_field_validation.json`):
 
 - **해당 디코더의 기록된 평가 입력:** 스크립트가 기록된 사례별 오차를 재현합니다.
 - **사례의 441개 노드 단면 좌표만 사용:** 평균 오차는 기록된 오차 대비 u_x, u_y, p, ν_t에서 각각 0.99, 0.99, 1.07, 1.03배입니다.
@@ -275,7 +283,7 @@ AirfRANS 시험 사례 200개에서 이 경로를 검증한 결과이며, 평가
 
 ### RANS 상태의 벽면 압력, 양력, 항력
 
-이 디코더는 벽면 자체의 압력도 예측하므로(그곳에서 속도와 ν_t는 영이 됩니다), 유동장은 표면 모델의 XFOIL 상태 값과 나란히 자신의 기준 상태인 k–ω SST에서의 표면 값을 제공합니다. 디코더는 벽에 수직인 속도 기울기를 해상하지 못하며(첫 번째 격자 노드가 y+ ≈ 1에 있고, 2.0.0의 AirfRANS 전용 디코더에서 그 기울기로 계산한 표면 마찰은 RANS 표면 마찰의 2.3배입니다), 따라서 표면 마찰은 벽 함수로 구합니다. 벽에서 2×10⁻⁴ 시위 떨어진 로그층(시험 사례의 y+ 중앙값 31)에서의 디코더 접선 속도로부터 Spalding 법칙으로 마찰 속도를 구합니다. `predict_field.surface()`는 단면 노드에서의 벽면 C_p와 C_f, 그리고 양력과 항력을 반환합니다:
+이 디코더는 벽면 자체의 압력도 예측하므로(그곳에서 속도와 ν_t는 0이 됩니다), 유동장은 표면 모델의 XFOIL 상태 값과 나란히 자신의 기준 상태인 k–ω SST에서의 표면 값을 제공합니다. 디코더는 벽에 수직인 속도 기울기를 해상하지 못하며(첫 번째 격자 노드가 y+ ≈ 1에 있고, 2.0.0의 AirfRANS 전용 디코더에서 그 기울기로 계산한 표면 마찰은 RANS 표면 마찰의 2.3배입니다), 따라서 표면 마찰은 벽 함수로 구합니다. 벽에서 2×10⁻⁴ 시위 떨어진 로그층(시험 사례의 y+ 중앙값 31)에서의 디코더 접선 속도로부터 Spalding 법칙으로 마찰 속도를 구합니다. `predict_field.surface()`는 단면 노드에서의 벽면 C_p와 C_f, 그리고 양력과 항력을 반환합니다:
 
 ```python
 import predict_field as PF          # code/field
@@ -310,14 +318,14 @@ AirfRANS 시험 사례 200개의 RANS 벽면 값에 대해, 2.0.0의 AirfRANS �
 
 RANS 상태의 경계층은 디코더 유동장의 판독값입니다. 그 정확도는 유동장이 벽 근처에서 얼마나 정확한지에 달려 있으며, 디코더의 학습 범위 밖에서는 경계층이 아예 읽히지 않는 경우가 많습니다.
 
-### 하나의 익형, 하나의 창
+### 익형 하나, 창 하나
 
-`code/view_airfoil.py`는 익형(NACA 4자리 또는 5자리 번호나 `.dat` 파일), 받음각, 레이놀즈 수를 묻고, 모든 결과를 담은 하나의 창을 엽니다. 왼쪽에는 바람 좌표계에서의 네 개의 유동장 패널(RANS 유동장 디코더의 결과)이, 오른쪽에는 표면 압력, 두 표면의 경계층 두께, RANS 상태의 벽 함수 C_f, 그리고 모든 범위 경고를 담은 계수가 두 가지 상태로 표시됩니다:
+`code/view_airfoil.py`는 익형(NACA 4자리 또는 5자리 번호나 `.dat` 파일), 받음각, 레이놀즈 수를 물은 뒤 모든 결과를 창 하나에 보여 줍니다. 왼쪽에는 바람 좌표계로 그린 유동장 패널 네 개(RANS 유동장 디코더의 결과)가, 오른쪽에는 표면 압력, 두 표면의 경계층 두께, RANS 상태의 벽 함수 C_f, 그리고 모든 범위 경고를 담은 계수가 두 상태로 표시됩니다:
 
 - **XFOIL 상태**(실선): XFOIL로 학습한 표면 모델입니다. 와류 시트의 C_p, 그 δ\*와 θ, 그리고 C_l, C_d, C_m, 순환 양력, 정체점이 해당합니다. 학습 범위는 −10°에서 18°, Re 5×10⁴에서 10⁷입니다.
 - **RANS 상태**(점선 C_p, 경계층은 점): AirfRANS k–ω SST 유동장으로 학습한 유동장 디코더 자체의 값입니다. 벽면 C_p, C_l, 압력 성분과 표면 마찰 성분을 가진 C_d, ¼ 시위점 기준 C_m, 벽 함수 C_f, 그리고 유동에서 읽어 낸 경계층(δ\*는 채운 점, θ는 빈 점)이며, 경계층은 검증된 x/c = 0.1부터 표시합니다(위 참조). 학습 범위는 −5°에서 15°, Re 2×10⁶에서 6×10⁶입니다.
 
-각 상태는 자신의 범위를 가지며, 각자 자기 범위에 대해 경고합니다. 기본적으로 둘 다 그려집니다. 애플리케이션에서는 `Flow` 상자의 **XFOIL state**, **RANS state** 체크 상자로 표시할 상태를 고르며, 다시 계산하지 않고 다시 그리기만 합니다(둘 중 하나는 항상 체크된 상태로 남습니다). 학습 범위를 벗어난 상태도 계산은 되지만 흐리게 그려지고 "outside training range"(학습 범위 밖)라는 라벨이 붙으며 수치도 옅게 표시됩니다. 그것이 RANS 상태이면 네 개의 유동장 패널도 흐려지고, 범례, 상태 표시줄, 제목이 그 사실을 알립니다. matplotlib이 필요합니다. 창 크기를 바꾸면 그림 전체의 배율이 함께 바뀌며, 배치는 그려진 그대로 유지됩니다. 인수를 주면 질문을 건너뛰며, `--save`는 그림도 함께 저장합니다:
+두 상태는 학습 범위가 서로 다르며, 각자 자기 범위를 벗어나면 경고합니다. 기본으로는 둘 다 그립니다. 애플리케이션에서는 `Flow` 상자의 **XFOIL state**, **RANS state** 체크 상자로 보일 상태를 고르며, 다시 계산하지 않고 그림만 다시 그립니다(하나는 항상 체크된 채로 남습니다). 학습 범위를 벗어난 상태도 계산은 하지만, 흐리게 그려지고 "outside training range"(학습 범위 밖) 라벨이 붙으며 수치도 옅게 표시됩니다. RANS 상태가 범위를 벗어나면 유동장 패널 네 개도 흐려지고, 범례와 상태 표시줄, 제목이 이를 알립니다. matplotlib이 필요합니다. 창 크기를 바꾸면 그림 전체가 함께 확대·축소되고, 배치는 그대로 유지됩니다. 인수를 주면 질문을 건너뛰며, `--save`를 주면 그림도 저장합니다:
 
 ```bash
 python code/view_airfoil.py
@@ -328,23 +336,23 @@ python code/view_airfoil.py --airfoil 23012 --alpha 6 --Re 3e6 --save view.png
 
 ### <a id="desktop-application"></a>데스크톱 애플리케이션
 
-`code/vortfoil_app.py`는 애플리케이션 창으로 실행하는 VortFoil입니다. 단면은 세 가지 방법 중 하나로 고릅니다:
+`code/vortfoil_app.py`는 VortFoil을 애플리케이션 창에서 실행합니다. 단면은 세 가지 방법 중 하나로 고릅니다:
 
-- NACA 4자리 또는 5자리 번호;
-- UIUC Airfoil Coordinates Database 검색. 목록과 선택한 단면은 UIUC 사이트에서 내려받아 캐시에 저장하며, VortFoil은 이를 재배포하지 않습니다;
-- 어떤 데이터베이스에도 없는 단면을 위한, 직접 만든 좌표 파일.
+- NACA 4자리 또는 5자리 번호
+- UIUC Airfoil Coordinates Database 검색. 목록과 고른 단면은 UIUC 사이트에서 내려받아 캐시에 저장하며, VortFoil이 재배포하지 않습니다.
+- 직접 만든 좌표 파일(어떤 데이터베이스에도 없는 단면용)
 
-그다음 받음각, 레이놀즈 수, 유동장 상세도를 정하고 **Run** 버튼을 누릅니다. **Save figure** 버튼은 그림을 400 dpi(png, pdf 또는 svg)로 저장하고, **Export data (CSV)** 버튼은 결과의 모든 수치를 열을 설명하는 텍스트 파일과 함께 CSV 파일로 내보냅니다. 파일에는 계수(RANS 상태의 양력, 항력, 모멘트와, 각 상태가 학습 범위 안에 있는지를 나타내는 1/0 값 포함), 240개 패널에서의 표면 C_p, 121개 스테이션에서의 표면 모델 경계층, 모든 격자점의 유동장(U와 c 기준 단위와 SI 단위), RANS 상태의 벽면 값과 경계층(`_wall.csv`, `_boundary_layer_rans.csv`), 그리고 단면이 들어 있으며, `vortfoil view ... --csv DIR`도 같은 것을 씁니다. 애플리케이션은 세 가지 배치 중 그림이 가장 크게 보이는 것을 고릅니다:
+그다음 받음각, 레이놀즈 수, 유동장 상세도를 정하고 **Run** 버튼을 누릅니다. **Save figure** 버튼은 그림을 400 dpi(png, pdf 또는 svg)로 저장하고, **Export data (CSV)** 버튼은 결과의 모든 수치를 CSV 파일로 내보내며, 열 설명을 담은 텍스트 파일도 함께 씁니다. 파일에는 계수(RANS 상태의 양력, 항력, 모멘트와, 각 상태가 학습 범위 안에 있는지를 나타내는 1/0 값 포함), 패널 240개의 표면 C_p, 스테이션 121개의 표면 모델 경계층, 모든 격자점의 유동장(U와 c 기준 단위 및 SI 단위), RANS 상태의 벽면 값과 경계층(`_wall.csv`, `_boundary_layer_rans.csv`), 단면 좌표가 들어 있으며, `vortfoil view ... --csv DIR`도 같은 파일을 씁니다. 애플리케이션은 세 가지 배치 중 그림이 가장 크게 보이는 것을 고릅니다:
 
-- 나란히 배치(가로로 넓은 창);
-- 표면 패널 한 줄 위에 유동장을 배치(보통 비율의 창);
-- 모두 위아래로 쌓아 배치(세로로 긴 창). 세로로 세워 둔 화면에서는 컨트롤도 그림 위로 올라갑니다.
+- 가로로 넓은 창: 나란히 배치
+- 보통 비율의 창: 유동장 아래에 표면 패널 한 줄
+- 세로로 긴 창: 모두 위아래로 쌓음. 세로로 세운 화면에서는 컨트롤도 그림 위로 올라갑니다.
 
-창 크기를 바꾸면 그림의 배율이 바뀝니다.
+창 크기를 바꾸면 그림이 함께 확대·축소됩니다.
 
 **설치.** [설치](#install)에서처럼 uv로 설치하면 `vortfoil`로 열 수 있습니다.
 
-개발을 위해 대신 체크아웃에서 실행하려면, 애플리케이션에는 matplotlib과 Tk가 있는 Python 3.10–3.12가 필요합니다. Tk는 python.org 설치 프로그램, Anaconda, uv의 Python에 포함되어 있으며, Debian이나 Ubuntu에서는 `sudo apt install python3-tk`를 실행합니다. 저장소 폴더에서 설치하고 시작합니다:
+개발용으로 체크아웃에서 실행하려면 matplotlib과 Tk가 있는 Python 3.10–3.12가 필요합니다. Tk는 python.org 설치 프로그램, Anaconda, uv의 Python에 들어 있으며, Debian이나 Ubuntu에서는 `sudo apt install python3-tk`를 실행합니다. 저장소 폴더에서 설치하고 실행합니다:
 
 ```bash
 conda create -n vortfoil python=3.11 -y && conda activate vortfoil      # 또는: python3 -m venv ~/vortfoil-env && source ~/vortfoil-env/bin/activate
@@ -352,17 +360,17 @@ pip install .
 python code/vortfoil_app.py
 ```
 
-`vortfoil app --shortcut`(또는 `python code/vortfoil_app.py --shortcut`)은 실행 중인 환경용 런처를 추가합니다:
+`vortfoil app --shortcut`(또는 `python code/vortfoil_app.py --shortcut`)은 지금 실행 중인 환경에서 VortFoil을 여는 런처를 만듭니다.
 
-- Windows에서는 바탕 화면에 **VortFoil**;
-- Linux에서는 애플리케이션 메뉴의 항목;
-- macOS에서는 터미널이 런처이므로(`vortfoil`) 아무것도 쓰지 않습니다.
+- Windows: 바탕 화면의 **VortFoil**
+- Linux: 애플리케이션 메뉴의 항목
+- macOS: 터미널(`vortfoil`)이 런처이므로 아무것도 만들지 않습니다.
 
 `--experimental`을 주면(`vortfoil_exp app --shortcut`) 두 번째 런처 **VortFoil (experimental)**(Linux에서는 `vortfoil-exp.desktop`,
 macOS에서는 `vortfoil_exp`)을 추가하며, 이 런처의 창에는 3차원 날개가 있습니다. 첫 번째 런처는 그대로 남습니다.
 
 **참고.**
-- 첫 실행에서는 모델을 불러오는 데 몇 초가 걸리며, 이후 실행은 보통 수준의 유동장 상세도에서 약 1–5 s가 걸립니다. 실행 한 번에 약 1.5 GB의 메모리가 필요합니다.
+- 첫 실행은 모델을 불러오느라 몇 초 걸리고, 이후 실행은 보통 수준의 유동장 상세도에서 약 1–5초 걸립니다. 실행 한 번에 메모리가 약 1.5 GB 필요합니다.
 - UIUC 목록은 처음에는 인터넷 연결이 필요합니다.
 - 목록과 열어 본 단면은 Windows에서는 `%LOCALAPPDATA%\vortfoil\uiuc`에, 그 외에서는 `~/.cache/vortfoil/uiuc`에 캐시됩니다.
 - Windows 바로가기처럼 콘솔 없이 애플리케이션을 시작하면, 메시지는 그 폴더 옆의 `app.log`로 기록됩니다.
