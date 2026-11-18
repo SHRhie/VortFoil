@@ -4,6 +4,17 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased] (2.2.0)
+
+### Changed
+
+- Boundary-layer output rule: at every station of both surfaces, `predict` returns theta = max(theta, 1e-6) and
+  dstar = max(dstar, theta) (chord units), and the trailing-edge state, the lift and drag closures, the exported profiles
+  and the shape gradients all use these clipped values (`vortfoil.api.THETA_FLOOR`). The raw heads were slightly negative at
+  about 1-2 % of the stations of the 80-airfoil evaluation sets, which left logarithms and shape factors undefined there.
+  The field decoder's conditioning (`predict_field`) is unchanged: it keeps the unclipped states it was trained on.
+  On the evaluation sets the change moves no reported metric beyond its last printed digit.
+
 ## [2.1.1] - 2026-11-03
 
 ### Added

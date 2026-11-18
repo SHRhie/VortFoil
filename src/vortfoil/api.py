@@ -39,6 +39,8 @@ TE_GAP_WARN = 1e-2         # chord fraction (about the 95th percentile of the sa
 
 
 BL_X = np.linspace(0.0, 1.0, 121)  # x/c of the boundary-layer operator's 121 stations on each surface (theta, dstar)
+THETA_FLOOR = 1e-6  # boundary-layer output rule (manuscript Sec. 2): theta >= THETA_FLOOR and dstar >= theta (H >= 1) at every station,
+                    # before the readouts and closures; the field decoder's conditioning keeps the unclipped states it was trained on
 
 
 class RangeWarning(UserWarning):
@@ -186,16 +188,17 @@ class VortFoil:
             sgn = tf.sign(ut)
             n_cross = tf.reduce_sum(tf.cast(sgn[:, 1:] * sgn[:, :-1] < 0, tf.int32), axis=1)
             bl = self._op2.predict_bl(c, a, r, training=False)
-            th_u, th_l = bl["theta_u"][:, -1], bl["theta_l"][:, -1]
-            d_u, d_l = bl["delta_u"][:, -1], bl["delta_l"][:, -1]
+            theta = tf.maximum(tf.stack([bl["theta_u"], bl["theta_l"]], axis=1), THETA_FLOOR)   # (N, 2, 121) [upper, lower]
+            dstar = tf.maximum(tf.stack([bl["delta_u"], bl["delta_l"]], axis=1), theta)
+            th_u, th_l = theta[:, 0, -1], theta[:, 1, -1]
+            d_u, d_l = dstar[:, 0, -1], dstar[:, 1, -1]
             theta_te, dstar_te = th_u + th_l, d_u + d_l
             return dict(cl=cl_closed_tf(cl_gamma, th_u, th_l, d_u, d_l, ue_te, self._lift),
                         cl_gamma=cl_gamma,
                         cd=wake_ode_cd_tf(theta_te, dstar_te, ue_te, closure="fitted_poly2"),
                         cm=cm, cp=cp, ut=ut, ue_te=ue_te, theta_te=theta_te, dstar_te=dstar_te,
                         n_crossings=n_cross, x_cp=xc,
-                        theta=tf.stack([bl["theta_u"], bl["theta_l"]], axis=1),
-                        dstar=tf.stack([bl["delta_u"], bl["delta_l"]], axis=1))
+                        theta=theta, dstar=dstar)
 
         def grad(c, a, r, which):
             with tf.GradientTape() as tape:
