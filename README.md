@@ -266,7 +266,7 @@ The deployed decoder was trained on AirfRANS k–ω SST fields of NACA 4- and 5-
 to 6×10⁶, together with 16,923 non-NACA UniFoil airfoils (Spalart–Allmaras, −2° to 6°). It issues a `FieldRangeWarning`
 outside the AirfRANS ranges.
 
-**Other airfoil families: much less accurate.** On the 16 unseen non-NACA UIUC test sections computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above), the deployed decoder's mean errors are 14, 15, 46 and 38 times its NACA test level (u_x, u_y, p, ν_t), against 27, 35, 68 and 40 times for the AirfRANS-only decoder of 2.0.0 (`results/cotrain_score_cmx_20261015T023434Z.json`). The per-section figures below were measured with that AirfRANS-only decoder on ten UIUC sections: its errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
+**Other airfoil families: much less accurate.** On the 16 held-out non-NACA UIUC test sections computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above), the deployed decoder's mean errors are 14, 15, 46 and 38 times its NACA test level (u_x, u_y, p, ν_t), against 27, 35, 68 and 40 times for the AirfRANS-only decoder of 2.0.0 (`results/cotrain_score_cmx_20261015T023434Z.json`). The per-section figures below were measured with that AirfRANS-only decoder on ten UIUC sections: its errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
 
 - The errors are largest near the wall but also large off the body.
 - Sections close to a NACA shape stayed within the test tail: RAE 2822 1.5 times, NACA 64₂-415 2.8 times and DU 84-132V 2.9 times.
@@ -501,7 +501,7 @@ that split; the values here are those scores times 0.978, 0.913, 0.697 and 0.841
 | set | ux | uy | p | nut |
 |---|---|---|---|---|
 | AirfRANS `full_test`, n = 200 (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
-| 16 unseen non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 16 held-out non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
 | 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample, not comparable with the rows above) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
 Against the AirfRANS-only decoder trained for as many optimizer steps, the paired case-bootstrap error ratios are 1.00,
@@ -511,7 +511,7 @@ non-NACA sections, all below unity (`results/stepmatch_score_20261015T070933Z.js
 **RANS coefficient correction** (`results/rans_correction_nn_20261015.json`; its exported weights reproduce the fit's
 predictions to 2e-16, `results/rans_correction_nn_export_check.json`): on the AirfRANS test split (n = 200) the surface
 branch's mean relative lift / drag errors against RANS fall from 7.7% / 25.9% to 2.9% / 4.3% and its moment MAE from
-0.0082 to 0.0028; on 107 unseen non-NACA SST sections the lift MAE falls from 0.037 to 0.028, the drag error from 30.2% to
+0.0082 to 0.0028; on 107 held-out non-NACA SST sections the lift MAE falls from 0.037 to 0.028, the drag error from 30.2% to
 8.9% and the moment MAE from 0.0096 to 0.0071. The corrected coefficients are not constrained to agree with the field
 decoder's integrated ones; the two differ by 6.8% in lift and 14.1% in drag on the test split
 (`results/consistency_field_vs_corrected_20261029.json`).

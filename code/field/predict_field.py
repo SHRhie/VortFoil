@@ -25,7 +25,7 @@ Domain. The decoder was trained on 780 AirfRANS k-omega SST cases (NACA 4- and 5
 -2 to 6 deg), with no turbulence-model input. Its SST reference is AirfRANS: outside the AirfRANS ranges, or for a section
 whose shape code lies farther from every AirfRANS training section than those sections lie from each other, a
 FieldRangeWarning is issued and recorded.
-Families. On the 16 unseen non-NACA UIUC test sections of the manuscript, run with the AirfRANS protocol (k-omega SST,
+Families. On the 16 held-out non-NACA UIUC test sections of the manuscript, run with the AirfRANS protocol (k-omega SST,
 inside the ranges above), its mean errors are 14 (u_x), 15 (u_y), 46 (p) and 38 (nu_t) times its NACA test level; the
 AirfRANS-only decoder of release 2.0.0 (weights/field_decoder_f0cm_s1.npz) is at 27, 35, 68 and 40 times. Errors are
 largest near the wall. So every section that is not given as a NACA designation (family="naca") still gets a
@@ -291,7 +291,7 @@ def _closed_upper_first(g):
 
 
 FAMILY_NOTE = ("the field decoder's SST training sections are NACA 4- and 5-digit sections only (its non-NACA training "
-               "airfoils are Spalart-Allmaras solutions); on 16 unseen non-NACA SST sections its errors were 14 to 46 times "
+               "airfoils are Spalart-Allmaras solutions); on 16 held-out non-NACA SST sections its errors were 14 to 46 times "
                "its NACA test level, largest near the wall: read this field as indicative")
 # the AirfRANS-only decoders (release 2.0.0's field_decoder_f0cm_s1.npz and the rext run)
 FAMILY_NOTE_AIRFRANS = ("the field decoder was trained on NACA 4- and 5-digit sections only; on ten UIUC sections of other "

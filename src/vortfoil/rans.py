@@ -9,7 +9,7 @@ their mean is applied as
     C_l,RANS = C_l + f_l,    C_d,RANS = C_d exp(f_d),    C_m,RANS = C_m + f_m.
 
 There is no shape or boundary-layer-state input. On the AirfRANS test split (200 cases) the mean relative lift and drag
-errors fall from 7.7% and 25.9% to 2.9% and 4.3%, and the moment MAE from 0.0082 to 0.0028; on 107 unseen non-NACA
+errors fall from 7.7% and 25.9% to 2.9% and 4.3%, and the moment MAE from 0.0082 to 0.0028; on 107 held-out non-NACA
 SST sections the drag error falls from 30.2% to 8.9% and the lift MAE from 0.037 to 0.028.
 
     r = vf.predict(coords=xy, alpha=4.0, Re=3e6, rans=True)

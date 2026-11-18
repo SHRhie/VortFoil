@@ -14,6 +14,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   about 1-2 % of the stations of the 80-airfoil evaluation sets, which left logarithms and shape factors undefined there.
   The field decoder's conditioning (`predict_field`) is unchanged: it keeps the unclipped states it was trained on.
   On the evaluation sets the change moves no reported metric beyond its last printed digit.
+- The application and `vortfoil view` name the three coefficient sets as in the paper: RANS-calibrated (the surface
+  model's coefficients through the RANS correction, listed first as the coefficient output), panel-based (the surface
+  model, XFOIL state) and field-integrated (the field decoder with a wall function, RANS state). The `_coefficients.csv`
+  columns keep their names; its column notes give the correspondence.
+- The documentation and the field decoder's family warning call the evaluation sections held-out instead of unseen,
+  since some of them lie close to training sections.
 
 ## [2.1.1] - 2026-11-03
 
