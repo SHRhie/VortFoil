@@ -38,7 +38,7 @@ def plot(P, out):
             else:
                 ax.plot(q[:, 0], q[:, 1], "-", color="0.25", lw=0.35, alpha=0.6)
         ax.set_aspect("equal"); ax.set_xlim(-0.02, 1.02); ax.set_ylim(-0.13, 0.17); ax.axis("off")
-        ax.set_title(f"({'abcdef'[j]}) {ttl}", fontsize=7)
+        ax.set_title(f"({'abcdef'[j]}) {ttl}", fontsize=8)          # 2.2.0: 8 pt like every panel title
     ax = fig.add_subplot(gs[1, :])
     ax.scatter(P["xfoil_alpha"], P["xfoil_Re"], s=1.2, color="0.70", lw=0, rasterized=True, label="XFOIL boundary-layer training rows (6,000 of 325,370)")
     ax.scatter(P["uni_alpha"], P["uni_Re"], s=1.6, color="#d95f02", lw=0, alpha=0.7, rasterized=True, label="UniFoil, SA (4,000 of 17,073)")

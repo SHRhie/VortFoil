@@ -1,0 +1,31 @@
+{
+ "n": 46,
+ "median_r": 0.34937669273857275,
+ "q75_control_p": 0.06090909640401568,
+ "n_upper_quartile": 12,
+ "median_r_upper_quartile": 0.500616316890676,
+ "cases": {
+  "representative": {
+   "case": "airFoil2D_SST_85.838_3.151_mh102",
+   "set": "UIUC test (16)",
+   "alpha": 3.151,
+   "Re": 5538597.152763071,
+   "r": 0.3584750768025677,
+   "rank_r": 24,
+   "rank_control_p": 31,
+   "mse_p_cotrained": 0.0017162488182753753,
+   "mse_p_control": 0.004787637772710792
+  },
+  "difficult": {
+   "case": "airFoil2D_SST_84.100_14.075_rc1064c",
+   "set": "Further UIUC test (30)",
+   "alpha": 14.075,
+   "Re": 5426454.723401923,
+   "r": 0.5250641900983379,
+   "rank_r": 34,
+   "rank_control_p": 4,
+   "mse_p_cotrained": 0.09150973381856103,
+   "mse_p_control": 0.17428294586500445
+  }
+ }
+}
