@@ -4,6 +4,38 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.0] - 2026-11-20
+
+### Added
+
+- The revised manuscript's figures with their generators: `code/figures/vf_field_compare_fig.py` draws the field figures
+  `vf_field_naca` and `vf_field_nonnaca` (|u|/U∞, C_p and the wall C_p, with `_other` companions for u∥, u⊥ and ν_t) and
+  `code/figures/vf_app_window_fig.py` the application figure `vf_app_window`. The plotted arrays of the two non-NACA sections
+  and the two application screenshots are in `results/vf_field_nonnaca/` and `results/app_window/`; the NACA pair needs the
+  stored prediction of `code/field/step2_store_preds.py` (AirfRANS dataset). Their numbers are in
+  `figures/vf_field_compare_numbers.json`.
+
+### Changed
+
+- `paper/abstract.md`, `CITATION.cff`, the READMEs, the model card and the weight manifest follow the revised manuscript, titled
+  *VortFoil: Unified Prediction of Surface States, Aerodynamic Performance, and Flow Fields across Diverse Airfoils*; the
+  abstract mirror is its abstract.
+- `vf_domains` (panel titles 8 pt), `fig_wing25d_surface` (tick labels 7 pt) and `fig_wing3d_validation` (legend "VortFoil,
+  field-integrated" and "VortFoil, panel-based") are redrawn as in the revised manuscript.
+
+- Boundary-layer output rule: at every station of both surfaces, `predict` returns theta = max(theta, 1e-6) and
+  dstar = max(dstar, theta) (chord units), and the trailing-edge state, the lift and drag closures, the exported profiles
+  and the shape gradients all use these clipped values (`vortfoil.api.THETA_FLOOR`). The raw heads were slightly negative at
+  about 1-2 % of the stations of the 80-airfoil evaluation sets, which left logarithms and shape factors undefined there.
+  The field decoder's conditioning (`predict_field`) is unchanged: it keeps the unclipped states it was trained on.
+  On the evaluation sets the change moves no reported metric beyond its last printed digit.
+- The application and `vortfoil view` name the three coefficient sets as in the paper: RANS-calibrated (the surface
+  model's coefficients through the RANS correction, listed first as the coefficient output), panel-based (the surface
+  model, XFOIL state) and field-integrated (the field decoder with a wall function, RANS state). The `_coefficients.csv`
+  columns keep their names; its column notes give the correspondence.
+- The documentation and the field decoder's family warning call the evaluation sections held-out instead of unseen,
+  since some of them lie close to training sections.
+
 ## [2.1.1] - 2026-11-03
 
 ### Added

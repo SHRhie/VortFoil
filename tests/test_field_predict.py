@@ -376,7 +376,8 @@ def test_viewer_states_in_range(cases):
     assert "outside" not in "".join(t.get_text() for t in txt.texts) and {t.get_color() for t in txt.texts} == {"k"}
     assert not any(ax.texts for ax in fig.axes[:4]) and {c.get_alpha() for ax in fig.axes[:8] for c in ax.collections} == {None}      # the field panels at full strength
     lines = [t.get_text() for t in txt.texts]
-    assert lines[1] == "XFOIL state (surface model)" and "RANS state (field decoder, wall function)" in lines
+    assert lines[1] == "RANS-calibrated (panel-based + RANS correction)"                    # the coefficient output first
+    assert "Panel-based (surface model, XFOIL state)" in lines and "Field-integrated (field decoder + wall function, RANS state)" in lines
     assert any(f"C_l {r.cl[0]: .4f}" in s for s in lines) and any(f"C_l {meta['wall']['cl']: .4f}" in s for s in lines)
     assert any(f"{meta['wall']['cd_pressure']:.5f} + friction {meta['wall']['cd_friction']:.5f}" in s for s in lines)
     assert any(f"C_m {meta['wall']['cm']: .4f}" in s for s in lines) and "XFOIL and RANS states" in fig._suptitle.get_text()
@@ -415,8 +416,9 @@ def test_viewer_state_outside_its_training_range_is_faded(cases):
     inside = V.figure(*cases["in"], layout="square")
     assert not any(ax.texts for ax in inside.axes[:4]) and {c.get_alpha() for ax in inside.axes[:8] for c in ax.collections} == {None}
     pale = [t.get_text() for t in txt.texts if t.get_color() != "k"]
-    assert pale[0] == "RANS state: outside training range" and len(pale) == 7 and all("XFOIL" not in s for s in pale)     # with the RANS correction's 2
-    assert [t.get_text() for t in txt.texts if t.get_color() == "k"][1] == "XFOIL state (surface model)"
+    assert pale[0] == "RANS-calibrated: outside the correction's fitted range" and "Field-integrated, RANS state: outside training range" in pale
+    assert len(pale) == 7 and all("XFOIL" not in s for s in pale)                                                       # with the RANS correction's 2
+    assert [t.get_text() for t in txt.texts if t.get_color() == "k"][1] == "Panel-based (surface model, XFOIL state)"
     assert "RANS field decoder, wind frame, outside its range" in fig._suptitle.get_text() and text_problems(fig) == []
     both = cases["both_out"]
     assert not both[6]["xfoil_in_range"] and not both[6]["rans_in_range"]
@@ -425,7 +427,8 @@ def test_viewer_state_outside_its_training_range_is_faded(cases):
     assert [t.get_text() for t in cp.get_legend().get_texts()] == ["XFOIL state (outside training range)", "RANS state (outside training range)"]
     assert {ln.get_alpha() for ln in cp.lines} == {V.FADE}                                      # both faded, still told apart (four looks above)
     pale = [t.get_text() for t in txt.texts if t.get_color() != "k"]
-    assert [s for s in pale if s.endswith("outside training range")] == ["XFOIL state: outside training range", "RANS state: outside training range"] and len(pale) == 10
+    assert [s for s in pale if s.endswith("outside training range")] == ["Panel-based, XFOIL state: outside training range",
+                                                                       "Field-integrated, RANS state: outside training range"] and len(pale) == 10
     one = V.figure(*both, layout="portrait", states=("xfoil",))
     assert [t.get_text() for t in one.axes[8].get_legend().get_texts()] == ["XFOIL state (outside training range)"]
     # the axes follow the state that is inside: at Re 5e5 the decoder's C_p runs off the scale of the sheet's
@@ -583,7 +586,8 @@ def test_viewer_shows_the_rans_coefficient_correction(PF, cases, tmp_path):
         p, rc = V._MODEL.predict(coords=loop, alpha=a, Re=Re, rans=True), meta["rans_correction"]
         assert (rc["cl"], rc["cd"], rc["cm"]) == pytest.approx((p.cl_rans[0], p.cd_rans[0], p.cm_rans[0]), rel=1e-12) and rc["in_range"] == inside
         txt = V.figure(*cases[key], layout="square").axes[-1].texts
-        k = [t.get_text() for t in txt].index("RANS correction of the surface coefficients" if inside else "RANS correction: outside its fitted range")
+        k = [t.get_text() for t in txt].index("RANS-calibrated (panel-based + RANS correction)" if inside else
+                                              "RANS-calibrated: outside the correction's fitted range")
         assert txt[k + 1].get_text() == f"  C_l {rc['cl']: .4f}   C_d {rc['cd']: .5f}   C_m {rc['cm']: .4f}"
         assert {txt[k].get_color(), txt[k + 1].get_color()} == ({"k"} if inside else {"0.6"})
         assert not any(t.get_text().startswith("- RANS correction:") for t in txt)

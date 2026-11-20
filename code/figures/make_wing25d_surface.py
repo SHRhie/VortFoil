@@ -25,6 +25,8 @@ V3 = "--v3" in sys.argv     # 2026-10-15: two-column journal layout, 7.22 in wid
 OUTD = sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else VP.FIGURES
 plt.rcParams.update({"font.family": "Times New Roman", "mathtext.fontset": "stix", "font.size": 8 if V3 else 10, "savefig.dpi": 400,
                      "xtick.direction": "in", "ytick.direction": "in"})
+if V3:                                         # 2.2.0: tick labels 7 pt, as in the manuscript's other figures
+    plt.rcParams.update({"xtick.labelsize": 7, "ytick.labelsize": 7})
 
 raw = open(SRC, "rb").read(); rec = json.loads(raw)
 c = next(x for x in rec["cases"] if abs(x["alpha"] - ALPHA) < 1e-9)

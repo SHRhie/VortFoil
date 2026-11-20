@@ -6,8 +6,8 @@
 
 See [`MODEL_CARD.md`](MODEL_CARD.md) for intended use and limits, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
-Code, trained weights, sealed result files and figures accompanying **"VortFoil: A
-Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction."**
+Code, trained weights, sealed result files and figures accompanying **"VortFoil: Unified Prediction of Surface
+States, Aerodynamic Performance, and Flow Fields across Diverse Airfoils."**
 
 VortFoil embeds classical vortex-panel aerodynamics inside a neural operator's forward pass. A
 network predicts a rate function whose closed-form anti-derivative is the surface vortex sheet;
@@ -30,12 +30,14 @@ panel solves inside the model.
 See [`paper/abstract.md`](paper/abstract.md) for the manuscript abstract. The manuscript is the source of
 record; the abstract here is a mirror and is never edited in place.
 
-> **Status.** Version 2.1.0 accompanies the revised manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
-> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee): its field decoder is trained on AirfRANS together
-> with 16,923 non-NACA UniFoil airfoils, and a RANS coefficient correction of the surface branch is added (`CHANGELOG.md`).
-> Version 2.1.1 (2026-11-03) shows the RANS coefficient correction in the application; 2.1.0 was released on 2026-11-02
-> and 2.0.0 on 2026-10-13, on GitHub and PyPI. Every version is archived on Zenodo under
-> [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871). The license is GPL-3.0-or-later (see *License* below).
+> **Status.** Version 2.2.0 (2026-11-20) accompanies the revised manuscript *VortFoil: Unified Prediction of Surface States,
+> Aerodynamic Performance, and Flow Fields across Diverse Airfoils* (S.-H. Rhie, G. Kim, S. Lim, J. Lee). It applies a
+> boundary-layer output rule to the surface outputs, names the application's coefficient sets as the manuscript does, and ships
+> the manuscript's revised figures with their generators (`CHANGELOG.md`). The models and weights are those of 2.1.0, whose
+> field decoder is trained on AirfRANS together with 16,923 non-NACA UniFoil airfoils and which added a RANS coefficient
+> correction of the surface branch. 2.1.1 was released on 2026-11-03, 2.1.0 on 2026-11-02 and 2.0.0 on 2026-10-13, on GitHub
+> and PyPI. Every version is archived on Zenodo under [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871).
+> The license is GPL-3.0-or-later (see *License* below).
 
 ## Layout
 
@@ -266,7 +268,7 @@ The deployed decoder was trained on AirfRANS k–ω SST fields of NACA 4- and 5-
 to 6×10⁶, together with 16,923 non-NACA UniFoil airfoils (Spalart–Allmaras, −2° to 6°). It issues a `FieldRangeWarning`
 outside the AirfRANS ranges.
 
-**Other airfoil families: much less accurate.** On the 16 unseen non-NACA UIUC test sections computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above), the deployed decoder's mean errors are 14, 15, 46 and 38 times its NACA test level (u_x, u_y, p, ν_t), against 27, 35, 68 and 40 times for the AirfRANS-only decoder of 2.0.0 (`results/cotrain_score_cmx_20261015T023434Z.json`). The per-section figures below were measured with that AirfRANS-only decoder on ten UIUC sections: its errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
+**Other airfoil families: much less accurate.** On the 16 held-out non-NACA UIUC test sections computed with the AirfRANS protocol (k–ω SST, OpenFOAM v2112, inside the ranges above), the deployed decoder's mean errors are 14, 15, 46 and 38 times its NACA test level (u_x, u_y, p, ν_t), against 27, 35, 68 and 40 times for the AirfRANS-only decoder of 2.0.0 (`results/cotrain_score_cmx_20261015T023434Z.json`). The per-section figures below were measured with that AirfRANS-only decoder on ten UIUC sections: its errors were 1.5 to 80 times its NACA test level per section, and 26 times on average for u_x.
 
 - The errors are largest near the wall but also large off the body.
 - Sections close to a NACA shape stayed within the test tail: RAE 2822 1.5 times, NACA 64₂-415 2.8 times and DU 84-132V 2.9 times.
@@ -501,7 +503,7 @@ that split; the values here are those scores times 0.978, 0.913, 0.697 and 0.841
 | set | ux | uy | p | nut |
 |---|---|---|---|---|
 | AirfRANS `full_test`, n = 200 (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
-| 16 unseen non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 16 held-out non-NACA UIUC sections (k–ω SST, AirfRANS generator) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
 | 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample, not comparable with the rows above) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
 Against the AirfRANS-only decoder trained for as many optimizer steps, the paired case-bootstrap error ratios are 1.00,
@@ -511,7 +513,7 @@ non-NACA sections, all below unity (`results/stepmatch_score_20261015T070933Z.js
 **RANS coefficient correction** (`results/rans_correction_nn_20261015.json`; its exported weights reproduce the fit's
 predictions to 2e-16, `results/rans_correction_nn_export_check.json`): on the AirfRANS test split (n = 200) the surface
 branch's mean relative lift / drag errors against RANS fall from 7.7% / 25.9% to 2.9% / 4.3% and its moment MAE from
-0.0082 to 0.0028; on 107 unseen non-NACA SST sections the lift MAE falls from 0.037 to 0.028, the drag error from 30.2% to
+0.0082 to 0.0028; on 107 held-out non-NACA SST sections the lift MAE falls from 0.037 to 0.028, the drag error from 30.2% to
 8.9% and the moment MAE from 0.0096 to 0.0071. The corrected coefficients are not constrained to agree with the field
 decoder's integrated ones; the two differ by 6.8% in lift and 14.1% in drag on the test split
 (`results/consistency_field_vs_corrected_20261029.json`).
@@ -558,6 +560,16 @@ cases at α ≥ 8°, the one with the lowest mean of the decoder's four standard
 channel has its own colour scale, shared by the RANS and decoder columns: u∥ (along the free stream) in coolwarm
 centred on the free-stream speed, red faster and blue slower; u⊥ in coolwarm about zero; p/ρ in RdYlBu_r limited
 to ±U∞²/2 (C_p = ±1), so the suction peak saturates; ν_t in YlGnBu on a log scale.
+
+`figures/vf_field_naca.{pdf,png}` and `figures/vf_field_nonnaca.{pdf,png}` (saved numbers
+`figures/vf_field_compare_numbers.json`) are the manuscript's field figures in one format: |u|/U∞ and C_p in the wind frame and
+the wall C_p along the chord, with `_other` companions for u∥, u⊥ and ν_t. The NACA figure shows the deployed decoder on
+`airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985`. The non-NACA figure compares the deployed decoder with the step-matched
+AirfRANS-only decoder (`sml2_s2`) on two of the 46 non-NACA SST test sections, fixed before plotting from the ratio r of the two
+decoders' pressure errors (`results/vf_field_nonnaca/selection.json`): the representative case has the r closest to the median,
+0.349 (of the two equally close central cases, the one with the larger r: MH 102, r = 0.36); the difficult case has the r
+closest to the median, 0.501, of the 12 cases whose AirfRANS-only pressure error lies in the upper quartile (NASA/Langley
+RC10-64C, r = 0.53). `results/vf_field_nonnaca/` ships the plotted arrays of the two sections.
 
 ### Inference cost
 
@@ -606,10 +618,12 @@ python code/field/validate_field_surface.py            # predict_field.surface()
 ATTACHED_CP_TARGETS=<attached_surface_targets.npz> python code/figures/vf_surface_cst16_fig.py surface.json --v3
 VORTFOIL_RAW=<folder with sep_eval_preds*.npz> python code/figures/vf_drag_closure_fig.py --v3
 python code/field/step2_store_preds.py --weights-tag cmx --seed 0 --name airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985
-python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0
+python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0      # vf_field_cmx_median_hi{,_nutlog}
 python code/figures/vf_domains_fig.py
 python code/figures/make_wing3d_figure.py --v3
 python code/figures/make_wing25d_surface.py --v3
+python code/figures/vf_field_compare_fig.py          # vf_field_naca*, vf_field_nonnaca* (the NACA pair needs the step2_store_preds line above)
+python code/figures/vf_app_window_fig.py            # vf_app_window, from the two screenshots in results/app_window/
 
 # The AirfRANS-only decoder's field figure (2.0.0)
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
@@ -680,11 +694,15 @@ XFOIL-conditioned decoder's stored paint channels bit for bit; the check covers 
 `REFACTOR_MANIFEST_v2.json` records the source and sha256 of the copied files.
 `figures/` holds the manuscript figures alongside the `*_numbers.json` files the figure-provenance
 discipline requires: each figure's numbers are saved next to its generator, not read off the rendered plot.
-The shipped figures are the generators' `--v3` renders, in the manuscript's two-column layout (7.22 in for a full-width
-figure, 3.49 in for a column) and included there at full size; `vf_field_f0cm_tp_pos`, the AirfRANS-only decoder's
-figure of 2.0.0, is the `--print` render at the earlier one-column width (5.40 in). Inputs behind the manuscript's
-figures that the full data sets would otherwise supply are shipped as the plotted arrays (`results/vf_domains_points.npz`)
-or the saved results (`results/wing3d/`).
+The PDFs of the manuscript's figures are the manuscript's own files, and each generator reproduces its figure's raster and PNG
+pixel for pixel. They are drawn in the manuscript's two-column layout (7.22 in for a full-width figure, 3.49 in for a column)
+and included there at full size. Four figures are kept from earlier versions of the manuscript and are not in the current one:
+`vf_field_f0cm_tp_pos` (the AirfRANS-only decoder's figure of 2.0.0, the `--print` render at the earlier one-column width of
+5.40 in), `vf_field_cmx_median_hi` (the deployed decoder's field figure of 2.1.x; its ν_t companion
+`vf_field_cmx_median_hi_nutlog` is still in the manuscript), `vf_drag_closure_nf_sep` and `vf_drag_decomp_sep`. Inputs behind
+the manuscript's figures that the full data sets would otherwise supply are shipped as the plotted arrays
+(`results/vf_domains_points.npz`, `results/vf_field_nonnaca/`), the saved results (`results/wing3d/`) or the captured screenshots
+(`results/app_window/`).
 
 ## License
 

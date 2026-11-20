@@ -1,0 +1,269 @@
+{
+ "main": [
+  {
+   "case": "airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985",
+   "alpha": 14.068,
+   "Re": 3147371.7948717945,
+   "U": 49.099,
+   "rows": [
+    "RANS",
+    "VortFoil"
+   ],
+   "columns": {
+    "umag": {
+     "range": [
+      0.0,
+      2.6627669708607415
+     ],
+     "window_mse_over_rans_var": {
+      "VortFoil": 0.0006320484424791529
+     }
+    },
+    "cp": {
+     "range": [
+      -1.0,
+      1.0
+     ],
+     "window_mse_over_rans_var": {
+      "VortFoil": 8.360427122004848e-05
+     }
+    }
+   },
+   "wall_cp_rmse": {
+    "VortFoil": 0.021904364670974792
+   }
+  },
+  {
+   "case": "airFoil2D_SST_85.838_3.151_mh102",
+   "alpha": 3.151,
+   "Re": 5538597.152763071,
+   "U": 86.40211486816406,
+   "rows": [
+    "RANS",
+    "AirfRANS only",
+    "AirfRANS + UniFoil"
+   ],
+   "columns": {
+    "umag": {
+     "range": [
+      0.0,
+      1.4412521546584325
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.03725748376051654,
+      "AirfRANS + UniFoil": 0.008167384566546698
+     }
+    },
+    "cp": {
+     "range": [
+      -1.0,
+      1.0
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.015761627453585374,
+      "AirfRANS + UniFoil": 0.005645666100536963
+     }
+    }
+   },
+   "wall_cp_rmse": {
+    "AirfRANS only": 0.07823445559231325,
+    "AirfRANS + UniFoil": 0.04402649828261161
+   }
+  },
+  {
+   "case": "airFoil2D_SST_84.100_14.075_rc1064c",
+   "alpha": 14.075,
+   "Re": 5426454.723401923,
+   "U": 84.65269470214844,
+   "rows": [
+    "RANS",
+    "AirfRANS only",
+    "AirfRANS + UniFoil"
+   ],
+   "columns": {
+    "umag": {
+     "range": [
+      0.0,
+      3.565850280183243
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.018695940084850725,
+      "AirfRANS + UniFoil": 0.01269599142929543
+     }
+    },
+    "cp": {
+     "range": [
+      -1.0,
+      1.0
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.011940517334408698,
+      "AirfRANS + UniFoil": 0.006269113705743324
+     }
+    }
+   },
+   "wall_cp_rmse": {
+    "AirfRANS only": 0.5886760394402504,
+    "AirfRANS + UniFoil": 0.4429745413517973
+   }
+  }
+ ],
+ "other": [
+  {
+   "case": "airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985",
+   "alpha": 14.068,
+   "Re": 3147371.7948717945,
+   "U": 49.099,
+   "rows": [
+    "RANS",
+    "VortFoil"
+   ],
+   "columns": {
+    "upar": {
+     "range": [
+      -0.5451879577293748,
+      2.545187957729375
+     ],
+     "window_mse_over_rans_var": {
+      "VortFoil": 0.00042786750118498914
+     }
+    },
+    "uperp": {
+     "range": [
+      -2.5264419175330337,
+      2.5264419175330337
+     ],
+     "window_mse_over_rans_var": {
+      "VortFoil": 0.0004195806974039786
+     }
+    },
+    "nut": {
+     "range": [
+      0.0,
+      1902.3383895938214
+     ],
+     "window_mse_over_rans_var": {
+      "VortFoil": 0.00043956690278465043
+     }
+    }
+   }
+  },
+  {
+   "case": "airFoil2D_SST_85.838_3.151_mh102",
+   "alpha": 3.151,
+   "Re": 5538597.152763071,
+   "U": 86.40211486816406,
+   "rows": [
+    "RANS",
+    "AirfRANS only",
+    "AirfRANS + UniFoil"
+   ],
+   "columns": {
+    "upar": {
+     "range": [
+      -0.01154644579912456,
+      2.011546445799125
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.015599225501321598,
+      "AirfRANS + UniFoil": 0.0046042016232501
+     }
+    },
+    "uperp": {
+     "range": [
+      -0.79462036082457,
+      0.79462036082457
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.05656464636036086,
+      "AirfRANS + UniFoil": 0.007266385439129851
+     }
+    },
+    "nut": {
+     "range": [
+      0.0,
+      808.1394617851713
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.22882688000309187,
+      "AirfRANS + UniFoil": 0.18511953028891842
+     }
+    }
+   }
+  },
+  {
+   "case": "airFoil2D_SST_84.100_14.075_rc1064c",
+   "alpha": 14.075,
+   "Re": 5426454.723401923,
+   "U": 84.65269470214844,
+   "rows": [
+    "RANS",
+    "AirfRANS only",
+    "AirfRANS + UniFoil"
+   ],
+   "columns": {
+    "upar": {
+     "range": [
+      -0.792531159599543,
+      2.792531159599543
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.012446379674876586,
+      "AirfRANS + UniFoil": 0.0071326187052611935
+     }
+    },
+    "uperp": {
+     "range": [
+      -3.3265149912939678,
+      3.3265149912939678
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.013157246827135066,
+      "AirfRANS + UniFoil": 0.009152420833971015
+     }
+    },
+    "nut": {
+     "range": [
+      0.0,
+      2429.285616828845
+     ],
+     "window_mse_over_rans_var": {
+      "AirfRANS only": 0.09743332306524444,
+      "AirfRANS + UniFoil": 0.08311271237263398
+     }
+    }
+   }
+  }
+ ],
+ "selection": {
+  "n": 46,
+  "median_r": 0.34937669273857275,
+  "q75_control_p": 0.06090909640401568,
+  "n_upper_quartile": 12,
+  "median_r_upper_quartile": 0.500616316890676,
+  "cases": {
+   "representative": {
+    "case": "airFoil2D_SST_85.838_3.151_mh102",
+    "set": "UIUC test (16)",
+    "alpha": 3.151,
+    "Re": 5538597.152763071,
+    "r": 0.3584750768025677,
+    "rank_r": 24,
+    "rank_control_p": 31,
+    "mse_p_cotrained": 0.0017162488182753753,
+    "mse_p_control": 0.004787637772710792
+   },
+   "difficult": {
+    "case": "airFoil2D_SST_84.100_14.075_rc1064c",
+    "set": "Further UIUC test (30)",
+    "alpha": 14.075,
+    "Re": 5426454.723401923,
+    "r": 0.5250641900983379,
+    "rank_r": 34,
+    "rank_control_p": 4,
+    "mse_p_cotrained": 0.09150973381856103,
+    "mse_p_control": 0.17428294586500445
+   }
+  }
+ }
+}

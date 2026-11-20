@@ -178,7 +178,7 @@ Per-channel standardized MSE over all mesh nodes, case-equal mean
 | Population | u_x | u_y | p | ν_t |
 |---|---|---|---|---|
 | AirfRANS test, 200 cases (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
-| 16 unseen non-NACA UIUC sections (k–ω SST) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 16 held-out non-NACA UIUC sections (k–ω SST) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
 | 150 held-out UniFoil airfoils (Spalart–Allmaras; stored row subsample) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
 The UniFoil row is not comparable with the rows above. The metric's σ comes from every node of
@@ -186,7 +186,7 @@ the 200-case AirfRANS scarce-task training split, the normalization of MARIO's p
 The score files use σ from a 50-case sample of that split; the values here are those scores times
 0.978, 0.913, 0.697 and 0.841 (`results/std_rescore_20261030.json`).
 
-On the 16 unseen non-NACA sections, the errors are 14 / 15 / 46 / 38 times the decoder's NACA
+On the 16 held-out non-NACA sections, the errors are 14 / 15 / 46 / 38 times the decoder's NACA
 test level in u_x / u_y / p / ν_t; the AirfRANS-only `f0cm_s1` decoder is at 27 / 35 / 68 / 40
 times. Every non-NACA input carries a family warning; the decoder also warns outside incidence
 −5° to 15° and Re 2×10⁶ to 6×10⁶.
@@ -250,7 +250,7 @@ input. They are fitted on the 780 AirfRANS k–ω SST training cases under a pre
 or Re 2×10⁶ to 6×10⁶, `vortfoil.RangeWarning` is issued.
 
 On the 200-case AirfRANS test split, mean relative lift / drag errors against RANS fall from 7.7% / 25.9%
-to 2.9% / 4.3%, and moment MAE from 0.0082 to 0.0028. On 107 unseen non-NACA SST sections, lift
+to 2.9% / 4.3%, and moment MAE from 0.0082 to 0.0028. On 107 held-out non-NACA SST sections, lift
 MAE falls from 0.037 to 0.028, drag error from 30.2% to 8.9%, and moment MAE from 0.0096 to 0.0071
 (`results/rans_correction_nn_20261015.json`). The corrected coefficients and the field decoder's
 integrated ones are not constrained to agree; they differ by 6.8% in lift and 14.1% in drag on the
@@ -275,5 +275,5 @@ University), Suhyeong Lim (Kyung Hee University), Jeongsu Lee (Kyung Hee Univers
 
 ## Citation
 
-Rhie, S.-H., Kim, G., Lim, S., Lee, J. VortFoil: A Vortex-Panel-Informed Neural Operator
-for Steady Airfoil Flow Prediction.
+Rhie, S.-H., Kim, G., Lim, S., Lee, J. VortFoil: Unified Prediction of Surface States, Aerodynamic
+Performance, and Flow Fields across Diverse Airfoils.

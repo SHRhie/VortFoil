@@ -38,7 +38,7 @@ ORDER += tuple(n for n in SEC if n not in ORDER)                             # a
 ALPHAS = ("2", "6", "10")                                                    # incidences (deg), as the results file keys them
 STATES = ("sst", "xfoil")                                                    # plot order: SST state first
 COL = dict(sst="#2a78d6", xfoil="#eb6834")                                   # categorical slots 1-2 (validated on white), RANS = black
-NAME = dict(sst="SST state", xfoil="XFOIL state")
+NAME = dict(sst="VortFoil, field-integrated", xfoil="VortFoil, panel-based")   # 2.2.0: the paper's coefficient names
 NTIP = 2                                                                     # outermost RANS strips flagged in (a)
 
 try:

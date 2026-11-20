@@ -167,8 +167,23 @@ def test_surface_distributions(model):
     assert r.theta.shape == r.dstar.shape == (2, 2, len(vortfoil.BL_X))
     assert np.allclose(r.theta[:, :, -1].sum(1), r.theta_te, rtol=1e-5)
     assert np.allclose(r.dstar[:, :, -1].sum(1), r.dstar_te, rtol=1e-5)
-    assert (r.dstar[:, :, 1:] > r.theta[:, :, 1:]).all()              # shape factor above one
+    assert (r.dstar >= r.theta).all()                                 # shape factor at least one (output rule)
 
+
+# S1223 (UIUC, CST16 fit) at 7.465 deg, Re 3.85e6: the raw lower-surface momentum thickness at the trailing edge is -1e-5
+S1223_CST = np.array([0.286425, 0.418216, 0.25042, 0.608337, -0.136441, 0.887202, -0.072102, 0.933367,
+                      0.156166, -0.165927, 0.297063, -0.659494, 0.421316, -0.71524, 0.030247, -0.702818], np.float32)
+
+
+def test_boundary_layer_output_rule(model):
+    """theta >= THETA_FLOOR and dstar >= theta at every station, and the trailing-edge state is the sum of the clipped values."""
+    r = model.predict(cst=np.stack([S1223_CST, NACA2412_CST]), alpha=[7.465, 4.0], Re=[3.849e6, 1e6])
+    floor = np.asarray(vortfoil.api.THETA_FLOOR, r.theta.dtype)   # applied in the outputs' float32; NumPy 1 compares a float32
+    assert r.theta.min() >= floor and (r.dstar >= r.theta).all()   # with the Python float 1e-6 in float64, where float32(1e-6) < 1e-6
+    assert r.theta[0, 1, -1] == pytest.approx(vortfoil.api.THETA_FLOOR)          # the S1223 lower surface is floored
+    assert np.allclose(r.theta[:, :, -1].sum(1), r.theta_te, rtol=1e-6)
+    assert np.allclose(r.dstar[:, :, -1].sum(1), r.dstar_te, rtol=1e-6)
+    assert np.isfinite(r.cd).all() and np.isfinite(r.cl).all()
 
 def test_stagnation_moves_with_incidence(model):
     r = model.sweep(NACA2412_CST, np.array([-4.0, 0.0, 4.0, 8.0]))

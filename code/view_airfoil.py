@@ -9,10 +9,10 @@ The airfoil is a NACA 4- or 5-digit designation or a coordinate file (Selig or L
   left   the RANS field from the field decoder: velocity along and across the freestream, C_p and nu_t, with the
          section at its incidence (wind frame);
   right  the surface pressure, the boundary layer of both surfaces and the coefficients, in two states: the XFOIL state
-         (the vortfoil package: vortex sheet and boundary-layer operator, trained on XFOIL; C_l, C_d, C_m, the circulation
+         (the vortfoil package: vortex sheet and boundary-layer operator, trained on XFOIL; panel-based C_l, C_d, C_m, the circulation
          lift, the stagnation point) and the RANS state (the field decoder's wall values, trained on AirfRANS k-omega SST
-         fields: C_l, C_d with its pressure and friction parts, C_m, the boundary layer read from its flow, and the
-         wall-function C_f) with the RANS coefficient correction of the surface model's C_l, C_d and C_m (vortfoil.rans),
+         fields: field-integrated C_l, C_d with its pressure and friction parts, C_m, the boundary layer read from its flow, and the
+         wall-function C_f) with the RANS-calibrated C_l, C_d and C_m (the surface model's through the coefficient correction, vortfoil.rans),
          and every range warning.
 The two states have their own training domains, and each warns about its own. figure(..., states=...) shows either state or
 both (the application's two boxes); a state outside its training range (meta["xfoil_in_range"], meta["rans_in_range"]) is
@@ -240,14 +240,20 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape", 
     # coefficients and warnings: a line, and whether it is pale (the state is outside its training range)
     ax = fig.add_subplot(cell["text"]); ax.axis("off")
     lines = [(f"{name}    alpha {meta['alpha_used']:.2f} deg    Re {Re:.3g}", False), ("", False)]
+    # the three coefficient sets under the paper's names; the RANS-calibrated set (the coefficient output) first
+    rc = meta.get("rans_correction") if "rans" in states else None
+    if rc:                                               # the surface model's coefficients at the RANS level (vortfoil.rans)
+        pale = not rc["in_range"]
+        lines += [("RANS-calibrated: outside the correction's fitted range" if pale else "RANS-calibrated (panel-based + RANS correction)", pale),
+                  (f"  C_l {rc['cl']: .4f}   C_d {rc['cd']: .5f}   C_m {rc['cm']: .4f}", pale)]
     if "xfoil" in states:
         pale = not inr["xfoil"]
-        lines += [("XFOIL state: outside training range" if pale else "XFOIL state (surface model)", pale),
+        lines += [("Panel-based, XFOIL state: outside training range" if pale else "Panel-based (surface model, XFOIL state)", pale),
                   (f"  C_l {r.cl[0]: .4f}   C_d {r.cd[0]: .5f}   C_m {r.cm[0]: .4f}", pale),
                   (f"  circulation lift {r.cl_gamma[0]:.4f}, stagnation {r.stagnation[0]:.4f}", pale)]
     if wl:
         pale = not inr["rans"]
-        lines += [("RANS state: outside training range" if pale else "RANS state (field decoder, wall function)", pale),
+        lines += [("Field-integrated, RANS state: outside training range" if pale else "Field-integrated (field decoder + wall function, RANS state)", pale),
                   (f"  C_l {wl['cl']: .4f}   C_d {wl['cd']: .5f}   C_m {wl['cm']: .4f}", pale),
                   (f"  pressure {wl['cd_pressure']:.5f} + friction {wl['cd_friction']:.5f} (C_d)", pale),
                   (f"  field inputs: C_l^gamma {meta['cl_gamma']:.4f}, s_sep {meta['s_sep']:.3f}", pale)]
@@ -255,11 +261,6 @@ def figure(name, alpha, Re, r, surf_w, out, meta, fig=None, layout="landscape", 
             lines += [("  boundary layer, x/c 0.1 to 1: " + ("not checked here" if pale else "checked vs RANS"), pale)]
             if not pale and meta["alpha_used"] >= 8.0:     # 1 test case in 3 from 8 deg on (field_boundary_layer_validation.json)
                 lines += [("  lower surface: often 20%+ off at this alpha", False)]
-    rc = meta.get("rans_correction") if "rans" in states else None
-    if rc:                                               # the surface model's coefficients at the RANS level (vortfoil.rans)
-        pale = not rc["in_range"]
-        lines += [("RANS correction: outside its fitted range" if pale else "RANS correction of the surface coefficients", pale),
-                  (f"  C_l {rc['cl']: .4f}   C_d {rc['cd']: .5f}   C_m {rc['cm']: .4f}", pale)]
     lines += [("C_m about the quarter chord, nose up positive", False), ("", False), ("warnings:", False)]
     warn = [f"surface: {m}" for m in surf_w] + [f"field: {m}" for m in meta["warnings"]]     # the RANS correction's range (the field's) is in its heading; the CSV lists its warning
     lines += [(l, False) for m in (warn or ["none: inside both training domains"]) for l in
@@ -390,7 +391,10 @@ def export_csv(folder, name, alpha, Re, r, surf_w, out, meta):
         f.write(f"""VortFoil result: {name}, incidence {a:g} deg, Reynolds number {Re:.6g}
 Chord 1 m, kinematic viscosity {meta.get('nu', 1.56e-5):g} m2/s, freestream speed U = Re nu = {meta.get('U', Re * 1.56e-5):.6g} m/s.
 
-_coefficients.csv    the surface model (vortex sheet + boundary-layer operator + closures, trained on XFOIL): C_l (with the
+_coefficients.csv    three coefficient sets, named in the window and in the paper as panel-based (Cl, Cd, Cm_quarter_chord),
+                     field-integrated (field_Cl_RANS, field_Cd_RANS, field_Cm_RANS) and RANS-calibrated (Cl_RANS_corrected,
+                     Cd_RANS_corrected, Cm_RANS_corrected); the column names are those of earlier releases. In order:
+                     the surface model (vortex sheet + boundary-layer operator + closures, trained on XFOIL): C_l (with the
                      lift closure) and the circulation lift alone, C_d, C_m about the quarter chord, the stagnation point
                      as a fraction of the arc length, the trailing-edge state, and the field decoder's inputs
                      (circulation lift C_l^gamma and separation measure s_sep), the field decoder's lift and drag in its
