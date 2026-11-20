@@ -6,8 +6,8 @@
 
 See [`MODEL_CARD.md`](MODEL_CARD.md) for intended use and limits, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
-Code, trained weights, sealed result files and figures accompanying **"VortFoil: A
-Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction."**
+Code, trained weights, sealed result files and figures accompanying **"VortFoil: Unified Prediction of Surface
+States, Aerodynamic Performance, and Flow Fields across Diverse Airfoils."**
 
 VortFoil embeds classical vortex-panel aerodynamics inside a neural operator's forward pass. A
 network predicts a rate function whose closed-form anti-derivative is the surface vortex sheet;
@@ -30,12 +30,14 @@ panel solves inside the model.
 See [`paper/abstract.md`](paper/abstract.md) for the manuscript abstract. The manuscript is the source of
 record; the abstract here is a mirror and is never edited in place.
 
-> **Status.** Version 2.1.0 accompanies the revised manuscript *VortFoil: A Vortex-Panel-Informed Neural Operator
-> for Steady Airfoil Flow Prediction* (S.-H. Rhie, G. Kim, S. Lim, J. Lee): its field decoder is trained on AirfRANS together
-> with 16,923 non-NACA UniFoil airfoils, and a RANS coefficient correction of the surface branch is added (`CHANGELOG.md`).
-> Version 2.1.1 (2026-11-03) shows the RANS coefficient correction in the application; 2.1.0 was released on 2026-11-02
-> and 2.0.0 on 2026-10-13, on GitHub and PyPI. Every version is archived on Zenodo under
-> [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871). The license is GPL-3.0-or-later (see *License* below).
+> **Status.** Version 2.2.0 (2026-11-20) accompanies the revised manuscript *VortFoil: Unified Prediction of Surface States,
+> Aerodynamic Performance, and Flow Fields across Diverse Airfoils* (S.-H. Rhie, G. Kim, S. Lim, J. Lee). It applies a
+> boundary-layer output rule to the surface outputs, names the application's coefficient sets as the manuscript does, and ships
+> the manuscript's revised figures with their generators (`CHANGELOG.md`). The models and weights are those of 2.1.0, whose
+> field decoder is trained on AirfRANS together with 16,923 non-NACA UniFoil airfoils and which added a RANS coefficient
+> correction of the surface branch. 2.1.1 was released on 2026-11-03, 2.1.0 on 2026-11-02 and 2.0.0 on 2026-10-13, on GitHub
+> and PyPI. Every version is archived on Zenodo under [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871).
+> The license is GPL-3.0-or-later (see *License* below).
 
 ## Layout
 
@@ -559,6 +561,16 @@ channel has its own colour scale, shared by the RANS and decoder columns: u∥ (
 centred on the free-stream speed, red faster and blue slower; u⊥ in coolwarm about zero; p/ρ in RdYlBu_r limited
 to ±U∞²/2 (C_p = ±1), so the suction peak saturates; ν_t in YlGnBu on a log scale.
 
+`figures/vf_field_naca.{pdf,png}` and `figures/vf_field_nonnaca.{pdf,png}` (saved numbers
+`figures/vf_field_compare_numbers.json`) are the manuscript's field figures in one format: |u|/U∞ and C_p in the wind frame and
+the wall C_p along the chord, with `_other` companions for u∥, u⊥ and ν_t. The NACA figure shows the deployed decoder on
+`airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985`. The non-NACA figure compares the deployed decoder with the step-matched
+AirfRANS-only decoder (`sml2_s2`) on two of the 46 non-NACA SST test sections, fixed before plotting from the ratio r of the two
+decoders' pressure errors (`results/vf_field_nonnaca/selection.json`): the representative case has the r closest to the median,
+0.349 (of the two equally close central cases, the one with the larger r: MH 102, r = 0.36); the difficult case has the r
+closest to the median, 0.501, of the 12 cases whose AirfRANS-only pressure error lies in the upper quartile (NASA/Langley
+RC10-64C, r = 0.53). `results/vf_field_nonnaca/` ships the plotted arrays of the two sections.
+
 ### Inference cost
 
 `results/_speed_confirmed_summary.json` (generators `code/reproduce/vf_speed_surface.py`, `vf_speed_nf.py`, `sepeval/xfoil_time_win.py`): per-case cost of the surface chain at batch sizes 1–2737 (sheet operator + Cl^γ readout 9.95 µs; coefficient chain — the sheet and boundary-layer passes plus both frozen closures, excluding the moment and the stagnation-location readout — 318 µs per case at B = 1024 on a laptop CPU, TF 2.10 eager; reverse-mode shape gradients at 2.34× the sheet pass for Cl^γ, and 3.13× (deployed Cl) and 3.12× (Cd) the coefficient chain, both sharing the boundary-layer operator's backward pass, verified against central finite differences in `results/_grad_check_*.json`), NeuralFoil xlarge on the same rows (28.8 µs per case batched, 0.691 ms single query), XFOIL single-process (0.104 s per case median, Xeon) and MARIO's published 88 ms/sample (A100) as a cross-device reference. Absolutes are host-load dependent; within-run ratios are the stable statistic.
@@ -606,10 +618,12 @@ python code/field/validate_field_surface.py            # predict_field.surface()
 ATTACHED_CP_TARGETS=<attached_surface_targets.npz> python code/figures/vf_surface_cst16_fig.py surface.json --v3
 VORTFOIL_RAW=<folder with sep_eval_preds*.npz> python code/figures/vf_drag_closure_fig.py --v3
 python code/field/step2_store_preds.py --weights-tag cmx --seed 0 --name airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985
-python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0
+python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0      # vf_field_cmx_median_hi{,_nutlog}
 python code/figures/vf_domains_fig.py
 python code/figures/make_wing3d_figure.py --v3
 python code/figures/make_wing25d_surface.py --v3
+python code/figures/vf_field_compare_fig.py          # vf_field_naca*, vf_field_nonnaca* (the NACA pair needs the step2_store_preds line above)
+python code/figures/vf_app_window_fig.py            # vf_app_window, from the two screenshots in results/app_window/
 
 # The AirfRANS-only decoder's field figure (2.0.0)
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
@@ -680,11 +694,15 @@ XFOIL-conditioned decoder's stored paint channels bit for bit; the check covers 
 `REFACTOR_MANIFEST_v2.json` records the source and sha256 of the copied files.
 `figures/` holds the manuscript figures alongside the `*_numbers.json` files the figure-provenance
 discipline requires: each figure's numbers are saved next to its generator, not read off the rendered plot.
-The shipped figures are the generators' `--v3` renders, in the manuscript's two-column layout (7.22 in for a full-width
-figure, 3.49 in for a column) and included there at full size; `vf_field_f0cm_tp_pos`, the AirfRANS-only decoder's
-figure of 2.0.0, is the `--print` render at the earlier one-column width (5.40 in). Inputs behind the manuscript's
-figures that the full data sets would otherwise supply are shipped as the plotted arrays (`results/vf_domains_points.npz`)
-or the saved results (`results/wing3d/`).
+The PDFs of the manuscript's figures are the manuscript's own files, and each generator reproduces its figure's raster and PNG
+pixel for pixel. They are drawn in the manuscript's two-column layout (7.22 in for a full-width figure, 3.49 in for a column)
+and included there at full size. Four figures are kept from earlier versions of the manuscript and are not in the current one:
+`vf_field_f0cm_tp_pos` (the AirfRANS-only decoder's figure of 2.0.0, the `--print` render at the earlier one-column width of
+5.40 in), `vf_field_cmx_median_hi` (the deployed decoder's field figure of 2.1.x; its ν_t companion
+`vf_field_cmx_median_hi_nutlog` is still in the manuscript), `vf_drag_closure_nf_sep` and `vf_drag_decomp_sep`. Inputs behind
+the manuscript's figures that the full data sets would otherwise supply are shipped as the plotted arrays
+(`results/vf_domains_points.npz`, `results/vf_field_nonnaca/`), the saved results (`results/wing3d/`) or the captured screenshots
+(`results/app_window/`).
 
 ## License
 

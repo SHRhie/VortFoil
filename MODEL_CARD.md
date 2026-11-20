@@ -275,5 +275,5 @@ University), Suhyeong Lim (Kyung Hee University), Jeongsu Lee (Kyung Hee Univers
 
 ## Citation
 
-Rhie, S.-H., Kim, G., Lim, S., Lee, J. VortFoil: A Vortex-Panel-Informed Neural Operator
-for Steady Airfoil Flow Prediction.
+Rhie, S.-H., Kim, G., Lim, S., Lee, J. VortFoil: Unified Prediction of Surface States, Aerodynamic
+Performance, and Flow Fields across Diverse Airfoils.

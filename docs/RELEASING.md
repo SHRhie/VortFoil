@@ -27,7 +27,7 @@ releases created *after* the webhook is connected. A release made first is not p
 to be uploaded by hand.
 
 **Sync with the manuscript before going public.** `paper/abstract.md`, the
-README field table and `figures/vf_field_f0cm_tp_pos*` must match the manuscript as it will be
+README field table and the manuscript's figures in `figures/` must match the manuscript as it will be
 submitted. Re-check them after the last manuscript build, and before building anything for PyPI:
 the README is the PyPI project description.
 
@@ -96,8 +96,8 @@ manuscript with the DOI in place.
     author placeholder for exactly this) and in the manuscript's code-and-data-availability
     section, then rebuild the manuscript.
 
-## State as of 2026-11-03
+## State as of 2026-11-20
 
-Version `2.1.1` agrees across `src/vortfoil/__init__.py`, `pyproject.toml` and
-`src/vortfoil/weights/MANIFEST.json`. Versions 2.0.0 (2026-10-13), 2.1.0 (2026-11-02) and 2.1.1 (2026-11-03) are released on
+Version `2.2.0` agrees across `src/vortfoil/__init__.py`, `pyproject.toml` and
+`src/vortfoil/weights/MANIFEST.json`. Versions 2.0.0 (2026-10-13), 2.1.0 (2026-11-02), 2.1.1 (2026-11-03) and 2.2.0 (2026-11-20) are released on
 GitHub and PyPI, and Zenodo archives every version under the concept DOI 10.5281/zenodo.23336871.

@@ -8,8 +8,8 @@
 
 의도된 용도와 한계는 [`MODEL_CARD.md`](MODEL_CARD.md)를, 릴리스 노트는 [`CHANGELOG.md`](CHANGELOG.md)를 참고하십시오.
 
-**"VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction."** 논문에
-딸린 코드, 학습된 가중치, 봉인된 결과 파일, 그림입니다.
+**"VortFoil: Unified Prediction of Surface States, Aerodynamic Performance, and Flow Fields across Diverse Airfoils."**
+논문에 딸린 코드, 학습된 가중치, 봉인된 결과 파일, 그림입니다.
 
 VortFoil은 와류 패널법을 신경망 오퍼레이터의 순전파 안에 넣어, 익형 형상·받음각·레이놀즈 수로부터 표면 압력,
 경계층, 양력·항력·모멘트 계수, 2차원 RANS 유동장을 예측합니다. 추론 중에 XFOIL이나 CFD 같은 외부 솔버를
@@ -36,12 +36,12 @@ panel solves inside the model.
 원고 초록은 [`paper/abstract.md`](paper/abstract.md)에 영어 원문 그대로 있습니다. 기준은 원고이며, 이 파일은 원고 초록의
 사본이므로 따로 고치지 않습니다.
 
-> **상태.** 버전 2.1.0은 수정된 원고 *VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction*
-> (S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 유동장 디코더는 AirfRANS와 비-NACA UniFoil 익형 16,923개를 함께 사용해
-> 학습했으며, 표면 브랜치의 RANS 계수 보정이 추가되었습니다(`CHANGELOG.md`).
-> 버전 2.1.1(2026-11-03)은 애플리케이션에 RANS 계수 보정값을 보여 줍니다. 2.1.0은 2026-11-02에, 2.0.0은
-> 2026-10-13에 GitHub과 PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의
-> [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871)에 보관됩니다.
+> **상태.** 버전 2.2.0(2026-11-20)은 수정된 원고 *VortFoil: Unified Prediction of Surface States, Aerodynamic Performance,
+> and Flow Fields across Diverse Airfoils*(S.-H. Rhie, G. Kim, S. Lim, J. Lee)에 대응합니다. 표면 출력에 경계층 출력 규칙을
+> 적용하고, 애플리케이션의 계수 이름을 원고와 같게 바꾸었으며, 원고의 수정된 그림을 생성 스크립트와 함께 제공합니다(`CHANGELOG.md`).
+> 모델과 가중치는 2.1.0과 같습니다(유동장 디코더는 AirfRANS와 비-NACA UniFoil 익형 16,923개로 함께 학습했고, 표면 브랜치의
+> RANS 계수 보정이 들어 있습니다). 2.1.1은 2026-11-03에, 2.1.0은 2026-11-02에, 2.0.0은 2026-10-13에 GitHub과
+> PyPI로 릴리스되었습니다. 모든 버전은 Zenodo의 [10.5281/zenodo.23336871](https://doi.org/10.5281/zenodo.23336871)에 보관됩니다.
 > 라이선스는 GPL-3.0-or-later입니다(아래의 *라이선스* 참조).
 
 ## 디렉터리 구조
@@ -449,7 +449,7 @@ AirfRANS 희소 태스크 학습 분할의 모든 노드로 구했으며, MARIO�
 | 집합 | ux | uy | p | nut |
 |---|---|---|---|---|
 | AirfRANS `full_test`, n = 200 (k–ω SST) | 6.38e-4 | 8.86e-4 | 1.06e-3 | 2.96e-3 |
-| 학습에서 보지 않은 비-NACA UIUC 단면 16개(k–ω SST, AirfRANS 생성기) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
+| 학습에서 제외한 비-NACA UIUC 단면 16개(k–ω SST, AirfRANS 생성기) | 8.94e-3 | 1.37e-2 | 4.91e-2 | 1.13e-1 |
 | 홀드아웃 UniFoil 익형 150개(Spalart–Allmaras; 저장된 행의 부분 표본이며 위의 행들과 비교할 수 없음) | 2.94e-4 | 8.47e-5 | 1.53e-4 | 4.58e-5 |
 
 같은 수의 최적화 스텝으로 학습한 AirfRANS 전용 디코더 대비 쌍체 사례 부트스트랩 오차비는 AirfRANS에서 1.00, 1.36,
@@ -458,7 +458,7 @@ AirfRANS 희소 태스크 학습 분할의 모든 노드로 구했으며, MARIO�
 
 **RANS 계수 보정**(`results/rans_correction_nn_20261015.json`; 내보낸 가중치는 적합의 예측을 2e-16 이내로 재현합니다,
 `results/rans_correction_nn_export_check.json`): AirfRANS 시험 분할(n = 200)에서 RANS 대비 표면 브랜치의 양력 / 항력
-평균 상대 오차는 7.7% / 25.9%에서 2.9% / 4.3%로, 모멘트 MAE는 0.0082에서 0.0028로 줄어듭니다. 학습에서 보지 않은
+평균 상대 오차는 7.7% / 25.9%에서 2.9% / 4.3%로, 모멘트 MAE는 0.0082에서 0.0028로 줄어듭니다. 학습에서 제외한
 비-NACA SST 단면 107개에서는 양력 MAE가 0.037에서 0.028로, 항력 오차가 30.2%에서 8.9%로, 모멘트 MAE가
 0.0096에서 0.0071로 줄어듭니다. 보정된 계수와 유동장 디코더의 적분 계수가 일치하도록 제약하지는 않았으며, 시험 분할에서
 두 값의 차이는 양력 6.8%, 항력 14.1%입니다(`results/consistency_field_vs_corrected_20261029.json`).
@@ -500,6 +500,15 @@ AirfRANS 전용 오퍼레이터 조건부 디코더(2.0.0에서 배포)를 RANS 
 디코더 열이 함께 쓰는 자기 색 눈금을 가집니다. u∥(자유류 방향)는 자유류 속도를 가운데로 둔 coolwarm으로, 빠르면 빨강,
 느리면 파랑입니다. u⊥는 영점을 가운데로 둔 coolwarm, p/ρ는 ±U∞²/2(C_p = ±1)로 범위를 제한한 RdYlBu_r여서 흡입 정점은
 포화됩니다. ν_t는 로그 눈금의 YlGnBu입니다.
+
+`figures/vf_field_naca.{pdf,png}`와 `figures/vf_field_nonnaca.{pdf,png}`(저장된 수치는 `figures/vf_field_compare_numbers.json`)는
+원고의 유동장 그림을 한 형식으로 그린 것입니다. 바람 좌표계의 |u|/U∞와 C_p, 그리고 시위를 따른 벽면 C_p를 보여 주며, `_other` 그림이
+나머지 u∥, u⊥, ν_t를 보여 줍니다. NACA 그림은 배포된 디코더를 `airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985`에서 보여 줍니다.
+비-NACA 그림은 배포된 디코더와 학습 단계 수를 맞춘 AirfRANS 전용 디코더(`sml2_s2`)를 비-NACA SST 시험 단면 46개 중 두 개에서
+비교합니다. 두 사례는 두 디코더의 압력 오차 비 r로 그림을 그리기 전에 정했습니다(`results/vf_field_nonnaca/selection.json`).
+대표 사례는 r이 중앙값 0.349에 가장 가까운 사례입니다(똑같이 가까운 가운데 두 사례 중 r이 큰 쪽, MH 102, r = 0.36). 어려운 사례는
+AirfRANS 전용 디코더의 압력 오차가 상위 사분위인 12개 사례 가운데 r이 그 중앙값 0.501에 가장 가까운 사례입니다
+(NASA/Langley RC10-64C, r = 0.53). `results/vf_field_nonnaca/`에는 두 단면의 그림에 찍힌 배열이 들어 있습니다.
 
 ### 추론 비용
 
@@ -545,10 +554,12 @@ python code/field/validate_field_surface.py            # RANS 벽면 값에 대�
 ATTACHED_CP_TARGETS=<attached_surface_targets.npz> python code/figures/vf_surface_cst16_fig.py surface.json --v3
 VORTFOIL_RAW=<sep_eval_preds*.npz가 있는 폴더> python code/figures/vf_drag_closure_fig.py --v3
 python code/field/step2_store_preds.py --weights-tag cmx --seed 0 --name airFoil2D_SST_49.099_14.068_3.006_4.916_1.0_11.985
-python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0
+python code/figures/vf_field_contour_v3.py figures --decoder cmx_s0      # vf_field_cmx_median_hi{,_nutlog}
 python code/figures/vf_domains_fig.py
 python code/figures/make_wing3d_figure.py --v3
 python code/figures/make_wing25d_surface.py --v3
+python code/figures/vf_field_compare_fig.py          # vf_field_naca*, vf_field_nonnaca*(NACA 그림은 위의 step2_store_preds 줄이 먼저 필요)
+python code/figures/vf_app_window_fig.py            # vf_app_window, results/app_window/의 화면 캡처 두 장에서
 
 # AirfRANS 전용 디코더의 유동장 그림(2.0.0)
 python code/field/step2_store_preds.py --weights-tag f0cm --seed 1 --name airFoil2D_SST_39.31_8.883_4.707_0.0_12.552
@@ -608,10 +619,13 @@ vortfoil predict --coords section.dat --alpha 4 --Re 3e6 --rans
 페인트 채널이 비트 단위로 똑같이 재현된다는 원고의 서술을 뒷받침하며, 이 점검은 800개 사례 중 세 개를 대상으로 합니다.
 `REFACTOR_MANIFEST_v2.json`에는 복사된 파일의 출처와 sha256이 기록되어 있습니다. `figures/`에는 원고 그림과 함께, 그림 출처 규율이 요구하는
 `*_numbers.json` 파일이 있습니다. 각 그림의 수치는 그려진 플롯에서 읽은 것이 아니라 그 생성 스크립트 옆에 저장됩니다.
-제공되는 그림은 생성 스크립트의 `--v3` 렌더링이며, 원고의 2단 배치(전체 폭 그림 7.22 in, 단 폭 그림 3.49 in)로 그려져 원고에 원래 크기
-그대로 삽입됩니다. 2.0.0의 AirfRANS 전용 디코더 그림인 `vf_field_f0cm_tp_pos`는 이전의 1단 폭(5.40 in)으로 그린 `--print`
-렌더링입니다. 원고 그림의 입력 가운데 전체 데이터 집합이 필요한 것은 그림에 찍힌 배열(`results/vf_domains_points.npz`)이나
-저장된 결과(`results/wing3d/`)로 함께 제공합니다.
+원고 그림의 PDF는 원고의 파일 그대로이며, 각 생성 스크립트는 그림의 래스터와 PNG를 픽셀 단위로 똑같이 재현합니다. 그림은 원고의
+2단 배치(전체 폭 그림 7.22 in, 단 폭 그림 3.49 in)로 그려져 원고에 원래 크기 그대로 삽입됩니다. 다음 네 그림은 원고의 이전 판에서
+남겨 둔 것으로, 현재 원고에는 없습니다. `vf_field_f0cm_tp_pos`(2.0.0의 AirfRANS 전용 디코더 그림, 이전 1단 폭 5.40 in의
+`--print` 렌더링), `vf_field_cmx_median_hi`(2.1.x의 배포 디코더 유동장 그림이며, ν_t 그림 `vf_field_cmx_median_hi_nutlog`는 현재
+원고에도 있습니다), `vf_drag_closure_nf_sep`, `vf_drag_decomp_sep`. 원고 그림의 입력 가운데 전체 데이터 집합이 필요한 것은 그림에
+찍힌 배열(`results/vf_domains_points.npz`, `results/vf_field_nonnaca/`), 저장된 결과(`results/wing3d/`), 화면 캡처
+(`results/app_window/`)로 함께 제공합니다.
 
 ## 라이선스
 

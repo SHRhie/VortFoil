@@ -4,9 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased] (2.2.0)
+## [2.2.0] - 2026-11-20
+
+### Added
+
+- The revised manuscript's figures with their generators: `code/figures/vf_field_compare_fig.py` draws the field figures
+  `vf_field_naca` and `vf_field_nonnaca` (|u|/U∞, C_p and the wall C_p, with `_other` companions for u∥, u⊥ and ν_t) and
+  `code/figures/vf_app_window_fig.py` the application figure `vf_app_window`. The plotted arrays of the two non-NACA sections
+  and the two application screenshots are in `results/vf_field_nonnaca/` and `results/app_window/`; the NACA pair needs the
+  stored prediction of `code/field/step2_store_preds.py` (AirfRANS dataset). Their numbers are in
+  `figures/vf_field_compare_numbers.json`.
 
 ### Changed
+
+- `paper/abstract.md`, `CITATION.cff`, the READMEs, the model card and the weight manifest follow the revised manuscript, titled
+  *VortFoil: Unified Prediction of Surface States, Aerodynamic Performance, and Flow Fields across Diverse Airfoils*; the
+  abstract mirror is its abstract.
+- `vf_domains` (panel titles 8 pt), `fig_wing25d_surface` (tick labels 7 pt) and `fig_wing3d_validation` (legend "VortFoil,
+  field-integrated" and "VortFoil, panel-based") are redrawn as in the revised manuscript.
 
 - Boundary-layer output rule: at every station of both surfaces, `predict` returns theta = max(theta, 1e-6) and
   dstar = max(dstar, theta) (chord units), and the trailing-edge state, the lift and drag closures, the exported profiles

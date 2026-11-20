@@ -5,8 +5,8 @@ message: >-
   "preferred-citation").
 type: software
 title: "VortFoil"
-version: 2.1.1
-date-released: 2026-11-03
+version: 2.2.0
+date-released: 2026-11-20
 authors:
   - family-names: Rhie
     given-names: Sang-Hyun
@@ -26,7 +26,7 @@ doi: 10.5281/zenodo.23336871
 license: GPL-3.0-or-later
 preferred-citation:
   type: unpublished
-  title: "VortFoil: A Vortex-Panel-Informed Neural Operator for Steady Airfoil Flow Prediction"
+  title: "VortFoil: Unified Prediction of Surface States, Aerodynamic Performance, and Flow Fields across Diverse Airfoils"
   authors:
     - family-names: Rhie
       given-names: Sang-Hyun
