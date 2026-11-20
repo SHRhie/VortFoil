@@ -178,7 +178,8 @@ S1223_CST = np.array([0.286425, 0.418216, 0.25042, 0.608337, -0.136441, 0.887202
 def test_boundary_layer_output_rule(model):
     """theta >= THETA_FLOOR and dstar >= theta at every station, and the trailing-edge state is the sum of the clipped values."""
     r = model.predict(cst=np.stack([S1223_CST, NACA2412_CST]), alpha=[7.465, 4.0], Re=[3.849e6, 1e6])
-    assert r.theta.min() >= vortfoil.api.THETA_FLOOR and (r.dstar >= r.theta).all()
+    floor = np.asarray(vortfoil.api.THETA_FLOOR, r.theta.dtype)   # applied in the outputs' float32; NumPy 1 compares a float32
+    assert r.theta.min() >= floor and (r.dstar >= r.theta).all()   # with the Python float 1e-6 in float64, where float32(1e-6) < 1e-6
     assert r.theta[0, 1, -1] == pytest.approx(vortfoil.api.THETA_FLOOR)          # the S1223 lower surface is floored
     assert np.allclose(r.theta[:, :, -1].sum(1), r.theta_te, rtol=1e-6)
     assert np.allclose(r.dstar[:, :, -1].sum(1), r.dstar_te, rtol=1e-6)
